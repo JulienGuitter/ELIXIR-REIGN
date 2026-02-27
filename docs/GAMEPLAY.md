@@ -21,7 +21,7 @@ For the next buildings, you can upgrade them by clicking on them.
 - Elexir Pump: ressource, can be upgraded to get more Elexir
 - Black Elexir Pump: ressource, can be upgraded to get more Black Elexir
 - Gold Mine: ressource, can be upgraded to get more Gold
-- Caserne: See [Caserne](##Caserne)
+- Caserne: See [Caserne](#Caserne)
 - Canon: ground defence
 - Archer's tower: ground defence
 - Labo: Upgrade troops
