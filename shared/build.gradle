@@ -1,5 +1,41 @@
 eclipse.project.name = appName + '-shared'
 
 dependencies {
-  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+  api "com.github.crykn:kryonet:$kryoNetVersion"
+  api "com.github.tommyettinger:kryo-libgdx:$kryoLibgdxVersion"
+}
+
+// Generation of the gameVersion file to match server and client
+def versionOutputDir = file("$buildDir/generated/version")
+
+task generateVersion{
+  def versionValue = project.hasProperty("projectVersion") ? project.property("projectVersion") : "0.0.0"
+
+  inputs.property("versionSurveillee", versionValue)
+
+  outputs.dir(versionOutputDir)
+
+  doLast {
+    def packageDir = new File(versionOutputDir, "com/mjm/elixir_reign/shared")
+    packageDir.mkdirs()
+
+    new File(packageDir, "GameVersion.kt").text = """
+        package com.mjm.elixir_reign.shared
+        object GameVersion {
+            const val VERSION = "${versionValue}"
+        }
+    """.stripIndent()
+  }
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs += versionOutputDir
+    }
+  }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  dependsOn generateVersion
 }

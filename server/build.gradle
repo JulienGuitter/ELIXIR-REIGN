@@ -9,7 +9,7 @@ if (JavaVersion.current().isJava9Compatible()) {
 }
 kotlin.compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 
-application.mainClass = 'com.mjm.elixir_reign.server.ServerLauncher'
+application.mainClass = 'com.mjm.elixir_reign.server.ServerLauncherKt'
 application.applicationName = appName
 eclipse.project.name = appName + '-server'
 

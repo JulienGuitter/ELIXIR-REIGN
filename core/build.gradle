@@ -6,9 +6,6 @@ dependencies {
   api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
   api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
   api "com.badlogicgames.gdx:gdx:$gdxVersion"
-  api "com.esotericsoftware:kryo:$kryoVersion"
-  api "com.github.crykn:kryonet:$kryoNetVersion"
-  api "com.github.tommyettinger:kryo-libgdx:$kryoLibgdxVersion"
   api "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
   api project(':shared')
 
