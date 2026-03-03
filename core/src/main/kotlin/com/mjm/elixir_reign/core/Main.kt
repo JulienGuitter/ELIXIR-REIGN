@@ -20,7 +20,9 @@ class Main(val platform: PlatformBridge) : Game() {
     }
 
     fun changeScreen(screen: Screen) {
-        setScreen(screen)
+        val previous = this.screen
+        setScreen(screen)      // appelle hide() sur l'ancien, show() sur le nouveau
+        previous?.dispose()    // libère les ressources natives de l'ancien écran
     }
 
     override fun dispose() {
