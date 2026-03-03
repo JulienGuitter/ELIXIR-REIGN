@@ -20,12 +20,15 @@ import com.mjm.elixir_reign.core.Main
 class MenuScreen(private val game: Main) : ScreenAdapter() {
 
     private lateinit var stage: Stage
+    private lateinit var buttonFont: BitmapFont
+    private lateinit var upTexture: Texture
+    private lateinit var downTexture: Texture
 
     override fun show() {
         stage = Stage(ExtendViewport(1920f, 1080f))
 
         // 1) Font pour les textes des boutons
-        val font = BitmapFont().apply {
+        buttonFont = BitmapFont().apply {
             data.setScale(2f)  // taille plus grande
         }
 
@@ -39,8 +42,10 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
             fill()
         }
 
-        val upDrawable = TextureRegionDrawable(TextureRegion(Texture(upPixmap)))
-        val downDrawable = TextureRegionDrawable(TextureRegion(Texture(downPixmap)))
+        upTexture = Texture(upPixmap)
+        downTexture = Texture(downPixmap)
+        val upDrawable = TextureRegionDrawable(TextureRegion(upTexture))
+        val downDrawable = TextureRegionDrawable(TextureRegion(downTexture))
 
         // IMPORTANT: on peut maintenant libérer les Pixmaps
         upPixmap.dispose()
@@ -50,7 +55,7 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         val style = TextButton.TextButtonStyle().apply {
             up = upDrawable
             down = downDrawable
-            this.font = font
+            font = buttonFont
             fontColor = Color.WHITE
         }
 
@@ -93,5 +98,8 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
 
     override fun dispose() {
         stage.dispose()
+        buttonFont.dispose()
+        upTexture.dispose()
+        downTexture.dispose()
     }
 }
