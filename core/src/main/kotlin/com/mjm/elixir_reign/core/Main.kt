@@ -19,12 +19,12 @@ class Main(val platform: PlatformBridge) : Game() {
         changeScreen(MenuScreen(this))
     }
 
-    fun changeScreen(newScreen: Screen) {
-        // Dispose l'écran actuel avant de changer vers le nouvel écran
-        screen?.dispose()
-        batch.dispose()
-        assets.dispose()
+    fun changeScreen(screen: Screen) {
+        setScreen(screen)
+    }
 
-        setScreen(newScreen)
+    override fun dispose() {
+        batch.dispose()
+        screen?.dispose()
     }
 }

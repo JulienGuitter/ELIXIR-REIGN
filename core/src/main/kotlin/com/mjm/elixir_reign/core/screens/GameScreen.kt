@@ -78,6 +78,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun resize(width: Int, height: Int) {
+        // Quand la taille de l'écran change, on doit réajuster la caméra pour que les coordonnées restent cohérentes
         val oldX = camera.position.x
         val oldY = camera.position.y
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
@@ -86,6 +87,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun dispose() {
+        // Libérer les ressources graphiques
         shapeRenderer.dispose()
     }
 
