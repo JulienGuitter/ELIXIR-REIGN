@@ -1,65 +1,30 @@
 package com.mjm.elixir_reign.core
 
-import com.badlogic.gdx.ApplicationAdapter
-import com.badlogic.gdx.Gdx
-import com.esotericsoftware.kryonet.Client
-import com.esotericsoftware.kryonet.Connection
-import com.esotericsoftware.kryonet.Listener
-import com.mjm.elixir_reign.shared.GameVersion
-import com.mjm.elixir_reign.shared.network.*
-import kotlin.concurrent.thread
+import com.badlogic.gdx.Game
+import com.badlogic.gdx.Screen
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.assets.AssetManager
+import com.mjm.elixir_reign.core.platform.PlatformBridge
+import com.mjm.elixir_reign.core.screens.MenuScreen
 
-class Main : ApplicationAdapter() {
+class Main(val platform: PlatformBridge) : Game() {
+
+    lateinit var batch: SpriteBatch
+    lateinit var assets: AssetManager
+
     override fun create() {
+        batch = SpriteBatch()
+        assets = AssetManager()
 
-        //Test network connection
-        val client = Client()
-        Network.register(client.kryo)
-
-        client.addListener(object : Listener {
-            override fun received(connection: Connection, message: Any) {
-                when(message){
-                    is PacketLoginAccepted -> {
-                        println("Connected avec succes ! Mon ID reseau est : ${message.myId}")
-                    }
-                    is PacketLoginRefused -> {
-                        println("Connection refuser : ${message.reason}")
-                    }
-                }
-            }
-        })
-
-        client.start()
-        // IMPORTANT: évite de bloquer le thread principal (render thread)
-        thread(name = "kryonet-connect") {
-            try {
-                Gdx.app.log("NET", "Connecting to 10.0.2.2:${Network.PORT} ...")
-                client.connect(5000, "10.0.2.2", Network.PORT, Network.PORT)
-
-                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION)
-                client.sendTCP(login)
-
-                Gdx.app.log("NET", "Login packet sent")
-            } catch (e: Exception) {
-                // Tu verras enfin la vraie raison du crash
-                Gdx.app.error("NET", "Connection failed", e)
-            }
-        }
-
+        changeScreen(MenuScreen(this))
     }
 
-    override fun resize(width: Int, height: Int) {
-    }
+    fun changeScreen(newScreen: Screen) {
+        // Dispose l'écran actuel avant de changer vers le nouvel écran
+        screen?.dispose()
+        batch.dispose()
+        assets.dispose()
 
-    override fun render() {
-    }
-
-    override fun pause() {
-    }
-
-    override fun resume() {
-    }
-
-    override fun dispose() {
+        setScreen(newScreen)
     }
 }
