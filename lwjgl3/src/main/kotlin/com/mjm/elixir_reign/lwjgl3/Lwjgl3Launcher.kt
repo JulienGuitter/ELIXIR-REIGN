@@ -3,6 +3,8 @@ package com.mjm.elixir_reign.lwjgl3
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.mjm.elixir_reign.core.Main
+import java.nio.file.Files
+import java.nio.file.Path
 
 object Lwjgl3Launcher {
     @JvmStatic
@@ -27,13 +29,41 @@ object Lwjgl3Launcher {
 
             setWindowedMode(640, 480)
 
-            // Tes nouvelles icônes !
-            setWindowIcon(
-                "elixir_reign_x128.png",
-                "elixir_reign_x64.png",
-                "elixir_reign_x32.png",
-                "elixir_reign_x16.png"
-            )
+            // IDE classpaths may omit resources, so resolve icons from classpath or local project paths.
+            val iconPaths = resolveWindowIconPaths()
+            if (iconPaths != null) {
+                setWindowIcon(*iconPaths)
+            } else {
+                System.err.println("Window icons not found on classpath, continuing without custom icon.")
+            }
         }
+    }
+
+    private fun resolveWindowIconPaths(): Array<String>? {
+        val iconNames = arrayOf(
+            "elixir_reign_x128.png",
+            "elixir_reign_x64.png",
+            "elixir_reign_x32.png",
+            "elixir_reign_x16.png"
+        )
+
+        val classLoader = Lwjgl3Launcher::class.java.classLoader
+        if (iconNames.all { classLoader.getResource(it) != null }) {
+            return iconNames
+        }
+
+        val localCandidates = listOf(
+            Path.of(""),
+            Path.of("lwjgl3", "src", "main", "resources"),
+            Path.of("assets")
+        )
+
+        for (base in localCandidates) {
+            if (iconNames.all { Files.isRegularFile(base.resolve(it)) }) {
+                return iconNames.map { base.resolve(it).toString().replace('\\', '/') }.toTypedArray()
+            }
+        }
+
+        return null
     }
 }
