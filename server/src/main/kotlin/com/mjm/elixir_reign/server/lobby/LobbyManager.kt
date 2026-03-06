@@ -299,6 +299,7 @@ object LobbyManager {
                 println("Server $server is available !")
             } catch (e: Exception) {
                 println("Server $server is not available !")
+                availableServers.remove(server)
             } finally {
                 client.stop()
             }
