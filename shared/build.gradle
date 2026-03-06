@@ -1,6 +1,7 @@
 eclipse.project.name = appName + '-shared'
 
 dependencies {
+  api "com.badlogicgames.ashley:ashley:$ashleyVersion"
   api "com.github.crykn:kryonet:$kryoNetVersion"
   api "com.github.tommyettinger:kryo-libgdx:$kryoLibgdxVersion"
 }

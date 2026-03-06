@@ -1,0 +1,84 @@
+{
+  "frame_count": 114,
+  "columns": 11,
+  "rows": 11,
+  "frames_per_row": 11,
+  "frames_per_column": 11,
+  "cell_width": 65,
+  "cell_height": 70,
+  "frame_width": 65,
+  "frame_height": 70,
+  "sheet_width": 715,
+  "sheet_height": 770,
+  "align_origins": true,
+  "name": "anim_pack_chr_barbarian",
+  "source_file": "chr_barbarian.sc",
+  "export_mode": "animation_pack",
+  "clip_count": 6,
+  "pack_frame_count": 114,
+  "visible_frame_count": 114,
+  "mask_mode": "clean",
+  "filter_query": "",
+  "clips": [
+    {
+      "name": "barbarian_attack_1",
+      "anim_index": 45,
+      "start_frame": 0,
+      "frame_count": 22,
+      "end_frame": 21,
+      "timeline_frame_count": 22,
+      "visible_frame_count": 22,
+      "fps": 24
+    },
+    {
+      "name": "barbarian_attack_2",
+      "anim_index": 46,
+      "start_frame": 22,
+      "frame_count": 22,
+      "end_frame": 43,
+      "timeline_frame_count": 22,
+      "visible_frame_count": 22,
+      "fps": 24
+    },
+    {
+      "name": "barbarian_attack_3",
+      "anim_index": 47,
+      "start_frame": 44,
+      "frame_count": 22,
+      "end_frame": 65,
+      "timeline_frame_count": 22,
+      "visible_frame_count": 22,
+      "fps": 24
+    },
+    {
+      "name": "barbarian_run_1",
+      "anim_index": 57,
+      "start_frame": 66,
+      "frame_count": 16,
+      "end_frame": 81,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    },
+    {
+      "name": "barbarian_run_2",
+      "anim_index": 58,
+      "start_frame": 82,
+      "frame_count": 16,
+      "end_frame": 97,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    },
+    {
+      "name": "barbarian_run_3",
+      "anim_index": 59,
+      "start_frame": 98,
+      "frame_count": 16,
+      "end_frame": 113,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    }
+  ]
+}
