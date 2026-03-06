@@ -13,9 +13,10 @@ import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
+import com.mjm.elixir_reign.core.ecs.components.SelectionHighlightComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
-import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
+import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 
 /**
  * Factory ECS-pur pour créer des entités avec sprites
@@ -47,18 +48,12 @@ object SpriteEntityFactory {
             currentHP = stats.maxHP,
             maxHP = stats.maxHP
         ))
-        entity.add(HealthBarComponent(
-            barWidth = 30f,
-            barHeight = 4f,
-            offsetY = 60f,
-            offsetX = 25f
-        ))
         entity.add(SpriteComponent(
             texturePath = SpriteAnimationManager.getTexturePath(unitType),
             width = 65,
             height = 70,
-            scaleX = 1f,
-            scaleY = 1f
+            scaleX = 3f,
+            scaleY = 3f
         ))
 
         // Components client (core) - Animation
@@ -81,6 +76,14 @@ object SpriteEntityFactory {
         val textureRegion = animator.getCurrentTextureRegion()
             ?: throw RuntimeException("Failed to create TextureRegion for $unitType")
         entity.add(TextureRegionComponent(textureRegion))
+
+        // Components de sélection
+        entity.add(SelectableComponent(isSelected = true))
+        entity.add(SelectionHighlightComponent(
+            borderColor = 0xFFFFFFFF.toInt(), // Blanc
+            borderWidth = 2f,
+            glowIntensity = 1.5f
+        ))
 
         // Ajouter l'entité à l'engine
         engine.addEntity(entity)
