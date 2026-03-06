@@ -17,5 +17,3 @@ class AndroidLauncher : AndroidApplication() {
     }
 }
 
-
-
