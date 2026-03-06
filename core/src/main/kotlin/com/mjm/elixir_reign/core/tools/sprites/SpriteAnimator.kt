@@ -6,39 +6,54 @@ import com.mjm.elixir_reign.core.tools.sprites.mapper.DirectionMapper
 import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.AnimationClip
 import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.Frame
 import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.SpriteSheet
-import com.mjm.elixir_reign.shared.logic.Action
-import com.mjm.elixir_reign.shared.logic.Direction
+import com.mjm.elixir_reign.shared.logic.ActionType
+import com.mjm.elixir_reign.shared.logic.DirectionType
 
+/**
+ * SpriteAnimator gère l'animation d'un sprite
+ * Pure logique d'animation, pas de dépendances métier
+ */
 class SpriteAnimator(
     val spriteSheet: SpriteSheet,
     val texturePath: String,
-    baseClipName: String,
-    direction: Direction,
-    action: Action
+    val baseClipName: String,
+    directionType: DirectionType,
+    actionType: ActionType
 ) {
     private var currentClip: AnimationClip? = null
     private var currentFrameIndex = 0
     private var elapsedTime = 0f
-    private var currentAction = action
+    var currentAction = actionType
+        private set
+    var currentDirection = directionType
+        private set
+
     private val actionMapper = ActionMapper()
-    private var currentDirection = direction
     private val directionMapper = DirectionMapper()
 
     init {
-        setClip(baseClipName, direction, action)
+        setClip(baseClipName, directionType, actionType)
     }
 
-    fun setClip(baseClipName: String, direction: Direction, action: Action) {
-        currentAction = action
-        currentDirection = direction
-        val fullClipName = actionMapper.buildClipName(baseClipName, action) +
-                           directionMapper.buildClipName(baseClipName, direction)
+    /**
+     * Change le clip animation
+     * Réinitialise le frame index et elapsed time
+     */
+    fun setClip(baseClipName: String, directionType: DirectionType, actionType: ActionType) {
+        currentAction = actionType
+        currentDirection = directionType
+        val fullClipName = actionMapper.buildClipName(baseClipName, actionType) +
+                           directionMapper.getDirectionInfo(directionType).first
 
         currentClip = spriteSheet.clips.find { it.name == fullClipName }
         currentFrameIndex = 0
         elapsedTime = 0f
     }
 
+    /**
+     * Met à jour l'état d'animation
+     * Avance vers le prochain frame si le temps écoulé dépasse la durée d'une frame
+     */
     fun update(deltaTime: Float) {
         val clip = currentClip ?: return
 
@@ -51,11 +66,18 @@ class SpriteAnimator(
         }
     }
 
+    /**
+     * Récupère le frame actuel
+     */
     private fun getCurrentFrame(): Frame? {
         val clip = currentClip ?: return null
         return clip.frames.getOrNull(currentFrameIndex)
     }
 
+    /**
+     * Récupère la TextureRegion du frame actuel
+     * Crée une nouvelle région à chaque appel
+     */
     fun getCurrentTextureRegion(): TextureRegion? {
         val frame = getCurrentFrame() ?: return null
         val texture = TextureManager.getTexture(texturePath)
@@ -75,7 +97,14 @@ class SpriteAnimator(
         return region
     }
 
+    /**
+     * Indique si le sprite doit être flippé selon la direction
+     */
     fun shouldFlip(): Boolean = directionMapper.shouldFlip(currentDirection)
 
+    /**
+     * Récupère le nom du clip actuel
+     */
     fun getCurrentClipName(): String? = currentClip?.name
 }
+

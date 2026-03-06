@@ -1,11 +1,12 @@
 package com.mjm.elixir_reign.shared.logic
 
-enum class Unit {
+enum class UnitType {
     BARBARIAN,
-    ARCHER
+    ARCHER,
+    GIANT
 }
 
-enum class Direction {
+enum class DirectionType {
     UP_LEFT,
     UP,
     UP_RIGHT,
@@ -16,7 +17,7 @@ enum class Direction {
     LEFT
 }
 
-enum class Action {
+enum class ActionType {
     RUN,
     ATTACK
 }

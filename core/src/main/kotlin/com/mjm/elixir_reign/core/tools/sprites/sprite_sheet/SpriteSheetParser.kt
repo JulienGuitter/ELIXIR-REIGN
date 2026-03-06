@@ -1,9 +1,11 @@
 package com.mjm.elixir_reign.core.tools.sprites.sprite_sheet
 
+import com.badlogic.gdx.Gdx
 import org.json.JSONObject
 
 class SpriteSheetParser {
-    fun parseJson(jsonString: String): SpriteSheet {
+    fun parseJson(jsonPath: String): SpriteSheet {
+        val jsonString = Gdx.files.internal(jsonPath).readString()
         val json = JSONObject(jsonString)
 
         val name = json.getString("name")
