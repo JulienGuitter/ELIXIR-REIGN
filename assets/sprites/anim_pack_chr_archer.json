@@ -1,0 +1,84 @@
+{
+  "frame_count": 106,
+  "columns": 11,
+  "rows": 10,
+  "frames_per_row": 11,
+  "frames_per_column": 10,
+  "cell_width": 45,
+  "cell_height": 48,
+  "frame_width": 45,
+  "frame_height": 48,
+  "sheet_width": 495,
+  "sheet_height": 480,
+  "align_origins": true,
+  "name": "anim_pack_chr_archer",
+  "source_file": "chr_archer.sc",
+  "export_mode": "animation_pack",
+  "clip_count": 6,
+  "pack_frame_count": 106,
+  "visible_frame_count": 106,
+  "mask_mode": "clean",
+  "filter_query": "",
+  "clips": [
+    {
+      "name": "archer_attack_1",
+      "anim_index": 60,
+      "start_frame": 0,
+      "frame_count": 22,
+      "end_frame": 21,
+      "timeline_frame_count": 22,
+      "visible_frame_count": 22,
+      "fps": 24
+    },
+    {
+      "name": "archer_attack_2",
+      "anim_index": 61,
+      "start_frame": 22,
+      "frame_count": 20,
+      "end_frame": 41,
+      "timeline_frame_count": 20,
+      "visible_frame_count": 20,
+      "fps": 24
+    },
+    {
+      "name": "archer_attack_3",
+      "anim_index": 62,
+      "start_frame": 42,
+      "frame_count": 16,
+      "end_frame": 57,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    },
+    {
+      "name": "archer_run_1",
+      "anim_index": 69,
+      "start_frame": 58,
+      "frame_count": 16,
+      "end_frame": 73,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    },
+    {
+      "name": "archer_run_2",
+      "anim_index": 70,
+      "start_frame": 74,
+      "frame_count": 16,
+      "end_frame": 89,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    },
+    {
+      "name": "archer_run_3",
+      "anim_index": 71,
+      "start_frame": 90,
+      "frame_count": 16,
+      "end_frame": 105,
+      "timeline_frame_count": 16,
+      "visible_frame_count": 16,
+      "fps": 24
+    }
+  ]
+}
