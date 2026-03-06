@@ -1,4 +1,4 @@
-package type
+package com.mjm.elixir_reign.shared.type
 
 enum class GameType {
     G2V2,
