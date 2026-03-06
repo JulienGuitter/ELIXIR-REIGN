@@ -16,11 +16,9 @@ object ConfigManager {
         if(!configFile.exists()){
             println("Generate config file")
 
-            println(ConfigManager::class.java.getResource("/config.yml"))
-
             val inputStream = object {}.javaClass
                 .getResourceAsStream("/config.yml")
-                ?: throw IllegalStateException("config.yml not found in ressources")
+                ?: throw IllegalStateException("config.yml not found in resources")
 
             configFile.outputStream().use { output ->
                 inputStream.copyTo(output)
