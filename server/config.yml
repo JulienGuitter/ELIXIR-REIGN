@@ -1,8 +1,0 @@
-port: 54555             # Port of the server
-
-lobby: true             # Enable the lobby in this server
-instance: true          # Enable game instance in this server
-maxInstances: 4          # Nb instance of the game possible
-
-serversIP:       # List all possible instance server to redirect client
-  - this
