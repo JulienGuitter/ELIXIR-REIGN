@@ -7,6 +7,7 @@ import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
 import com.mjm.elixir_reign.shared.GameVersion
 import com.mjm.elixir_reign.shared.network.*
+import type.GameType
 import kotlin.concurrent.thread
 
 class Main : ApplicationAdapter() {
@@ -36,7 +37,7 @@ class Main : ApplicationAdapter() {
                 Gdx.app.log("NET", "Connecting to 10.0.2.2:${Network.PORT} ...")
                 client.connect(5000, "10.0.2.2", Network.PORT, Network.PORT)
 
-                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION)
+                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION, gameType = GameType.G1V3)
                 client.sendTCP(login)
 
                 Gdx.app.log("NET", "Login packet sent")

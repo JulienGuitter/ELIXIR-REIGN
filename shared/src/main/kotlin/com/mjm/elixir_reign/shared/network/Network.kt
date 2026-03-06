@@ -9,9 +9,12 @@ object Network {
     // La méthode pour tout enregistrer
     fun register(kryo: Kryo?) {
 
-        // Login packets register
+        // Lobby/Login packets register
         kryo?.register(PacketLogin::class.java)
         kryo?.register(PacketLoginAccepted::class.java)
         kryo?.register(PacketLoginRefused::class.java)
+        kryo?.register(PacketServerInfo::class.java)
+        kryo?.register(PacketCreateInstance::class.java)
+        kryo?.register(PacketConnectToInstance::class.java)
     }
 }

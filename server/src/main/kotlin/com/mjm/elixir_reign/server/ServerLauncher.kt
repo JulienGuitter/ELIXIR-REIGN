@@ -3,6 +3,8 @@ package com.mjm.elixir_reign.server
 import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
 import com.esotericsoftware.kryonet.Server
+import com.mjm.elixir_reign.server.instance.InstanceManager
+import com.mjm.elixir_reign.server.lobby.LobbyManager
 import com.mjm.elixir_reign.shared.GameVersion
 import com.mjm.elixir_reign.shared.network.*
 import java.util.concurrent.ConcurrentHashMap
@@ -13,7 +15,17 @@ fun main(args: Array<String>) {
 }
 
 class ServerLauncher {
+
     fun start() {
+        var config = ConfigManager.getConfig()
+
+        if(config.lobby){
+            LobbyManager.init()
+        }
+        if(config.instance){
+            InstanceManager.init()
+        }
+
         val server = Server()
         Network.register(server.kryo)
 
@@ -32,13 +44,18 @@ class ServerLauncher {
                             return
                         }
 
-                        var newClient = Client(pseudo = message.pseudo)
+                        var newClient = Client(pseudo = message.pseudo, gameType = message.gameType)
                         clients[connection.id] = newClient
 
                         var accepted = PacketLoginAccepted(
                             myId = connection.id
                         )
                         connection.sendTCP(accepted)
+                    }
+
+                    is PacketServerInfo -> {
+                        var disponibility = InstanceManager.getAvailableInstances()
+                        connection.sendTCP(PacketServerInfo(disponibility))
                     }
 
                     // Define all packets.
@@ -52,8 +69,8 @@ class ServerLauncher {
         })
 
         server.start()
-        server.bind(Network.PORT, Network.PORT)
-        println("Serveur started sur le port ${Network.PORT}")
+        server.bind(config.port, config.port)
+        println("Serveur started sur le port ${config.port}")
 
         Thread {
             while(true){
