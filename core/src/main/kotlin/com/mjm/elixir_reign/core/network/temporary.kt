@@ -62,6 +62,14 @@ class temporary {
                                     instanceClient.start()
                                     instanceClient.connect(5000, message.ip, message.port, message.port)
 
+                                    // Effectuer un login sur le serveur d'instance avant de rejoindre l'instance
+                                    val instanceLogin = PacketLogin(
+                                        pseudo = "CompteTest",
+                                        version = GameVersion.VERSION,
+                                        gameType = GameType.G1V1
+                                    )
+                                    instanceClient.sendTCP(instanceLogin)
+                                    Gdx.app.log("NET", "Login packet sent to instance server")
                                     instanceClient.sendTCP(PacketConnectToInstance(uuid = message.uuid))
                                     Gdx.app.log("NET", "Connecté à l'instance ${message.uuid}")
                                 } catch (e: Exception) {
