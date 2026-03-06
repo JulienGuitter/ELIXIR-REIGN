@@ -146,6 +146,12 @@ object LobbyManager {
         val ip = server.key.split(":")
         if(ip.size != 2) {
             println("Invalid server IP : ${server.key}")
+            // Re-queue clients to avoid dropping them from matchmaking
+            for((id, client) in clientsInGame){
+                gameTypeClients[client.gameType]?.add(id)
+            }
+            // Apply a cooldown similar to the no-available-server case
+            noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
             return
         }
 
