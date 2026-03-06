@@ -1,17 +1,17 @@
 package com.mjm.elixir_reign.core.tools.sprites.mapper
 
-import com.mjm.elixir_reign.shared.logic.Action
+import com.mjm.elixir_reign.shared.logic.ActionType
 
 class ActionMapper {
-    fun getActionInfo(action: Action): String {
-        return when (action) {
-            Action.RUN -> "_run"
-            Action.ATTACK -> "_attack"
+    fun getActionInfo(actionType: ActionType): String {
+        return when (actionType) {
+            ActionType.RUN -> "_run"
+            ActionType.ATTACK -> "_attack"
         }
     }
 
-    fun buildClipName(baseClipName: String, action: Action): String {
-        val suffix = getActionInfo(action)
+    fun buildClipName(baseClipName: String, actionType: ActionType): String {
+        val suffix = getActionInfo(actionType)
         return baseClipName + suffix
     }
 }

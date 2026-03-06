@@ -7,9 +7,13 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.ecs.CoreGameEngine
+import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
  * Écran de jeu principal.
@@ -23,6 +27,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private val tileSize = 256f
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
+    private lateinit var batch: SpriteBatch
+    private lateinit var ecsEngine: CoreGameEngine
 
     private val lastTouch = Vector2()
     private val cubePosition = Vector2(0f, 0f)
@@ -61,6 +67,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         camera.update()
 
         shapeRenderer = ShapeRenderer()
+        batch = SpriteBatch()
+
+        // Initialiser l'engine ECS avec le batch
+        ecsEngine = CoreGameEngine(batch)
+
+        // Créer une entité barbare au centre de la scène
+        SpriteEntityFactory.createUnit(
+            unitType = UnitType.BARBARIAN,
+            x = 0f,
+            y = 0f,
+            engine = ecsEngine.engine
+        )
+        SpriteEntityFactory.createUnit(
+            unitType = UnitType.BARBARIAN,
+            x = 150f,
+            y = 150f,
+            engine = ecsEngine.engine
+        )
 
         Gdx.input.inputProcessor = input
     }
@@ -71,10 +95,16 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // IMPORTANT : la caméra bouge => il faut réassigner camera.combined à chaque frame
         shapeRenderer.projectionMatrix = camera.combined
+        batch.projectionMatrix = camera.combined
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
         drawIsoCube(cubePosition.x, cubePosition.y)
         shapeRenderer.end()
+
+        // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
+        batch.begin()
+        ecsEngine.update(delta)
+        batch.end()
     }
 
     override fun resize(width: Int, height: Int) {
@@ -87,8 +117,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun dispose() {
-        // Libérer les ressources graphiques
         shapeRenderer.dispose()
+        batch.dispose()
+        ecsEngine.dispose()
     }
 
     private fun drawIsoCube(x: Float, y: Float) {
