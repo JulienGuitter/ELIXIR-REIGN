@@ -95,14 +95,15 @@ object LobbyManager {
             }
 
 
-            // Get first 4 clients in queu
+            // Get first clients in queue according to userNeeded
             if((gameTypeClients[gameType]?.size ?: 0) >= userNeeded){
                 val clientsInGame = ConcurrentHashMap<Int, Client>()
-                for(i in 0 until 4) {
+                while (clientsInGame.size < userNeeded) {
                     val clientId = gameTypeClients[gameType]?.poll() ?: break
-                    clientsInGame[clientId] = clients[clientId] ?: continue
+                    val client = clients[clientId] ?: continue
+                    clientsInGame[clientId] = client
                 }
-                if(clientsInGame.isNotEmpty()){
+                if(clientsInGame.size == userNeeded){
                     println("Starting a new G1V3 game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
                     createServerInstance(clientsInGame)
                 }
