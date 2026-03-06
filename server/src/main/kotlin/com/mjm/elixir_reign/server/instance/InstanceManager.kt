@@ -2,7 +2,6 @@ package com.mjm.elixir_reign.server.instance
 
 import com.mjm.elixir_reign.server.ConfigManager
 import type.GameType
-import java.util.concurrent.ConcurrentHashMap
 
 object InstanceManager {
     private var config = ConfigManager.getConfig()
@@ -19,9 +18,27 @@ object InstanceManager {
         isInit = true
     }
 
+    /**
+     * Retourne le nombre d'instances disponibles (non actives)
+     */
     fun getAvailableInstances(): Int{
-        var count = config.maxInstances - instances.size
-        if(count < 0) count = 0
-        return count
+        return instances.count { !it.active }
+    }
+
+    /**
+     * Crée (active) une instance pour un gameType donné.
+     * Retourne l'instance créée ou null si aucune disponible.
+     */
+    fun createInstance(gameType: GameType): Instance? {
+        val instance = instances.firstOrNull { !it.active } ?: return null
+        instance.start(gameType)
+        return instance
+    }
+
+    /**
+     * Trouve une instance par son UUID
+     */
+    fun findByUUID(uuid: String): Instance? {
+        return instances.firstOrNull { it.uuid == uuid && it.active }
     }
 }

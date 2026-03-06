@@ -26,6 +26,46 @@ class Main : ApplicationAdapter() {
                     is PacketLoginRefused -> {
                         println("Connection refuser : ${message.reason}")
                     }
+                    is PacketRedirectToInstance -> {
+                        Gdx.app.log("NET", "Redirection vers instance ${message.uuid} à ${message.ip}:${message.port}")
+
+                        if(message.ip == "this"){
+                            // L'instance est sur le même serveur, réutiliser la connexion existante
+                            Gdx.app.log("NET", "Instance locale, réutilisation de la connexion lobby")
+                            connection.sendTCP(PacketConnectToInstance(uuid = message.uuid))
+                            Gdx.app.log("NET", "Connecté à l'instance ${message.uuid}")
+                        } else {
+                            // Serveur distant : déconnecter du lobby et se reconnecter à l'instance
+                            Gdx.app.log("NET", "Déconnexion du lobby...")
+                            client.stop()
+
+                            thread(name = "kryonet-instance") {
+                                try {
+                                    val instanceClient = Client()
+                                    Network.register(instanceClient.kryo)
+
+                                    instanceClient.addListener(object : Listener {
+                                        override fun received(conn: Connection, msg: Any) {
+                                            // TODO: handle instance game packets
+                                            Gdx.app.log("NET", "Instance message reçu: $msg")
+                                        }
+
+                                        override fun disconnected(conn: Connection) {
+                                            Gdx.app.log("NET", "Déconnecté de l'instance")
+                                        }
+                                    })
+
+                                    instanceClient.start()
+                                    instanceClient.connect(5000, message.ip, message.port, message.port)
+
+                                    instanceClient.sendTCP(PacketConnectToInstance(uuid = message.uuid))
+                                    Gdx.app.log("NET", "Connecté à l'instance ${message.uuid}")
+                                } catch (e: Exception) {
+                                    Gdx.app.error("NET", "Connexion à l'instance échouée", e)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         })
@@ -37,7 +77,7 @@ class Main : ApplicationAdapter() {
                 Gdx.app.log("NET", "Connecting to 10.0.2.2:${Network.PORT} ...")
                 client.connect(5000, "10.0.2.2", Network.PORT, Network.PORT)
 
-                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION, gameType = GameType.G1V3)
+                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION, gameType = GameType.G1V1)
                 client.sendTCP(login)
 
                 Gdx.app.log("NET", "Login packet sent")

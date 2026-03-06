@@ -3,6 +3,7 @@ package com.mjm.elixir_reign.server.lobby
 import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
 import com.mjm.elixir_reign.server.ConfigManager
+import com.mjm.elixir_reign.server.instance.InstanceManager
 import com.mjm.elixir_reign.shared.network.Client
 import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketCreateInstance
@@ -26,6 +27,10 @@ object LobbyManager {
     private var availableServers = ConcurrentHashMap<String, Int>()
     private lateinit var availableServersThread : Thread
 
+    // Cooldown quand aucun serveur n'est disponible (évite le spam)
+    private var noServerCooldownUntil: Long = 0L
+    private const val NO_SERVER_COOLDOWN_MS = 10_000L // 10 secondes
+
     var isInit = false
         private set
 
@@ -39,6 +44,13 @@ object LobbyManager {
                 updateAvailableServers()
                 Thread.sleep(1000L * 60L * 5L) // Check every 5 minute
             }
+        }
+        availableServersThread.isDaemon = true
+        availableServersThread.start()
+
+        // Si ce serveur a aussi le mode instance, l'ajouter comme disponible
+        if(config.instance && config.serversIP.contains("this")){
+            availableServers["this"] = InstanceManager.getAvailableInstances()
         }
 
         lobbyThread = Thread {
@@ -65,35 +77,67 @@ object LobbyManager {
     }
 
     fun update(){
+        // Si on est en cooldown, ne rien faire
+        if(System.currentTimeMillis() < noServerCooldownUntil) return
+
         for(gameType in GameType.entries){
+            var userNeeded = 0
             when(gameType){
-                GameType.G1V1 -> break
+                GameType.G1V1 -> {
+                    userNeeded = 2
+                }
+                GameType.G2V2 -> {
+                    userNeeded = 4
+                }
+                GameType.G1V3 -> {
+                    userNeeded = 4
+                }
+            }
 
-                GameType.G2V2 -> break
 
-                GameType.G1V3 ->
-                    // Get first 4 clients in queu
-                    if((gameTypeClients[gameType]?.size ?: 0) >= 4){
-                        val clientsInGame = ConcurrentHashMap<Int, Client>()
-                        for(i in 0 until 4) {
-                            val clientId = gameTypeClients[gameType]?.poll() ?: break
-                            clientsInGame[clientId] = clients[clientId] ?: continue
-                        }
-                        createServerInstance(clientsInGame)
-                        println("Starting a new G1V3 game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
-                    }
+            // Get first 4 clients in queu
+            if((gameTypeClients[gameType]?.size ?: 0) >= userNeeded){
+                val clientsInGame = ConcurrentHashMap<Int, Client>()
+                for(i in 0 until 4) {
+                    val clientId = gameTypeClients[gameType]?.poll() ?: break
+                    clientsInGame[clientId] = clients[clientId] ?: continue
+                }
+                if(clientsInGame.isNotEmpty()){
+                    println("Starting a new G1V3 game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
+                    createServerInstance(clientsInGame)
+                }
             }
         }
     }
 
     private fun createServerInstance(clientsInGame: ConcurrentHashMap<Int, Client>){
-        val server = availableServers.entries.firstOrNull { it.value > 0 } ?: run {
-            println("No available server for the game !")
-            return
-        }
-        if (server.key == "this"){
+        // 1) Essayer d'abord le serveur local ("this")
+        val thisCount = availableServers["this"]
+        if(thisCount != null && thisCount > 0){
             println("Starting game on this server !")
-            // TODO : Create instance and send clients to it
+            val instance = InstanceManager.createInstance(clientsInGame.values.first().gameType)
+            if(instance != null){
+                // Mettre à jour le compteur
+                availableServers["this"] = InstanceManager.getAvailableInstances()
+
+                // Envoyer les clients vers l'instance locale
+                sendClientsToInstance(clientsInGame, instance.uuid, "this", config.port.toString())
+                return
+            } else {
+                println("No available instance on this server !")
+                availableServers["this"] = 0
+            }
+        }
+
+        // 2) Essayer les serveurs externes
+        val server = availableServers.entries.firstOrNull { it.key != "this" && it.value > 0 }
+        if(server == null){
+            println("No available server for the game ! Retry in ${NO_SERVER_COOLDOWN_MS / 1000}s...")
+            noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
+            // Remettre les clients dans la queue
+            for((id, client) in clientsInGame){
+                gameTypeClients[client.gameType]?.add(id)
+            }
             return
         }
 
@@ -135,15 +179,20 @@ object LobbyManager {
 
             val request = PacketCreateInstance(gameType = clientsInGame.values.first().gameType)
             client.sendTCP(request)
+
+            val ok = latch.await(10, TimeUnit.SECONDS)
+            if(!ok){
+                println("Server ${server.key} did not respond to create instance in time !")
+            }
         } catch (e: Exception) {
-            println("Failed to connect to server ${server.key} !")
+            println("Failed to connect to server ${server.key} : ${e.message}")
         } finally {
             client.stop()
         }
     }
 
     private fun sendClientsToInstance(clientsInGame: ConcurrentHashMap<Int, Client>, instanceUUID: String, instanceIP: String = "", instancePort: String = ""){
-        for(client in clientsInGame.values){
+        for((id, client) in clientsInGame){
             println("Sending client ${client.pseudo} to instance $instanceUUID ...")
 
             val packet = PacketRedirectToInstance(
@@ -152,6 +201,9 @@ object LobbyManager {
                 uuid = instanceUUID
             )
             client.connection?.sendTCP(packet)
+
+            // Retirer le client du lobby (il est maintenant dans une instance)
+            clients.remove(id)
         }
     }
 
@@ -159,6 +211,10 @@ object LobbyManager {
         for(server in config.serversIP){
             val ip = server.split(":")
             if(server == "this"){
+                // Rafraîchir le compteur local
+                if(config.instance && InstanceManager.isInit){
+                    availableServers["this"] = InstanceManager.getAvailableInstances()
+                }
                 continue
             }
 
