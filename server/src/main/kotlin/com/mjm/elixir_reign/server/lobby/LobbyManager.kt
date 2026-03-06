@@ -269,6 +269,7 @@ object LobbyManager {
                 val ok = latch.await(5, TimeUnit.SECONDS)
                 if(!ok){
                     println("Server $server did not respond in time !")
+                    availableServers.remove(server)
                     client.stop()
                     continue
                 }
