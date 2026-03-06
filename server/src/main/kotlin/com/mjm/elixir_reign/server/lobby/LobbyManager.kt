@@ -190,14 +190,36 @@ object LobbyManager {
             val ok = latch.await(10, TimeUnit.SECONDS)
             if(!ok){
                 println("Server ${server.key} did not respond to create instance in time !")
+                // Re-queue clients so they are not lost if the instance server does not respond.
+                requeueClientsInGame(clientsInGame)
+                // Optionally refresh available servers to avoid using an unresponsive one.
+                updateAvailableServers()
             }
         } catch (e: Exception) {
             println("Failed to connect to server ${server.key} : ${e.message}")
+            // Re-queue clients so they are not lost if contacting the instance server fails.
+            requeueClientsInGame(clientsInGame)
+            // Optionally refresh available servers to avoid using an unresponsive one.
+            updateAvailableServers()
         } finally {
             client.stop()
         }
     }
 
+    private fun requeueClientsInGame(clientsInGame: ConcurrentHashMap<Int, Client>) {
+        if (clientsInGame.isEmpty()) {
+            return
+        }
+
+        // All clients in this map should share the same game type.
+        val gameType = clientsInGame.values.first().gameType
+
+        // Ensure there is a queue for this game type and re-add clients to it.
+        val queue = gameTypeClients.computeIfAbsent(gameType) { ConcurrentLinkedQueue() }
+        for (client in clientsInGame.values) {
+            queue.add(client)
+        }
+    }
     private fun sendClientsToInstance(clientsInGame: ConcurrentHashMap<Int, Client>, instanceUUID: String, instanceIP: String = "", instancePort: String = ""){
         for((id, client) in clientsInGame){
             println("Sending client ${client.pseudo} to instance $instanceUUID ...")
