@@ -171,8 +171,13 @@ object LobbyManager {
                             connection.close()
                             latch.countDown()
 
-                            // Send clients to instance
-                            sendClientsToInstance(clientsInGame, message.uuid, ip[0], ip[1])
+                            // Only send clients to instance if the UUID is not blank.
+                            if (message.uuid.isBlank()) {
+                                println("Failed to create instance: received blank UUID from server, not redirecting clients.")
+                            } else {
+                                // Send clients to instance
+                                sendClientsToInstance(clientsInGame, message.uuid, ip[0], ip[1])
+                            }
                         }
                     }
                 }
