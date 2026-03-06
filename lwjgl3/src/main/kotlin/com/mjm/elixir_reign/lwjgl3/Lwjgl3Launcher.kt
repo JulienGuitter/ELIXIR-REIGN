@@ -14,7 +14,7 @@ object Lwjgl3Launcher {
     }
 
     private fun createApplication(): Lwjgl3Application {
-        return Lwjgl3Application(Main(), getDefaultConfiguration())
+        return Lwjgl3Application(Main(Lwjgl3PlatformBridge()), getDefaultConfiguration())
     }
 
     private fun getDefaultConfiguration(): Lwjgl3ApplicationConfiguration {
