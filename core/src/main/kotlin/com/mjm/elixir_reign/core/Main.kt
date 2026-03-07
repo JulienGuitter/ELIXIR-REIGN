@@ -5,7 +5,9 @@ import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.assets.AssetManager
 import com.mjm.elixir_reign.core.platform.PlatformBridge
+import com.mjm.elixir_reign.core.screens.LoadingScreen
 import com.mjm.elixir_reign.core.screens.MenuScreen
+import com.mjm.elixir_reign.core.tools.sprites.TextureManager
 import com.mjm.elixir_reign.core.ui.UiAssets
 
 class Main(val platform: PlatformBridge) : Game() {
@@ -17,16 +19,22 @@ class Main(val platform: PlatformBridge) : Game() {
         batch = SpriteBatch()
         assets = AssetManager()
 
-        // Charger les assets UI une seule fois pour toute l'application
-        UiAssets.load()
+        // Charge uniquement le logo pour l'afficher dans le LoadingScreen
+        UiAssets.loadMinimal()
 
-        changeScreen(MenuScreen(this))
+        changeScreen(LoadingScreen(this))
     }
 
     fun changeScreen(screen: Screen) {
         val previous = this.screen
-        setScreen(screen)      // appelle hide() sur l'ancien, show() sur le nouveau
-        previous?.dispose()    // libère les ressources natives de l'ancien écran
+        setScreen(screen)
+        previous?.dispose()
+    }
+
+    /** Appelé par LoadingScreen une fois que l'AssetManager a tout chargé */
+    fun onAssetsLoaded() {
+        TextureManager.init(assets)
+        UiAssets.finishLoading(assets)   // construit le skin avec la vraie font
     }
 
     override fun dispose() {
