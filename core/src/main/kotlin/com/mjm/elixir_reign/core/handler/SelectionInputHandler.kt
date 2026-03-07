@@ -8,6 +8,7 @@ import com.badlogic.gdx.math.Vector3
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
+import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 
 /**
  * SelectionInputHandler : Gère la sélection des entités au clic/double-clic
@@ -83,35 +84,13 @@ class SelectionInputHandler(private val engine: Engine) {
     }
 
     // ============ CALCULS DE BOUNDING BOX ============
-
-    /**
-     * Récupère la bounding box d'une entité (centré sur sa position)
-     * Utilisé PARTOUT pour la cohérence
-     */
-    private fun getBoundingBox(entity: Entity): Rectangle? {
-        val pos = entity.getComponent(PositionComponent::class.java) ?: return null
-        val sprite = entity.getComponent(SpriteComponent::class.java) ?: return null
-
-        val fullW = sprite.width * sprite.scaleX
-        val fullH = sprite.height * sprite.scaleY
-
-        // Le personnage visible occupe ~50% de la largeur (centré) et ~60% du bas de la cellule
-        val boxW = fullW * 0.4f
-        val boxH = fullH * 0.5f
-
-        return Rectangle(
-            pos.x + (fullW - boxW) / 3f,   // centré horizontalement
-            pos.y + (fullH - boxH) / 2.2f,                           // aligné sur le bas de la cellule
-            boxW,
-            boxH
-        )
-    }
+    // ⚠️ Tous les calculs sont centralisés dans BoundingBoxUtils
+    // Ne pas dupliquer le code de positionnement ici!
 
     private fun findEntityAt(x: Float, y: Float): Entity? {
         for (entity in engine.entities) {
             if (entity.getComponent(SelectableComponent::class.java) != null) {
-                val box = getBoundingBox(entity)
-                if (box?.contains(x, y) == true) {
+                if (BoundingBoxUtils.pointInEntity(entity, x, y)) {
                     return entity
                 }
             }
@@ -121,8 +100,7 @@ class SelectionInputHandler(private val engine: Engine) {
 
     private fun entityTouchesRectangle(entity: Entity, rect: Rectangle): Boolean {
         if (entity.getComponent(SelectableComponent::class.java) == null) return false
-        val box = getBoundingBox(entity) ?: return false
-        return rect.overlaps(box)
+        return BoundingBoxUtils.entityTouchesRectangle(entity, rect)
     }
 
     fun getDragRectangle(): Rectangle {
@@ -146,7 +124,7 @@ class SelectionInputHandler(private val engine: Engine) {
 
     fun isDraggingNow(): Boolean = isDragging
     fun isDoubleClickModeActive(): Boolean = isDoubleClickActive
-    fun getEntityBoundingBox(entity: Entity): Rectangle? = getBoundingBox(entity)
+    fun getEntityBoundingBox(entity: Entity): Rectangle? = BoundingBoxUtils.getBoundingBox(entity)
     fun isEntitySelected(entity: Entity): Boolean = entity in selectedEntities
 }
 

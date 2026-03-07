@@ -14,6 +14,10 @@ import com.mjm.elixir_reign.shared.logic.UnitType
 object SpriteAnimationManager {
     private val spriteSheetCache = mutableMapOf<UnitType, SpriteSheet>()
 
+    /** True once preloadAll() has completed */
+    var isReady: Boolean = false
+        private set
+
     // Métadonnées pour chaque unité
     private val unitTypeMetadata = mapOf(
         UnitType.BARBARIAN to UnitMetadata(
@@ -78,10 +82,26 @@ object SpriteAnimationManager {
     }
 
     /**
+     * Pré-parse tous les JSON de sprite sheets et remplit le cache.
+     * À appeler une fois les textures chargées (dans Main.onAssetsLoaded).
+     * Après cet appel, createAnimator() n'effectue plus aucune I/O.
+     */
+    fun preloadAll() {
+        val parser = SpriteSheetParser()
+        unitTypeMetadata.forEach { (unitType, metadata) ->
+            spriteSheetCache.getOrPut(unitType) {
+                parser.parseJson(metadata.jsonPath)
+            }
+        }
+        isReady = true
+    }
+
+    /**
      * Décharge tous les sprite sheets du cache
      */
     fun dispose() {
         spriteSheetCache.clear()
+        isReady = false
     }
 
     /**

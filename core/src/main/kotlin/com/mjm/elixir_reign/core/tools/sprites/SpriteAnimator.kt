@@ -106,5 +106,10 @@ class SpriteAnimator(
      * Récupère le nom du clip actuel
      */
     fun getCurrentClipName(): String? = currentClip?.name
+
+    /**
+     * Récupère le collider du clip actuel (null = pas de collider défini)
+     */
+    fun getCurrentCollider() = currentClip?.collider
 }
 

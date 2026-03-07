@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.mjm.elixir_reign.core.tools.RenderingUtils
+import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
@@ -63,11 +64,11 @@ class SelectionRenderSystem(
 
         // Dessiner tous les contours
         for (entity in selectedEntitiesThisFrame) {
-            val box = selectionInputHandler.getEntityBoundingBox(entity) ?: continue
+            val pos = entity.getComponent(PositionComponent::class.java) ?: continue
+            val sprite = entity.getComponent(SpriteComponent::class.java) ?: continue
 
-            val centerX = box.x + box.width / 2f
-            val centerY = box.y + box.height / 3f
-            val radius = box.width / 2f
+            val (centerX, centerY) = BoundingBoxUtils.getSpriteCenter(pos, sprite)
+            val radius = BoundingBoxUtils.getSelectionRadius(sprite)
 
             RenderingUtils.drawDashedCircle(
                 shapeRenderer,
