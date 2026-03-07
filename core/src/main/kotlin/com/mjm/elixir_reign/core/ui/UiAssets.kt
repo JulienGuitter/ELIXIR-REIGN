@@ -19,6 +19,9 @@ object UiAssets {
     lateinit var backgroundTexture: Texture
         private set
 
+    lateinit var buttonTexture: Texture
+        private set
+
     fun load() {
         backgroundTexture = Texture("ui/background.png")
         skin = Skin()
@@ -53,7 +56,7 @@ object UiAssets {
         skin.add("default", font, BitmapFont::class.java)
 
         // Charger la texture 9-patch pour les boutons
-        val buttonTexture = Texture("ui/btn_9patch.png")
+        buttonTexture = Texture("ui/btn_9patch.png")
 
         // Créer des NinePatch séparés pour chaque état
         // Les marges définissent les zones qui NE SERONT PAS étirées (coins et bordures)
@@ -127,6 +130,9 @@ object UiAssets {
         }
         if (::backgroundTexture.isInitialized) {
             backgroundTexture.dispose()
+        }
+        if (::buttonTexture.isInitialized) {
+            buttonTexture.dispose()
         }
     }
 }
