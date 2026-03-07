@@ -11,8 +11,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
-import com.mjm.elixir_reign.core.ecs.CoreGameEngine
+import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -28,7 +29,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var ecsEngine: CoreGameEngine
+    private lateinit var gameWorld: GameWorld
+    private lateinit var selectionInputHandler: SelectionInputHandler
 
     private val lastTouch = Vector2()
     private val cubePosition = Vector2(0f, 0f)
@@ -37,6 +39,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
+            // Initialiser la sélection (détecte double-clic)
+            selectionInputHandler.touchDown(screenX, screenY, camera)
             return true
         }
 
@@ -44,10 +48,22 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val deltaX = screenX - lastTouch.x
             val deltaY = screenY - lastTouch.y
 
-            camera.translate(-deltaX, deltaY)
-            camera.update()
+            // Si mode double-clic actif, faire le drag selection
+            if (selectionInputHandler.isDoubleClickModeActive()) {
+                selectionInputHandler.touchDragged(screenX, screenY, camera)
+            } else {
+                // Sinon, bouger la caméra normalement
+                camera.translate(-deltaX, deltaY)
+                camera.update()
+            }
 
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
+            return true
+        }
+
+        override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+            // Finaliser la sélection/drag selection
+            selectionInputHandler.touchUp()
             return true
         }
 
@@ -69,21 +85,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
 
-        // Initialiser l'engine ECS avec le batch et le shapeRenderer
-        ecsEngine = CoreGameEngine(batch, shapeRenderer)
+        // Initialiser le monde du jeu (encapsule CoreGameEngine)
+        gameWorld = GameWorld(batch, camera)
+
+        // Récupérer le selectionInputHandler depuis le CoreGameEngine
+        selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
             x = 0f,
             y = 0f,
-            engine = ecsEngine.engine
+            engine = gameWorld.coreEngine.engine
         )
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
             x = 150f,
             y = 150f,
-            engine = ecsEngine.engine
+            engine = gameWorld.coreEngine.engine
         )
 
         Gdx.input.inputProcessor = input
@@ -101,15 +120,36 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         drawIsoCube(cubePosition.x, cubePosition.y)
         shapeRenderer.end()
 
+        // Dessiner le rectangle de drag selection si actif
+        if (selectionInputHandler.isDraggingNow()) {
+            val dragRect = selectionInputHandler.getDragRectangle()
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
+            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            shapeRenderer.end()
+        }
+
+        // DEBUG : Afficher les bounding boxes de sélection pour toutes les entités
+        /* shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+        for (entity in gameWorld.coreEngine.engine.entities) {
+            val boundingBox = selectionInputHandler.getEntityBoundingBox(entity)
+            if (boundingBox != null) {
+                // Rouge pour les entités non sélectionnées, bleu pour les sélectionnées
+                if (selectionInputHandler.isEntitySelected(entity)) {
+                    shapeRenderer.color.set(0f, 0.5f, 1f, 0.6f)  // Bleu
+                } else {
+                    shapeRenderer.color.set(1f, 0f, 0f, 0.3f)  // Rouge transparent
+                }
+
+                shapeRenderer.rect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
+            }
+        }
+        shapeRenderer.end() */
+
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
-        ecsEngine.update(delta)
+        gameWorld.update(delta)
         batch.end()
-
-        // Rendu des barres de vie (ShapeRenderer géré par HealthBarRenderSystem)
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        ecsEngine.renderHealthBars()
-        shapeRenderer.end()
     }
 
     override fun resize(width: Int, height: Int) {
@@ -124,7 +164,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
-        ecsEngine.dispose()
+        gameWorld.dispose()
     }
 
     private fun drawIsoCube(x: Float, y: Float) {
