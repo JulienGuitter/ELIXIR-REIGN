@@ -19,7 +19,7 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
-class MenuScreen(private val game: Main) : ScreenAdapter() {
+class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
 
     private lateinit var stage: Stage
     private lateinit var spriteBatch: SpriteBatch
@@ -32,28 +32,17 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         Gdx.input.inputProcessor = stage
 
         // Créer les boutons avec les textes localisés
-        val playBtn = TextButton(Localization.get("menu.play"), UiAssets.skin)
-        val settingsBtn = TextButton(Localization.get("menu.settings"), UiAssets.skin)
-        val quitBtn = TextButton(Localization.get("menu.quit"), UiAssets.skin)
+        val btnReturn = TextButton(Localization.get("global.back"), UiAssets.skin)
 
-        // Ajouter les listeners
-        playBtn.addListener(object : ChangeListener() {
+        btnReturn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(ModeSelectionScreen(game))
+                game.changeScreen(MenuScreen(game))
             }
         })
 
-        settingsBtn.addListener(object : ChangeListener() {
-            override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(SettingsScreen(game))
-            }
-        })
-
-        quitBtn.addListener(object : ChangeListener() {
-            override fun changed(event: ChangeEvent, actor: Actor) {
-                Gdx.app.exit()
-            }
-        })
+        // Waiting label
+        val titleLabel = Label(Localization.get("lobbyWainting.title"), UiAssets.skin)
+        titleLabel.setFontScale(2f)
 
         val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
             color = Color(1f, 1f, 1f, 0.85f)
@@ -63,9 +52,8 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         val table = Table().apply {
             setFillParent(true)
             add(logoImage).width(220f).height(220f).padBottom(20f).row()
-            add(playBtn).width(300f).height(80f).pad(15f).row()
-            add(settingsBtn).width(300f).height(80f).pad(15f).row()
-            add(quitBtn).width(300f).height(80f).pad(15f)
+            add(titleLabel).colspan(2).pad(20f).row()
+            add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 
         // Label version en bas à droite

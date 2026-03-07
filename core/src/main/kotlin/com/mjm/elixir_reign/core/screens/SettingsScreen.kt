@@ -17,6 +17,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
 class SettingsScreen(private val game: Main) : ScreenAdapter() {
 
@@ -91,7 +92,7 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
         mainTable.row().padTop(30f)
 
         // Bouton retour
-        backBtn = TextButton(Localization.get("settings.back"), UiAssets.skin)
+        backBtn = TextButton(Localization.get("global.back"), UiAssets.skin)
         backBtn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 game.changeScreen(MenuScreen(game))
@@ -100,7 +101,19 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
 
         mainTable.add(backBtn).width(300f).height(80f).pad(20f).colspan(2)
 
+        // Label version en bas à droite
+        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
+            color = Color(1f, 1f, 1f, 0.6f)
+        }
+
+        val versionTable = Table().apply {
+            setFillParent(true)
+            bottom().right()
+            add(versionLabel).pad(12f)
+        }
+
         stage.addActor(mainTable)
+        stage.addActor(versionTable)
     }
 
     private fun refreshUI() {
