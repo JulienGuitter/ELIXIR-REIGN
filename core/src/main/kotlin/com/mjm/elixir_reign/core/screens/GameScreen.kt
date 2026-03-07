@@ -79,7 +79,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Créer une tile de terrain (ground_1) via ECS
         createTerrainTile("ground_1", cubePosition.x, cubePosition.y)
 
-        // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
             x = 0f,
@@ -89,6 +88,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         SpriteEntityFactory.createUnit(
             unitType = UnitType.ARCHER,
             x = 150f,
+            y = 150f,
+            engine = ecsEngine.engine
+        )
+        SpriteEntityFactory.createUnit(
+            unitType = UnitType.GIANT,
+            x = -150f,
             y = 150f,
             engine = ecsEngine.engine
         )
