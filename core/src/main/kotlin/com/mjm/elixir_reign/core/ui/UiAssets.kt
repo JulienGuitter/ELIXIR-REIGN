@@ -87,6 +87,9 @@ object UiAssets {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
         // Remplacer le logo minimal par la version chargée par l'AssetManager
+        if(this::logoTransparent.isInitialized){
+            logoTransparent.dispose()
+        }
         logoTransparent = assets.get("ui/icon_transp.png", Texture::class.java).also {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
@@ -139,6 +142,7 @@ object UiAssets {
     fun dispose() {
         if (::skin.isInitialized) skin.dispose()
         // backgroundTexture, buttonTexture, logoTransparent sont gérés par l'AssetManager
+        if (::backgroundTexture.isInitialized) backgroundTexture.dispose()
     }
 
     fun getProgress(assets: AssetManager): Float = assets.progress

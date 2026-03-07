@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.NinePatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
@@ -21,6 +22,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiAssets.createRoundedRectTexture
+import java.awt.Font
 
 class LoadingScreen(private val game: Main) : ScreenAdapter() {
 
@@ -28,12 +30,13 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var spriteBatch: SpriteBatch
     private lateinit var progressBar: ProgressBar
     private lateinit var loadingLabel: Label
-    private lateinit var fadeOverlay: Image
     private lateinit var contentTable: Table
 
     // Textures créées localement pour la progress bar (avant que UiAssets soit dispo)
     private lateinit var barBgTex: Texture
     private lateinit var barFillTex: Texture
+    private lateinit var labelFont: BitmapFont
+    private lateinit var blackTex: Texture
 
     private var loadingStarted = false
     private var loadingDone = false
@@ -83,9 +86,11 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
             value = 0f
         }
 
+        labelFont = com.badlogic.gdx.graphics.g2d.BitmapFont()
+
         // -- Label "Chargement…" avec police de base (avant skin complet) --
         val labelStyle = Label.LabelStyle(
-            com.badlogic.gdx.graphics.g2d.BitmapFont(),
+            labelFont,
             Color.WHITE
         )
         loadingLabel = Label("Chargement...", labelStyle)
@@ -112,13 +117,8 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
         val blackPixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888).apply {
             setColor(Color.BLACK); fill()
         }
-        val blackTex = Texture(blackPixmap)
+        blackTex = Texture(blackPixmap)
         blackPixmap.dispose()
-        fadeOverlay = Image(TextureRegionDrawable(TextureRegion(blackTex))).apply {
-            setFillParent(true)
-            color = Color(0f, 0f, 0f, 0f)   // transparent au départ
-        }
-        stage.addActor(fadeOverlay)
 
         // -- Démarrer le chargement asynchrone --
         UiAssets.queueLoading(game.assets)
@@ -130,9 +130,6 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.08f, 1f)
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
-
         // Background toujours disponible (chargé synchroniquement dans loadMinimal)
         UiAssets.drawBackground(stage, spriteBatch)
 
@@ -172,5 +169,7 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
         spriteBatch.dispose()
         barBgTex.dispose()
         barFillTex.dispose()
+        labelFont.dispose()
+        blackTex.dispose()
     }
 }
