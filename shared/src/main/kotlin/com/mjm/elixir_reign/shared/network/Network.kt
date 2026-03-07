@@ -1,7 +1,7 @@
 package com.mjm.elixir_reign.shared.network
 
 import com.esotericsoftware.kryo.Kryo
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 
 object Network {
     // Le port qu'on utilisera (TCP et UDP)

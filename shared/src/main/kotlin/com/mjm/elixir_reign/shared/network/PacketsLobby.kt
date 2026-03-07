@@ -1,6 +1,6 @@
 package com.mjm.elixir_reign.shared.network
 
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 
 // Lobby/Login packets
 class PacketLogin(var pseudo: String = "", var version: String = "", var gameType: GameType = GameType.G1V3)
