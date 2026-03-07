@@ -114,33 +114,11 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
 
     override fun render(delta: Float) {
         // Dessiner le background AVANT le stage
-        drawBackground()
+        UiAssets.drawBackground(stage, spriteBatch)
 
         // Update et draw du stage
         stage.act(delta)
         stage.draw()
-    }
-
-    private fun drawBackground() {
-        ScreenUtils.clear(Color.BLACK)
-        stage.viewport.apply()
-
-        val worldWidth = stage.viewport.worldWidth
-        val worldHeight = stage.viewport.worldHeight
-
-        val texWidth = UiAssets.backgroundTexture.width.toFloat()
-        val texHeight = UiAssets.backgroundTexture.height.toFloat()
-
-        val scale = maxOf(worldWidth / texWidth, worldHeight / texHeight)
-        val drawWidth = texWidth * scale
-        val drawHeight = texHeight * scale
-        val xBack = (worldWidth - drawWidth) / 2f
-        val yBack = (worldHeight - drawHeight) / 2f
-
-        spriteBatch.projectionMatrix.set(stage.viewport.camera.combined)
-        spriteBatch.begin()
-        spriteBatch.draw(UiAssets.backgroundTexture, xBack, yBack, drawWidth, drawHeight)
-        spriteBatch.end()
     }
 
     override fun dispose() {

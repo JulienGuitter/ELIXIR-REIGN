@@ -67,7 +67,7 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
-        draw()
+        UiAssets.drawBackground(stage, spriteBatch)
 
         // Update et draw du stage pour les boutons
         stage.act(delta)
@@ -78,28 +78,5 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         stage.dispose()
         spriteBatch.dispose()
         // UiAssets est géré par Main, ne pas disposer ici
-    }
-
-    private fun draw(){
-        ScreenUtils.clear(Color.BLACK)
-        stage.viewport.apply()
-
-        val worldWidth = stage.viewport.worldWidth
-        val worldHeight = stage.viewport.worldHeight
-
-        val texWidth = UiAssets.backgroundTexture.width.toFloat()
-        val texHeight = UiAssets.backgroundTexture.height.toFloat()
-
-        // Cover: no stretch, no empty area, overflow allowed.
-        val scale = maxOf(worldWidth / texWidth, worldHeight / texHeight)
-        val drawWidth = texWidth * scale
-        val drawHeight = texHeight * scale
-        val xBack = (worldWidth - drawWidth) / 2f
-        val yBack = (worldHeight - drawHeight) / 2f
-
-        spriteBatch.projectionMatrix.set(stage.viewport.camera.combined)
-        spriteBatch.begin()
-        spriteBatch.draw(UiAssets.backgroundTexture, xBack, yBack, drawWidth, drawHeight)
-        spriteBatch.end()
     }
 }

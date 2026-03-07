@@ -5,12 +5,15 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.NinePatch
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
+import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
+import com.badlogic.gdx.utils.ScreenUtils
 
 object UiAssets {
     lateinit var skin: Skin
@@ -134,6 +137,30 @@ object UiAssets {
         if (::buttonTexture.isInitialized) {
             buttonTexture.dispose()
         }
+    }
+
+
+
+    fun drawBackground(stage: Stage, spriteBatch: SpriteBatch) {
+        ScreenUtils.clear(Color.BLACK)
+        stage.viewport.apply()
+
+        val worldWidth = stage.viewport.worldWidth
+        val worldHeight = stage.viewport.worldHeight
+
+        val texWidth = UiAssets.backgroundTexture.width.toFloat()
+        val texHeight = UiAssets.backgroundTexture.height.toFloat()
+
+        val scale = maxOf(worldWidth / texWidth, worldHeight / texHeight)
+        val drawWidth = texWidth * scale
+        val drawHeight = texHeight * scale
+        val xBack = (worldWidth - drawWidth) / 2f
+        val yBack = (worldHeight - drawHeight) / 2f
+
+        spriteBatch.projectionMatrix.set(stage.viewport.camera.combined)
+        spriteBatch.begin()
+        spriteBatch.draw(UiAssets.backgroundTexture, xBack, yBack, drawWidth, drawHeight)
+        spriteBatch.end()
     }
 }
 
