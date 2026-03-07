@@ -143,13 +143,13 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
 
             if (finished && progress >= 1f) {
                 loadingDone = true
-                loadingLabel.setText("Prêt !")
+                loadingLabel.setText("Initialisation des animations...")
                 progressBar.value = 1f
 
                 // Fade-out du contenu seulement, le background reste visible
                 contentTable.addAction(
                     Actions.sequence(
-                        Actions.delay(0.3f),
+                        Actions.delay(0.5f),
                         Actions.fadeOut(0.5f),
                         Actions.run {
                             game.onAssetsLoaded()

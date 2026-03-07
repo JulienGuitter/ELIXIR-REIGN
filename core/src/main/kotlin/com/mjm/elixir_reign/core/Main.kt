@@ -7,6 +7,7 @@ import com.badlogic.gdx.assets.AssetManager
 import com.mjm.elixir_reign.core.platform.PlatformBridge
 import com.mjm.elixir_reign.core.screens.LoadingScreen
 import com.mjm.elixir_reign.core.screens.MenuScreen
+import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.core.tools.sprites.TextureManager
 import com.mjm.elixir_reign.core.ui.UiAssets
 
@@ -35,6 +36,7 @@ class Main(val platform: PlatformBridge) : Game() {
     fun onAssetsLoaded() {
         TextureManager.init(assets)
         UiAssets.finishLoading(assets)   // construit le skin avec la vraie font
+        SpriteAnimationManager.preloadAll() // parse tous les JSON d'animation upfront
     }
 
     override fun dispose() {
