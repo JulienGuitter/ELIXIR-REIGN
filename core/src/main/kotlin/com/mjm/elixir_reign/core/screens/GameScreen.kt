@@ -11,8 +11,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
-import com.mjm.elixir_reign.core.ecs.CoreGameEngine
+import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.input.SelectionInputHandler
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -28,7 +29,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var ecsEngine: CoreGameEngine
+    private lateinit var gameWorld: GameWorld
+    private lateinit var selectionInputHandler: SelectionInputHandler
 
     private val lastTouch = Vector2()
     private val cubePosition = Vector2(0f, 0f)
@@ -37,6 +39,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
+            // Sélectionner l'entité au clic
+            selectionInputHandler.selectEntityAtScreenCoords(screenX, screenY, camera)
             return true
         }
 
@@ -69,21 +73,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
 
-        // Initialiser l'engine ECS avec le batch et la caméra
-        ecsEngine = CoreGameEngine(batch, camera)
+        // Initialiser le monde du jeu (encapsule CoreGameEngine)
+        gameWorld = GameWorld(batch, camera)
+
+        // Initialiser le gestionnaire de sélection
+        selectionInputHandler = SelectionInputHandler(gameWorld.coreEngine.engine)
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
             x = 0f,
             y = 0f,
-            engine = ecsEngine.engine
+            engine = gameWorld.coreEngine.engine
         )
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
             x = 150f,
             y = 150f,
-            engine = ecsEngine.engine
+            engine = gameWorld.coreEngine.engine
         )
 
         Gdx.input.inputProcessor = input
@@ -103,7 +110,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
-        ecsEngine.update(delta)
+        gameWorld.update(delta)
         batch.end()
     }
 
@@ -119,7 +126,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
-        ecsEngine.dispose()
+        gameWorld.dispose()
     }
 
     private fun drawIsoCube(x: Float, y: Float) {

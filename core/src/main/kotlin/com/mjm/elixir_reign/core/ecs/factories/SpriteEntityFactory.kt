@@ -3,7 +3,7 @@ package com.mjm.elixir_reign.core.ecs.factories
 import com.badlogic.ashley.core.Engine
 import com.badlogic.ashley.core.Entity
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
-import com.mjm.elixir_reign.shared.ecs.components.SpriteComponent
+import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.logic.DirectionType
@@ -13,10 +13,11 @@ import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
-import com.mjm.elixir_reign.core.ecs.components.SelectionHighlightComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.core.ecs.components.DepthComponent
+import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 
 /**
  * Factory ECS-pur pour créer des entités avec sprites
@@ -79,11 +80,12 @@ object SpriteEntityFactory {
 
         // Components de sélection
         entity.add(SelectableComponent(isSelected = true))
-        entity.add(SelectionHighlightComponent(
-            borderColor = 0xFFFFFFFF.toInt(), // Blanc
-            borderWidth = 2f,
-            glowIntensity = 1.5f
-        ))
+
+        // Component de profondeur (pour tri automatique par Y-sorting)
+        entity.add(DepthComponent())
+
+        // Component de couche (layer 1 = entités principales)
+        entity.add(LayerComponent(layer = 1))
 
         // Ajouter l'entité à l'engine
         engine.addEntity(entity)

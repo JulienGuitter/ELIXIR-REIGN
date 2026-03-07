@@ -1,4 +1,4 @@
-package com.mjm.elixir_reign.shared.ecs.components
+package com.mjm.elixir_reign.core.ecs.components
 
 import com.badlogic.ashley.core.Component
 

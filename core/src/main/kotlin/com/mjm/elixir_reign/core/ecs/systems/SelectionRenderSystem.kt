@@ -7,15 +7,19 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.MathUtils
+import com.mjm.elixir_reign.core.tools.RenderingUtils
+import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
-import com.mjm.elixir_reign.shared.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
-import com.mjm.elixir_reign.core.ecs.components.SelectionHighlightComponent
-import kotlin.math.sqrt
 
 /**
  * SelectionRenderSystem : Affiche le cercle de sélection autour des entités sélectionnées
- * Utilise ShapeRenderer pour dessiner un cercle avec un effet de pulsation optionnel
+ * Utilise ShapeRenderer pour dessiner un arc avec un effet de pulsation
+ *
+ * ⚠️ ORDRE D'AFFICHAGE : Ce système s'exécute AVANT RenderSystem (sprites)
+ * Cela fait que le cercle s'affiche SOUS les sprites (l'unité passe par-dessus)
+ * Crée un effet d'anneau visuel au sol autour de l'entité sélectionnée
+ *
  * La caméra est utilisée pour que les cercles se déplacent avec la vue
  */
 class SelectionRenderSystem(
@@ -25,7 +29,6 @@ class SelectionRenderSystem(
 ) : IteratingSystem(
     Family.all(
         SelectableComponent::class.java,
-        SelectionHighlightComponent::class.java,
         PositionComponent::class.java,
         SpriteComponent::class.java
     ).get()
@@ -40,31 +43,20 @@ class SelectionRenderSystem(
 
     override fun processEntity(entity: Entity, deltaTime: Float) {
         val selectable = entity.getComponent(SelectableComponent::class.java)
-
         if (!selectable.isSelected) return
 
         val position = entity.getComponent(PositionComponent::class.java)
         val sprite = entity.getComponent(SpriteComponent::class.java)
-        val highlight = entity.getComponent(SelectionHighlightComponent::class.java)
 
         // Calculer le centre et le rayon du cercle
-        val centerX = position.x + (sprite.width * sprite.scaleX) / 2f
-        val centerY = position.y + (sprite.height * sprite.scaleY) / 2f
+        val centerX = position.x + (sprite.width / 1.2f * sprite.scaleX) / 2f
+        val centerY = position.y + (sprite.height * sprite.scaleY) / 2.2f
 
-        // Rayon basé sur la taille du sprite
-        val baseRadius = sqrt(
-            (sprite.width * sprite.scaleX / 2f) * (sprite.width * sprite.scaleX / 2f) +
-            (sprite.height * sprite.scaleY / 2f) * (sprite.height * sprite.scaleY / 2f)
-        ) + highlight.borderWidth * 2
+        // Rayon simple basé sur la largeur du sprite
+        val radius = (sprite.width * sprite.scaleX) / 4.5f
 
         // Effet de pulsation optionnel
         val pulseAlpha = 0.7f + 0.3f * MathUtils.sin(elapsed * pulseSpeed)
-
-        // Configurer la couleur avec l'effet de pulsation
-        val color = highlight.borderColor
-        val r = ((color shr 16) and 0xFF) / 255f
-        val g = ((color shr 8) and 0xFF) / 255f
-        val b = (color and 0xFF) / 255f
 
         // Arrêter le batch pour dessiner avec ShapeRenderer
         batch.end()
@@ -73,8 +65,21 @@ class SelectionRenderSystem(
         shapeRenderer.projectionMatrix = camera.combined
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-        shapeRenderer.color.set(r, g, b, pulseAlpha)
-        shapeRenderer.circle(centerX, centerY, baseRadius, 64)
+
+        // Dessiner un arc de cercle (270 degrés, commençant par la gauche et ouverture vers le haut)
+        // Avec couleur blanche et pointillés
+        RenderingUtils.drawArc(
+            shapeRenderer,
+            centerX, centerY,
+            radius,
+            startAngle = 0f,
+            arcDegrees = 360f,
+            segments = 64,
+            a = pulseAlpha,
+            dashLength = 10f,
+            gapLength = 10f
+        )
+
         shapeRenderer.end()
 
         batch.begin()

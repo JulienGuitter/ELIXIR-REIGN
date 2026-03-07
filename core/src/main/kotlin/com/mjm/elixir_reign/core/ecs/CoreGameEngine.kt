@@ -1,5 +1,6 @@
 package com.mjm.elixir_reign.core.ecs
 
+import com.badlogic.ashley.core.Engine
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
@@ -13,10 +14,20 @@ import com.mjm.elixir_reign.core.tools.sprites.TextureManager
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 
 /**
- * CoreGameEngine étend GameEngine avec les systems spécifiques au client
- * (rendu graphique, animations visuelles, effets)
+ * CoreGameEngine : Ajoute le rendu et l'animation à un GameEngine existant
+ *
+ * Peut être utilisé de deux façons :
+ * 1. Créer sa propre instance GameEngine (ancien comportement)
+ * 2. Recevoir un Engine existant (nouveau comportement, pour partage avec GameWorld)
  */
-class CoreGameEngine(private val batch: SpriteBatch, private val camera: OrthographicCamera) : GameEngine() {
+class CoreGameEngine(
+    private val batch: SpriteBatch,
+    private val camera: OrthographicCamera,
+    engineToUse: Engine? = null
+) {
+    private val gameEngine = GameEngine()
+    val engine: Engine = engineToUse ?: gameEngine.engine
+
     private var animationSystem: AnimationSystem? = null
     private var renderSystem: RenderSystem? = null
     private var selectionSystem: SelectionSystem? = null
@@ -32,9 +43,13 @@ class CoreGameEngine(private val batch: SpriteBatch, private val camera: Orthogr
 
         engine.addSystem(animationSystem)
         engine.addSystem(HealthSystem())  // Affichage visuel seulement
-        engine.addSystem(renderSystem)
+        engine.addSystem(selectionRenderSystem)  // Rendu du cercle de sélection (AVANT les sprites)
+        engine.addSystem(renderSystem)           // Affichage des sprites (par-dessus le cercle)
         engine.addSystem(selectionSystem)  // Logique de sélection
-        engine.addSystem(selectionRenderSystem)  // Rendu du cercle de sélection
+    }
+
+    fun update(deltaTime: Float) {
+        engine.update(deltaTime)
     }
 
     fun dispose() {

@@ -6,7 +6,7 @@ import com.badlogic.ashley.core.EntitySystem
 import com.badlogic.ashley.core.Family
 import com.badlogic.gdx.Gdx
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
-import com.mjm.elixir_reign.shared.ecs.components.SpriteComponent
+import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 
 /**
