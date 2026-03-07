@@ -38,8 +38,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         batch = SpriteBatch()
 
-        // Initialiser l'engine ECS avec le batch
-        ecsEngine = CoreGameEngine(batch)
+        // Initialiser l'engine ECS avec le batch et le shapeRenderer
+        ecsEngine = CoreGameEngine(batch, shapeRenderer)
 
         val terrain = TerrainEntityFactory.createIsoTerrain(
             clipName = "ground_5",
@@ -80,6 +80,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         batch.begin()
         ecsEngine.update(delta)
         batch.end()
+
+        // Rendu des barres de vie (ShapeRenderer géré par HealthBarRenderSystem)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        ecsEngine.renderHealthBars()
+        shapeRenderer.end()
     }
 
     override fun hide() {

@@ -15,6 +15,7 @@ import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
 
 /**
  * Factory ECS-pur pour créer des entités avec sprites
@@ -45,6 +46,12 @@ object SpriteEntityFactory {
         entity.add(HealthComponent(
             currentHP = stats.maxHP,
             maxHP = stats.maxHP
+        ))
+        entity.add(HealthBarComponent(
+            barWidth = 30f,
+            barHeight = 4f,
+            offsetY = 60f,
+            offsetX = 25f
         ))
         entity.add(SpriteComponent(
             texturePath = SpriteAnimationManager.getTexturePath(unitType),

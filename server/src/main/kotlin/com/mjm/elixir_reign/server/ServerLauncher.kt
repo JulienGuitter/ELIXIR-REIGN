@@ -3,6 +3,8 @@ package com.mjm.elixir_reign.server
 import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
 import com.esotericsoftware.kryonet.Server
+import com.mjm.elixir_reign.server.instance.InstanceManager
+import com.mjm.elixir_reign.server.lobby.LobbyManager
 import com.mjm.elixir_reign.shared.GameVersion
 import com.mjm.elixir_reign.shared.network.*
 import java.util.concurrent.ConcurrentHashMap
@@ -13,7 +15,17 @@ fun main(args: Array<String>) {
 }
 
 class ServerLauncher {
+
     fun start() {
+        var config = ConfigManager.getConfig()
+
+        if(config.instance){
+            InstanceManager.init()
+        }
+        if(config.lobby){
+            LobbyManager.init()
+        }
+
         val server = Server()
         Network.register(server.kryo)
 
@@ -32,28 +44,73 @@ class ServerLauncher {
                             return
                         }
 
-                        var newClient = Client(pseudo = message.pseudo)
+                        var newClient = Client(pseudo = message.pseudo, gameType = message.gameType, connection = connection)
                         clients[connection.id] = newClient
 
                         var accepted = PacketLoginAccepted(
                             myId = connection.id
                         )
                         connection.sendTCP(accepted)
+
+                        // Ajouter le client au lobby s'il est actif
+                        if(config.lobby && LobbyManager.isInit){
+                            LobbyManager.addClient(connection.id, newClient)
+                            println("Client ${message.pseudo} ajouté au lobby (${message.gameType})")
+                        }
                     }
 
-                    // Define all packets.
+                    is PacketServerInfo -> {
+                        var disponibility = InstanceManager.getAvailableInstances()
+                        connection.sendTCP(PacketServerInfo(disponibility))
+                    }
+
+                    is PacketCreateInstance -> {
+                        // Un autre serveur (lobby) demande de créer une instance
+                        if(config.instance && InstanceManager.isInit){
+                            val instance = InstanceManager.createInstance(message.gameType)
+                            if(instance != null){
+                                println("Instance créée : ${instance.uuid} pour ${message.gameType}")
+                                connection.sendTCP(PacketCreateInstance(gameType = message.gameType, uuid = instance.uuid))
+                            } else {
+                                println("Pas d'instance disponible !")
+                                connection.sendTCP(PacketCreateInstance(gameType = message.gameType, uuid = ""))
+                            }
+                        }
+                    }
+
+                    is PacketConnectToInstance -> {
+                        // Un client veut se connecter à une instance de jeu
+                        if(config.instance && InstanceManager.isInit){
+                            val instance = InstanceManager.findByUUID(message.uuid)
+                            if(instance != null){
+                                val client = clients[connection.id]
+                                if(client != null){
+                                    instance.addPlayer(connection.id, client)
+                                    println("Client ${client.pseudo} connecté à l'instance ${message.uuid}")
+                                }
+                            } else {
+                                println("Instance ${message.uuid} non trouvée !")
+                            }
+                        }
+                    }
                 }
             }
 
             override fun disconnected(connection: Connection?) {
                 println("Le client ${clients[connection?.id]?.pseudo} vient de se deconnecter !")
-                clients.remove(connection?.id)
+                val id = connection?.id ?: return
+                clients.remove(id)
+
+                // Retirer le client du lobby
+                if(config.lobby && LobbyManager.isInit){
+                    LobbyManager.removeClient(id)
+                }
             }
         })
 
         server.start()
-        server.bind(Network.PORT, Network.PORT)
-        println("Serveur started sur le port ${Network.PORT}")
+        server.bind(config.port, config.port)
+        println("Serveur started sur le port ${config.port}")
 
         Thread {
             while(true){
