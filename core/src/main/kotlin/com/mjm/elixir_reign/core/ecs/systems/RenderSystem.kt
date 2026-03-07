@@ -9,6 +9,7 @@ import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
+import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 import java.util.Comparator
 
 /**
@@ -41,13 +42,19 @@ class RenderSystem(private val batch: SpriteBatch) : SortedIteratingSystem(
 
         // Vérifier que la TextureRegion est valide avant de dessiner
         if (textureRegion.textureRegion.texture != null) {
+            // Récupérer la position de dessin depuis BoundingBoxUtils (source unique de vérité)
+            val (drawX, drawY) = BoundingBoxUtils.getDrawPosition(position, sprite)
+            val spriteWidth = sprite.width * sprite.scaleX
+            val spriteHeight = sprite.height * sprite.scaleY
+
+
             // Dessiner le sprite
             batch.draw(
                 textureRegion.textureRegion,
-                position.x,
-                position.y,
-                sprite.width * sprite.scaleX,
-                sprite.height * sprite.scaleY
+                drawX,
+                drawY,
+                spriteWidth,
+                spriteHeight
             )
         }
     }

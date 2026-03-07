@@ -5,6 +5,7 @@ import com.badlogic.ashley.core.Family
 import com.badlogic.ashley.systems.IteratingSystem
 import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
+import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
@@ -37,6 +38,7 @@ class AnimationSystem : IteratingSystem(
         val spriteAnimatorComp = entity.getComponent(SpriteAnimatorComponent::class.java)
         val textureRegionComp = entity.getComponent(TextureRegionComponent::class.java)
         val unitTypeComp = entity.getComponent(UnitTypeComponent::class.java)
+        val spriteComp = entity.getComponent(SpriteComponent::class.java)
 
         val spriteAnimator = spriteAnimatorComp.spriteAnimator
 
@@ -56,6 +58,9 @@ class AnimationSystem : IteratingSystem(
             // Tracker les derniers changements
             spriteAnimatorComp.lastActionType = animationComp.currentActionType
             spriteAnimatorComp.lastDirectionType = animationComp.currentDirectionType
+
+            // Mettre à jour le collider du SpriteComponent avec celui du nouveau clip
+            spriteComp?.collider = spriteAnimator.getCurrentCollider()
         }
 
         // Mettre à jour l'animation (l'état persiste entre les frames!)

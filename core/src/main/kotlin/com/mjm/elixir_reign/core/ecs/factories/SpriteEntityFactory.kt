@@ -18,6 +18,7 @@ import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
+import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
 
 /**
  * Factory ECS-pur pour créer des entités avec sprites
@@ -46,15 +47,8 @@ object SpriteEntityFactory {
             isMoving = false
         ))
         entity.add(HealthComponent(
-            currentHP = stats.maxHP,
+            currentHP = stats.maxHP - 45, // For test
             maxHP = stats.maxHP
-        ))
-        entity.add(SpriteComponent(
-            texturePath = SpriteAnimationManager.getTexturePath(unitType),
-            width = 65,
-            height = 70,
-            scaleX = 3f,
-            scaleY = 3f
         ))
 
         // Components client (core) - Animation
@@ -73,6 +67,19 @@ object SpriteEntityFactory {
         )
         entity.add(SpriteAnimatorComponent(animator))
 
+        // Créer le SpriteComponent avec dimensions et offsets depuis l'animator
+        val spriteSheet = animator.spriteSheet
+        entity.add(SpriteComponent(
+            texturePath = SpriteAnimationManager.getTexturePath(unitType),
+            width = spriteSheet.cellWidth,
+            height = spriteSheet.cellHeight,
+            scaleX = 3f,
+            scaleY = 3f,
+            offsetX = -spriteSheet.footX,
+            offsetY = -spriteSheet.footY,
+            collider = animator.getCurrentCollider()
+        ))
+
         // Créer la TextureRegion (UNE FOIS) et la stocker dans le component
         val textureRegion = animator.getCurrentTextureRegion()
             ?: throw RuntimeException("Failed to create TextureRegion for $unitType")
@@ -80,6 +87,9 @@ object SpriteEntityFactory {
 
         // Components de sélection
         entity.add(SelectableComponent(isSelected = false))
+
+        // Barre de vie : position et largeur calculées dynamiquement depuis le collider
+        entity.add(HealthBarComponent(barHeight = 5f))
 
         // Component de profondeur (pour tri automatique par Y-sorting)
         entity.add(DepthComponent())

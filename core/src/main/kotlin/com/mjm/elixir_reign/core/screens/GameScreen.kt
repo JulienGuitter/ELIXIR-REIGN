@@ -14,6 +14,7 @@ import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -99,8 +100,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             engine = gameWorld.coreEngine.engine
         )
         SpriteEntityFactory.createUnit(
-            unitType = UnitType.BARBARIAN,
+            unitType = UnitType.ARCHER,
             x = 150f,
+            y = 150f,
+            engine = gameWorld.coreEngine.engine
+        )
+
+        SpriteEntityFactory.createUnit(
+            unitType = UnitType.GIANT,
+            x = -150f,
             y = 150f,
             engine = gameWorld.coreEngine.engine
         )
@@ -130,7 +138,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         // DEBUG : Afficher les bounding boxes de sélection pour toutes les entités
-        /* shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
         for (entity in gameWorld.coreEngine.engine.entities) {
             val boundingBox = selectionInputHandler.getEntityBoundingBox(entity)
             if (boundingBox != null) {
@@ -144,7 +152,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 shapeRenderer.rect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
             }
         }
-        shapeRenderer.end() */
+        shapeRenderer.end()
+
+        // DEBUG : Afficher les cercles de sélection pour toutes les entités
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        shapeRenderer.color.set(1f, 1f, 1f, 0.8f)
+        for (entity in gameWorld.coreEngine.engine.entities) {
+            val position = entity.getComponent(PositionComponent::class.java)
+            if (position != null) {
+                // Dessiner un cercle blanc rempli autour de chaque entité
+                shapeRenderer.circle(position.x, position.y, 5f)
+            }
+        }
+        shapeRenderer.end()
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
