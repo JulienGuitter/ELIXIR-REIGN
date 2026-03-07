@@ -6,6 +6,7 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.ecs.CoreGameEngine
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
@@ -28,6 +29,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var batch: SpriteBatch
     private lateinit var ecsEngine: CoreGameEngine
     private lateinit var inputController: GameScreenInputController
+    private lateinit var shapeRenderer: ShapeRenderer
 
     override fun show() {
         camera = OrthographicCamera()
@@ -37,6 +39,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         camera.update()
 
         batch = SpriteBatch()
+        shapeRenderer = ShapeRenderer()
 
         // Initialiser l'engine ECS avec le batch et le shapeRenderer
         ecsEngine = CoreGameEngine(batch, shapeRenderer)
