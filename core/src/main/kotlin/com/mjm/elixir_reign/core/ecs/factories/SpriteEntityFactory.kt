@@ -16,6 +16,7 @@ import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
@@ -87,6 +88,7 @@ object SpriteEntityFactory {
 
         // Components de sélection
         entity.add(SelectableComponent(isSelected = false))
+        entity.add(DestinationComponent())
 
         // Barre de vie : position et largeur calculées dynamiquement depuis le collider
         entity.add(HealthBarComponent(barHeight = 5f))
