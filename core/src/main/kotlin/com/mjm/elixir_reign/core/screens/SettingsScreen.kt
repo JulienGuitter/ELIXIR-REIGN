@@ -101,19 +101,8 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
 
         mainTable.add(backBtn).width(300f).height(80f).pad(20f).colspan(2)
 
-        // Label version en bas à droite
-        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
-            color = Color(1f, 1f, 1f, 0.6f)
-        }
-
-        val versionTable = Table().apply {
-            setFillParent(true)
-            bottom().right()
-            add(versionLabel).pad(12f)
-        }
-
         stage.addActor(mainTable)
-        stage.addActor(versionTable)
+        stage.addActor(UiAssets.createVersionTable())
     }
 
     private fun refreshUI() {

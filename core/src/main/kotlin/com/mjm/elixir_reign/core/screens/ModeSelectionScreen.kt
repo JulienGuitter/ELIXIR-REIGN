@@ -14,7 +14,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import com.badlogic.gdx.utils.ScreenUtils
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
@@ -33,7 +32,7 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
         Gdx.input.inputProcessor = stage
 
         // Créer les boutons avec les textes localisés
-        val btnSolo = TextButton(Localization.get("modeSelection.Solo"), UiAssets.skin)
+        val btnSolo = TextButton(Localization.get("modeSelection.solo"), UiAssets.skin)
         val btn1v1 = TextButton("1 " + Localization.get("modeSelection.versus") + " 1", UiAssets.skin)
         val btn1v3 = TextButton("1 " + Localization.get("modeSelection.versus") + " 3", UiAssets.skin)
         val btn2v2 = TextButton("2 " + Localization.get("modeSelection.versus") + " 2", UiAssets.skin)
@@ -88,19 +87,8 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
             add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 
-        // Label version en bas à droite
-        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
-            color = Color(1f, 1f, 1f, 0.6f)
-        }
-
-        val versionTable = Table().apply {
-            setFillParent(true)
-            bottom().right()
-            add(versionLabel).pad(12f)
-        }
-
         stage.addActor(table)
-        stage.addActor(versionTable)
+        stage.addActor(UiAssets.createVersionTable())
     }
 
     override fun resize(width: Int, height: Int) {

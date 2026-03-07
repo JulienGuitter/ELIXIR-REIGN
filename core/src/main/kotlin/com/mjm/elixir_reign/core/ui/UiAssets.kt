@@ -11,9 +11,11 @@ import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
+import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.utils.ScreenUtils
+import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
 object UiAssets {
     lateinit var skin: Skin
@@ -164,6 +166,18 @@ object UiAssets {
         spriteBatch.begin()
         spriteBatch.draw(UiAssets.backgroundTexture, xBack, yBack, drawWidth, drawHeight)
         spriteBatch.end()
+    }
+
+    fun createVersionTable(): Table {
+        // Label version en bas à droite
+        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
+            color = Color(1f, 1f, 1f, 0.6f)
+        }
+        return Table().apply {
+            setFillParent(true)
+            bottom().right()
+            add(versionLabel).pad(12f)
+        }
     }
 }
 

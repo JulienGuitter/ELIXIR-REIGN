@@ -41,7 +41,7 @@ class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
         })
 
         // Waiting label
-        val titleLabel = Label(Localization.get("lobbyWainting.title"), UiAssets.skin)
+        val titleLabel = Label(Localization.get("lobbyWaiting.title"), UiAssets.skin)
         titleLabel.setFontScale(2f)
 
         val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
@@ -56,19 +56,8 @@ class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
             add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 
-        // Label version en bas à droite
-        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
-            color = Color(1f, 1f, 1f, 0.6f)
-        }
-
-        val versionTable = Table().apply {
-            setFillParent(true)
-            bottom().right()
-            add(versionLabel).pad(12f)
-        }
-
         stage.addActor(table)
-        stage.addActor(versionTable)
+        stage.addActor(UiAssets.createVersionTable())
     }
 
     override fun resize(width: Int, height: Int) {
