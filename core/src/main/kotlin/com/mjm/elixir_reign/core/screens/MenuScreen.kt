@@ -3,85 +3,63 @@ package com.mjm.elixir_reign.core.screens
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import com.badlogic.gdx.graphics.g2d.TextureRegion
+import com.badlogic.gdx.utils.ScreenUtils
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.i18n.Localization
+import com.mjm.elixir_reign.core.ui.UiAssets
 
 class MenuScreen(private val game: Main) : ScreenAdapter() {
 
     private lateinit var stage: Stage
-    private lateinit var buttonFont: BitmapFont
-    private lateinit var upTexture: Texture
-    private lateinit var downTexture: Texture
+    private lateinit var spriteBatch: SpriteBatch
+
 
     override fun show() {
+        // Le stage et le SpriteBatch
         stage = Stage(ExtendViewport(1920f, 1080f))
+        spriteBatch = SpriteBatch()
+        Gdx.input.inputProcessor = stage
 
-        // 1) Font pour les textes des boutons
-        buttonFont = BitmapFont().apply {
-            data.setScale(2f)  // taille plus grande
-        }
+        // Créer les boutons avec les textes localisés
+        val playBtn = TextButton(Localization.get("menu.play"), UiAssets.skin)
+        val settingsBtn = TextButton(Localization.get("menu.settings"), UiAssets.skin)
+        val quitBtn = TextButton(Localization.get("menu.quit"), UiAssets.skin)
 
-        // 2) Pixmaps de couleur simple pour les boutons
-        val upPixmap = Pixmap(200, 60, Pixmap.Format.RGBA8888).apply {
-            setColor(Color.DARK_GRAY)
-            fill()
-        }
-        val downPixmap = Pixmap(200, 60, Pixmap.Format.RGBA8888).apply {
-            setColor(Color.GRAY)
-            fill()
-        }
-
-        upTexture = Texture(upPixmap)
-        downTexture = Texture(downPixmap)
-        val upDrawable = TextureRegionDrawable(TextureRegion(upTexture))
-        val downDrawable = TextureRegionDrawable(TextureRegion(downTexture))
-
-        // IMPORTANT: on peut maintenant libérer les Pixmaps
-        upPixmap.dispose()
-        downPixmap.dispose()
-
-        // 3) Style de bouton minimal
-        val style = TextButton.TextButtonStyle().apply {
-            up = upDrawable
-            down = downDrawable
-            font = buttonFont
-            fontColor = Color.WHITE
-        }
-
-        val playBtn = TextButton("Play", style)
-        val quitBtn = TextButton("Quit", style)
-
+        // Ajouter les listeners
         playBtn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 game.changeScreen(GameScreen(game))
             }
         })
+
+        settingsBtn.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                game.changeScreen(SettingsScreen(game))
+            }
+        })
+
         quitBtn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 Gdx.app.exit()
             }
         })
 
+        // Créer la table pour organiser les boutons au centre
         val table = Table().apply {
             setFillParent(true)
-            add(playBtn).pad(10f).row()
-            add(quitBtn).pad(10f)
+            add(playBtn).width(300f).height(80f).pad(15f).row()
+            add(settingsBtn).width(300f).height(80f).pad(15f).row()
+            add(quitBtn).width(300f).height(80f).pad(15f)
         }
 
         stage.addActor(table)
-
-        Gdx.input.inputProcessor = stage
     }
 
     override fun resize(width: Int, height: Int) {
@@ -89,17 +67,39 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.08f, 1f)
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+        draw()
 
+        // Update et draw du stage pour les boutons
         stage.act(delta)
         stage.draw()
     }
 
     override fun dispose() {
         stage.dispose()
-        buttonFont.dispose()
-        upTexture.dispose()
-        downTexture.dispose()
+        spriteBatch.dispose()
+        // UiAssets est géré par Main, ne pas disposer ici
+    }
+
+    private fun draw(){
+        ScreenUtils.clear(Color.BLACK)
+        stage.viewport.apply()
+
+        val worldWidth = stage.viewport.worldWidth
+        val worldHeight = stage.viewport.worldHeight
+
+        val texWidth = UiAssets.backgroundTexture.width.toFloat()
+        val texHeight = UiAssets.backgroundTexture.height.toFloat()
+
+        // Cover: no stretch, no empty area, overflow allowed.
+        val scale = maxOf(worldWidth / texWidth, worldHeight / texHeight)
+        val drawWidth = texWidth * scale
+        val drawHeight = texHeight * scale
+        val xBack = (worldWidth - drawWidth) / 2f
+        val yBack = (worldHeight - drawHeight) / 2f
+
+        spriteBatch.projectionMatrix.set(stage.viewport.camera.combined)
+        spriteBatch.begin()
+        spriteBatch.draw(UiAssets.backgroundTexture, xBack, yBack, drawWidth, drawHeight)
+        spriteBatch.end()
     }
 }

@@ -1,0 +1,6 @@
+{
+  "button-up": { "x": 0, "y": 0, "width": 200, "height": 60 },
+  "button-down": { "x": 0, "y": 60, "width": 200, "height": 60 },
+  "button-over": { "x": 0, "y": 120, "width": 200, "height": 60 }
+}
+
