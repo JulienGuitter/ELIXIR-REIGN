@@ -5,22 +5,24 @@ import com.badlogic.ashley.core.Component
 /**
  * DepthComponent : Gère l'ordre d'affichage (z-order) d'une entité
  *
- * Deux modes :
- * 1. Y-sorting (défaut, automatique) : Plus Y = plus bas = affiche en dernier
- * 2. Z-order explicite : Une valeur fixe qui remplace le Y-sorting
+ * Deux modes de tri :
+ * 1. Y-sorting automatique (défaut) : Utilisé quand zOrder est null
+ *    → Plus Y = plus bas dans la hiérarchie isométrique = affiche en dernier
+ * 2. Z-order explicite : Quand zOrder est non-null
+ *    → Ignore le Y-sorting et utilise cette valeur fixe pour l'ordre d'affichage
  *
- * @param zOrder Profondeur explicite (optionnel). Si non-null, ignore le Y-sorting
- * @param useYSorting Si true, calcule la profondeur en fonction de Y (par défaut true)
+ * @param zOrder Profondeur explicite (optionnel).
+ *               Si null, RenderSystem utilisera automatiquement yPosition pour le tri.
+ *               Si non-null, cette valeur remplace complètement le Y-sorting.
  */
 class DepthComponent(
-    var zOrder: Float? = null,  // Si null, utilise Y-sorting
-    var useYSorting: Boolean = true
+    var zOrder: Float? = null  // Si null, RenderSystem utilise Y-sorting automatique
 ) : Component {
 
     /**
      * Calcule la profondeur finale à utiliser pour l'affichage
-     * @param yPosition Position Y de l'entité (pour Y-sorting)
-     * @return La profondeur à utiliser
+     * @param yPosition Position Y de l'entité (utilisée si zOrder est null)
+     * @return La profondeur à utiliser pour le tri (zOrder si fourni, sinon yPosition)
      */
     fun getDepth(yPosition: Float): Float {
         return zOrder ?: yPosition

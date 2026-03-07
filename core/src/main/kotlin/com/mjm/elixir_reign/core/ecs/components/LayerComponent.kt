@@ -4,7 +4,10 @@ import com.badlogic.ashley.core.Component
 
 /**
  * LayerComponent : Gère les couches de rendu (z-layers)
- * Permet de contrôler précisément quel élément s'affiche au-dessus d'un autre
+ *
+ * Utilisé par RenderSystem pour trier les entités :
+ * 1. D'abord par layer (plus élevé = au-dessus)
+ * 2. Ensuite par profondeur/Y-position (Y-sorting dans chaque layer)
  *
  * @param layer Numéro de couche (plus élevé = au-dessus)
  *     - 0 : Décors de fond

@@ -8,6 +8,7 @@ import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
+import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 import java.util.Comparator
 
 /**
@@ -52,19 +53,26 @@ class RenderSystem(private val batch: SpriteBatch) : SortedIteratingSystem(
     }
 
     /**
-     * Comparateur pour trier les entités par profondeur
-     * Permet le Y-sorting automatique (plus Y = affiche en dernier = au-dessus)
+     * Comparateur pour trier les entités par layer, puis par profondeur
+     * Ordre de tri :
+     * 1. Layer (plus élevé = au-dessus)
+     * 2. Profondeur/Y-position (Y-sorting dans chaque layer)
      */
     private class DepthComparator : Comparator<Entity> {
         override fun compare(e1: Entity, e2: Entity): Int {
+            // Comparaison des layers d'abord (plus élevé = au-dessus)
+            val layer1 = e1.getComponent(LayerComponent::class.java)?.layer ?: 0
+            val layer2 = e2.getComponent(LayerComponent::class.java)?.layer ?: 0
+            val layerComparison = layer2.compareTo(layer1)  // Inversé : plus grand = premier
+            if (layerComparison != 0) return layerComparison
+
+            // Même layer → comparer par profondeur/Y-position
             val pos1 = e1.getComponent(PositionComponent::class.java)
             val pos2 = e2.getComponent(PositionComponent::class.java)
 
-            // Récupérer la profondeur de chaque entité
             val depth1 = e1.getComponent(DepthComponent::class.java)?.getDepth(pos1.y) ?: pos1.y
             val depth2 = e2.getComponent(DepthComponent::class.java)?.getDepth(pos2.y) ?: pos2.y
 
-            // Comparer les profondeurs (profondeur basse = affiche en premier)
             return depth1.compareTo(depth2)
         }
     }

@@ -26,7 +26,7 @@ class GameWorld(
     val coreEngine: CoreGameEngine = CoreGameEngine(
         batch = batch,
         camera = camera,
-        engineToUse = engine  // Utilise l'engine partagé
+        engine = engine  // Utilise l'engine partagé
     )
 
     /**

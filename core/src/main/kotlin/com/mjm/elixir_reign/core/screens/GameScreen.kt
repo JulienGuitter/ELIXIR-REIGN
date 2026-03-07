@@ -13,7 +13,7 @@ import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
-import com.mjm.elixir_reign.core.input.SelectionInputHandler
+import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**

@@ -8,7 +8,6 @@ import com.mjm.elixir_reign.shared.ecs.GameEngine
  *
  * Responsabilités :
  * - Encapsuler GameEngine
- * - Gérer la création d'entités basiques (via factory du shared)
  * - Gérer le cycle de vie (update, dispose)
  * - Logique métier pure (pas de rendu)
  *

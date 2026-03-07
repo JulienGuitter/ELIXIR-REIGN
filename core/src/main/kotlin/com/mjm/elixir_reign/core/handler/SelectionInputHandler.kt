@@ -1,4 +1,4 @@
-package com.mjm.elixir_reign.core.input
+package com.mjm.elixir_reign.core.handler
 
 import com.badlogic.ashley.core.Engine
 import com.badlogic.ashley.core.Entity
@@ -59,7 +59,6 @@ class SelectionInputHandler(private val engine: Engine) {
         dragEndX = worldCoords.x
         dragEndY = worldCoords.y
 
-        // Drag = distance > 10px
         val distance = kotlin.math.sqrt(
             (dragEndX - dragStartX) * (dragEndX - dragStartX) +
             (dragEndY - dragStartY) * (dragEndY - dragStartY)
