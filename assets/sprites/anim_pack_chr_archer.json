@@ -1,5 +1,5 @@
 {
-  "frame_count": 106,
+  "frame_count": 109,
   "columns": 11,
   "rows": 10,
   "frames_per_row": 11,
@@ -14,10 +14,16 @@
   "name": "anim_pack_chr_archer",
   "source_file": "chr_archer.sc",
   "export_mode": "animation_pack",
-  "clip_count": 6,
-  "pack_frame_count": 106,
-  "visible_frame_count": 106,
+  "clip_count": 9,
+  "pack_frame_count": 109,
+  "visible_frame_count": 109,
   "mask_mode": "clean",
+  "force_cell_size": false,
+  "requested_cell_width": null,
+  "requested_cell_height": null,
+  "foot_x": 0.47,
+  "foot_y": 0.16,
+  "foot_coord_space": "normalized_bottom_left",
   "filter_query": "",
   "clips": [
     {
@@ -28,7 +34,18 @@
       "end_frame": 21,
       "timeline_frame_count": 22,
       "visible_frame_count": 22,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.177778,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.888889,
+          "y": 1.0
+        }
+      }
     },
     {
       "name": "archer_attack_2",
@@ -38,7 +55,18 @@
       "end_frame": 41,
       "timeline_frame_count": 20,
       "visible_frame_count": 20,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.088889,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.977778,
+          "y": 0.854167
+        }
+      }
     },
     {
       "name": "archer_attack_3",
@@ -48,37 +76,144 @@
       "end_frame": 57,
       "timeline_frame_count": 16,
       "visible_frame_count": 16,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.066667,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.844444,
+          "y": 0.833333
+        }
+      }
+    },
+    {
+      "name": "archer_idle_1",
+      "anim_index": 66,
+      "start_frame": 58,
+      "frame_count": 1,
+      "end_frame": 58,
+      "timeline_frame_count": 75,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.133333,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.733333,
+          "y": 0.875
+        }
+      }
+    },
+    {
+      "name": "archer_idle_2",
+      "anim_index": 67,
+      "start_frame": 59,
+      "frame_count": 1,
+      "end_frame": 59,
+      "timeline_frame_count": 80,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.155556,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.777778,
+          "y": 0.875
+        }
+      }
+    },
+    {
+      "name": "archer_idle_3",
+      "anim_index": 68,
+      "start_frame": 60,
+      "frame_count": 1,
+      "end_frame": 60,
+      "timeline_frame_count": 85,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.044444,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.733333,
+          "y": 0.875
+        }
+      }
     },
     {
       "name": "archer_run_1",
       "anim_index": 69,
-      "start_frame": 58,
+      "start_frame": 61,
       "frame_count": 16,
-      "end_frame": 73,
+      "end_frame": 76,
       "timeline_frame_count": 16,
       "visible_frame_count": 16,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.066667,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.8,
+          "y": 0.979167
+        }
+      }
     },
     {
       "name": "archer_run_2",
       "anim_index": 70,
-      "start_frame": 74,
+      "start_frame": 77,
       "frame_count": 16,
-      "end_frame": 89,
+      "end_frame": 92,
       "timeline_frame_count": 16,
       "visible_frame_count": 16,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.0,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.844444,
+          "y": 0.916667
+        }
+      }
     },
     {
       "name": "archer_run_3",
       "anim_index": 71,
-      "start_frame": 90,
+      "start_frame": 93,
       "frame_count": 16,
-      "end_frame": 105,
+      "end_frame": 108,
       "timeline_frame_count": 16,
       "visible_frame_count": 16,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.066667,
+          "y": 0.020833
+        },
+        "top_right": {
+          "x": 0.777778,
+          "y": 0.875
+        }
+      }
     }
   ]
 }

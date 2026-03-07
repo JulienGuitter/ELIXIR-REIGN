@@ -1,5 +1,5 @@
 {
-  "frame_count": 171,
+  "frame_count": 174,
   "columns": 14,
   "rows": 13,
   "frames_per_row": 14,
@@ -14,10 +14,16 @@
   "name": "anim_pack_chr_giant",
   "source_file": "chr_giant.sc",
   "export_mode": "animation_pack",
-  "clip_count": 6,
-  "pack_frame_count": 171,
-  "visible_frame_count": 171,
+  "clip_count": 9,
+  "pack_frame_count": 174,
+  "visible_frame_count": 174,
   "mask_mode": "clean",
+  "force_cell_size": false,
+  "requested_cell_width": null,
+  "requested_cell_height": null,
+  "foot_x": 0.46,
+  "foot_y": 0.19,
+  "foot_coord_space": "normalized_bottom_left",
   "filter_query": "",
   "clips": [
     {
@@ -28,7 +34,18 @@
       "end_frame": 24,
       "timeline_frame_count": 25,
       "visible_frame_count": 25,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.078261,
+          "y": 0.052083
+        },
+        "top_right": {
+          "x": 0.826087,
+          "y": 1.0
+        }
+      }
     },
     {
       "name": "giant_attack_2",
@@ -38,7 +55,18 @@
       "end_frame": 49,
       "timeline_frame_count": 25,
       "visible_frame_count": 25,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.078261,
+          "y": 0.0625
+        },
+        "top_right": {
+          "x": 0.991304,
+          "y": 0.90625
+        }
+      }
     },
     {
       "name": "giant_attack_3",
@@ -48,7 +76,18 @@
       "end_frame": 74,
       "timeline_frame_count": 25,
       "visible_frame_count": 25,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "top_right": {
+          "x": 0.765217,
+          "y": 0.90625
+        }
+      }
     },
     {
       "name": "giant_run_1",
@@ -58,7 +97,18 @@
       "end_frame": 106,
       "timeline_frame_count": 32,
       "visible_frame_count": 32,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.078261,
+          "y": 0.0625
+        },
+        "top_right": {
+          "x": 0.73913,
+          "y": 0.875
+        }
+      }
     },
     {
       "name": "giant_run_2",
@@ -68,7 +118,18 @@
       "end_frame": 138,
       "timeline_frame_count": 32,
       "visible_frame_count": 32,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.191304,
+          "y": 0.052083
+        },
+        "top_right": {
+          "x": 0.713043,
+          "y": 0.895833
+        }
+      }
     },
     {
       "name": "giant_run_3",
@@ -78,7 +139,81 @@
       "end_frame": 170,
       "timeline_frame_count": 32,
       "visible_frame_count": 32,
-      "fps": 24
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.078261,
+          "y": 0.052083
+        },
+        "top_right": {
+          "x": 0.747826,
+          "y": 0.9375
+        }
+      }
+    },
+    {
+      "name": "giant_idle_1",
+      "anim_index": 141,
+      "start_frame": 171,
+      "frame_count": 1,
+      "end_frame": 171,
+      "timeline_frame_count": 20,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.130435,
+          "y": 0.0625
+        },
+        "top_right": {
+          "x": 0.704348,
+          "y": 0.885417
+        }
+      }
+    },
+    {
+      "name": "giant_idle_2",
+      "anim_index": 142,
+      "start_frame": 172,
+      "frame_count": 1,
+      "end_frame": 172,
+      "timeline_frame_count": 20,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.2,
+          "y": 0.0625
+        },
+        "top_right": {
+          "x": 0.713043,
+          "y": 0.885417
+        }
+      }
+    },
+    {
+      "name": "giant_idle_3",
+      "anim_index": 143,
+      "start_frame": 173,
+      "frame_count": 1,
+      "end_frame": 173,
+      "timeline_frame_count": 20,
+      "visible_frame_count": 1,
+      "fps": 24,
+      "collider": {
+        "coord_space": "normalized_bottom_left",
+        "bottom_left": {
+          "x": 0.13913,
+          "y": 0.0625
+        },
+        "top_right": {
+          "x": 0.713043,
+          "y": 0.864583
+        }
+      }
     }
   ]
 }

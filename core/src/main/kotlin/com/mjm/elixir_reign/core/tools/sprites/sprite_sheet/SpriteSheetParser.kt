@@ -12,6 +12,8 @@ class SpriteSheetParser {
         val cellWidth = json.getInt("cell_width")
         val cellHeight = json.getInt("cell_height")
         val columns = json.getInt("columns")
+        val footX = json.getFloat("foot_x")
+        val footY = json.getFloat("foot_y")
 
         val clipsArray = json.getJSONArray("clips")
         val clips = mutableListOf<AnimationClip>()
@@ -22,7 +24,7 @@ class SpriteSheetParser {
             clips.add(clip)
         }
 
-        return SpriteSheet(name, cellWidth, cellHeight, columns, clips)
+        return SpriteSheet(name, cellWidth, cellHeight, columns, footX, footY, clips)
     }
 
     private fun parseClip(
@@ -36,6 +38,19 @@ class SpriteSheetParser {
         val frameCount = clipJson.getInt("frame_count")
         val fps = clipJson.getInt("fps")
 
+        // Parser le collider s'il est présent
+        val collider: ColliderData? = if (clipJson.has("collider")) {
+            val colliderJson = clipJson.getJSONObject("collider")
+            val bl = colliderJson.getJSONObject("bottom_left")
+            val tr = colliderJson.getJSONObject("top_right")
+            ColliderData(
+                bottomLeftX = bl.getDouble("x").toFloat(),
+                bottomLeftY = bl.getDouble("y").toFloat(),
+                topRightX = tr.getDouble("x").toFloat(),
+                topRightY = tr.getDouble("y").toFloat()
+            )
+        } else null
+
         val frames = mutableListOf<Frame>()
         for (i in 0 until frameCount) {
             val frameIndex = startFrame + i
@@ -43,7 +58,7 @@ class SpriteSheetParser {
             frames.add(Frame(frameIndex, x, y))
         }
 
-        return AnimationClip(name, startFrame, frameCount, fps, frames)
+        return AnimationClip(name, startFrame, frameCount, fps, collider, frames)
     }
 
     private fun calculateFramePosition(
