@@ -7,7 +7,10 @@ object TextureManager {
 
     fun getTexture(path: String): Texture {
         return textureCache.getOrPut(path) {
-            Texture(path)
+            Texture(path).also { tex ->
+                // Linear = interpolation bilinéaire → rendu smooth au lieu de pixelisé
+                tex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+            }
         }
     }
 

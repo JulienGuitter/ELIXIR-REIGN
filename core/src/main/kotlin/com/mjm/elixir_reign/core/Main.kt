@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.assets.AssetManager
 import com.mjm.elixir_reign.core.platform.PlatformBridge
 import com.mjm.elixir_reign.core.screens.MenuScreen
+import com.mjm.elixir_reign.core.ui.UiAssets
 
 class Main(val platform: PlatformBridge) : Game() {
 
@@ -15,6 +16,9 @@ class Main(val platform: PlatformBridge) : Game() {
     override fun create() {
         batch = SpriteBatch()
         assets = AssetManager()
+
+        // Charger les assets UI une seule fois pour toute l'application
+        UiAssets.load()
 
         changeScreen(MenuScreen(this))
     }
@@ -29,5 +33,7 @@ class Main(val platform: PlatformBridge) : Game() {
         super.dispose()   // appelle hide() + dispose() sur l'écran courant via Game
         batch.dispose()
         assets.dispose()  // libère toutes les ressources natives gérées par l'AssetManager
+        // Libérer les assets UI ici, pas dans les screens
+        UiAssets.dispose()
     }
 }
