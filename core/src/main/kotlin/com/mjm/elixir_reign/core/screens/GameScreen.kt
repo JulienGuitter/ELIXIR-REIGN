@@ -52,12 +52,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         inputController.activate()
 
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.BARBARIAN,
-            x = 0f,
-            y = 0f,
-            engine = ecsEngine.engine
-        )
+        val nbr = 10;
+        for (i in nbr downTo 1) {
+            for (j in nbr downTo 1) {
+                SpriteEntityFactory.createUnit(
+                    unitType = UnitType.BARBARIAN,
+                    x = i * 20f - 100f,
+                    y = j * 20f - 100f,
+                    engine = ecsEngine.engine
+                )
+            }
+        }
     }
 
     override fun render(delta: Float) {
