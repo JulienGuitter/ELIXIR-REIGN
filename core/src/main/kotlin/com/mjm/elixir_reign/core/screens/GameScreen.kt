@@ -21,7 +21,7 @@ import com.mjm.elixir_reign.shared.logic.UnitType
  */
 
 const val CAMERA_INITIAL_ZOOM = 0.5f
-const val MAP_SIZE = 20 // 4x4 tiles
+const val MAP_SIZE = 50
 
 class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var camera: OrthographicCamera

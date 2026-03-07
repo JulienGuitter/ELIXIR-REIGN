@@ -20,6 +20,8 @@ internal data class CameraDragBounds(
     val bottom: Float,
     val top: Float
 ) {
+    val width: Float = right - left
+    val height: Float = top - bottom
     val centerX: Float = (left + right) / 2f
     val centerY: Float = (bottom + top) / 2f
 }
@@ -116,7 +118,8 @@ internal class GameScreenInputController(
     }
 
     private fun setCameraZoom(nextZoom: Float) {
-        camera.zoom = max(config.minCameraZoom, min(config.maxCameraZoom, nextZoom))
+        val maxZoomOut = max(config.maxZoomIn, calculateMaxZoomOut())
+        camera.zoom = max(config.maxZoomIn, min(maxZoomOut, nextZoom))
         clampCameraPosition()
     }
 
@@ -128,21 +131,28 @@ internal class GameScreenInputController(
         val halfViewportWidth = camera.viewportWidth * camera.zoom / 2f
         val halfViewportHeight = camera.viewportHeight * camera.zoom / 2f
 
-        val clampPadding = 50f
-
         camera.position.x = clampAxis(
             value = camera.position.x,
-            minValue = dragBounds.left + halfViewportWidth - clampPadding,
-            maxValue = dragBounds.right - halfViewportWidth + clampPadding,
+            minValue = dragBounds.left + halfViewportWidth - config.zoomOutPadding,
+            maxValue = dragBounds.right - halfViewportWidth + config.zoomOutPadding,
             fallback = dragBounds.centerX
         )
         camera.position.y = clampAxis(
             value = camera.position.y,
-            minValue = dragBounds.bottom + halfViewportHeight - clampPadding,
-            maxValue = dragBounds.top - halfViewportHeight + clampPadding,
+            minValue = dragBounds.bottom + halfViewportHeight - config.zoomOutPadding,
+            maxValue = dragBounds.top - halfViewportHeight + config.zoomOutPadding,
             fallback = dragBounds.centerY
         )
         camera.update()
+    }
+
+    private fun calculateMaxZoomOut(): Float {
+        val paddedWidth = dragBounds.width + (config.zoomOutPadding * 2f)
+        val paddedHeight = dragBounds.height + (config.zoomOutPadding * 2f)
+        val zoomToFitWidth = paddedWidth / camera.viewportWidth
+        val zoomToFitHeight = paddedHeight / camera.viewportHeight
+
+        return max(zoomToFitWidth, zoomToFitHeight)
     }
 
     private fun clampAxis(value: Float, minValue: Float, maxValue: Float, fallback: Float): Float {

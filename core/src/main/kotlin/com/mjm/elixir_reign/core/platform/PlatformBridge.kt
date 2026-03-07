@@ -3,8 +3,8 @@ package com.mjm.elixir_reign.core.platform
 import com.mjm.elixir_reign.core.Main
 
 data class GameInputConfig(
-    val minCameraZoom: Float = 0.25f,
-    val maxCameraZoom: Float = 2f,
+    val maxZoomIn: Float = 0.25f,
+    val zoomOutPadding: Float = 100f,
     val touchZoomEnabled: Boolean = true,
     val catchesBackKey: Boolean = false
 )
@@ -35,4 +35,3 @@ interface PlatformBridge {
      */
     fun onBackPressed(game: Main)
 }
-

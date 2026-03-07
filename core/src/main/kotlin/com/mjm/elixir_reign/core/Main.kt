@@ -7,6 +7,8 @@ import com.badlogic.gdx.assets.AssetManager
 import com.mjm.elixir_reign.core.debug.FpsCounterOverlay
 import com.mjm.elixir_reign.core.platform.PlatformBridge
 import com.mjm.elixir_reign.core.screens.GameScreen
+import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
+import com.mjm.elixir_reign.core.tools.sprites.TextureManager
 
 class Main(val platform: PlatformBridge) : Game() {
 
@@ -43,5 +45,7 @@ class Main(val platform: PlatformBridge) : Game() {
         fpsCounterOverlay.dispose()
         batch.dispose()
         assets.dispose()  // libère toutes les ressources natives gérées par l'AssetManager
+        SpriteAnimationManager.dispose()
+        TextureManager.unloadAll()
     }
 }
