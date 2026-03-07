@@ -1,5 +1,6 @@
 package com.mjm.elixir_reign.core.screens
 
+import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
@@ -11,10 +12,12 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.ecs.CoreGameEngine
+import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
-import com.mjm.elixir_reign.core.tools.sprites.terrain.TerrainTileManager
-import com.mjm.elixir_reign.core.tools.sprites.terrain.IsoTileSlice
-import com.mjm.elixir_reign.core.tools.sprites.terrain.ComposedTile
+import com.mjm.elixir_reign.core.tools.sprites.TextureManager
+import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.SpriteSheetParser
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
+import com.mjm.elixir_reign.shared.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -25,8 +28,6 @@ import com.mjm.elixir_reign.shared.logic.UnitType
  */
 
 const val CAMERA_ZOOM = 0.5f
-const val MAP_SIZE = 1
-const val TILE_SIZE = 128f
 
 class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var camera: OrthographicCamera
@@ -72,11 +73,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         batch = SpriteBatch()
 
-        // Charger les tiles de terrain avec le 9-slice isométrique
-        TerrainTileManager.load()
-
         // Initialiser l'engine ECS avec le batch
         ecsEngine = CoreGameEngine(batch)
+
+        // Créer une tile de terrain (ground_1) via ECS
+        createTerrainTile("ground_1", cubePosition.x, cubePosition.y)
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -101,15 +102,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         batch.projectionMatrix = camera.combined
 
-        // Dessiner la face du dessus avec la texture terrain + entités ECS (SpriteBatch)
+        // Tout est rendu par le RenderSystem de l'ECS
         batch.begin()
-        drawMap()
         ecsEngine.update(delta)
         batch.end()
     }
 
     override fun resize(width: Int, height: Int) {
-        // Quand la taille de l'écran change, on doit réajuster la caméra pour que les coordonnées restent cohérentes
         val oldX = camera.position.x
         val oldY = camera.position.y
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
@@ -119,49 +118,44 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     override fun dispose() {
         batch.dispose()
-        TerrainTileManager.dispose()
         ecsEngine.dispose()
     }
 
     /**
-     * Dessine la map isométrique avec la texture terrain.
-     * Affiche les 9 slices de la tile séparément avec un espacement pour visualiser le découpage.
-     */
-    private fun drawMap() {
-        val slices = TerrainTileManager.getAllSlices(5)
-        val spacing = 1f // espacement en pixels entre chaque slice
-
-        drawIsoTile(cubePosition.x, cubePosition.y, slices, spacing)
-    }
-
-    /**
-     * Dessine une tile isométrique composée de 9 slices à la position donnée.
+     * Crée une entité ECS pour une tile de terrain.
+     * Utilise le SpriteSheetParser existant pour lire le JSON terrain
+     * et TextureManager pour charger la texture.
      *
-     * La tile source (114x88) est déjà un losange isométrique rendu dans un rectangle.
-     * Les slices sont découpés en grille 3x3 rectangulaire et ré-assemblés de la même
-     * manière pour reconstruire le losange original.
-     *
-     * @param x position X du coin inférieur gauche de la tile
-     * @param y position Y du coin inférieur gauche de la tile
-     * @param slices les 9 TextureRegion à dessiner
-     * @param spacing espacement entre les slices (0 = collés, >0 = séparés pour debug)
+     * @param clipName nom du clip dans le JSON (ground_1 … ground_7)
+     * @param x position X en pixels
+     * @param y position Y en pixels
      */
-    private fun drawIsoTile(
-        x: Float,
-        y: Float,
-        slices: Map<IsoTileSlice, TextureRegion>,
-        spacing: Float = 0f
-    ) {
-        val sliceW = TerrainTileManager.sliceWidth.toFloat()
-        val sliceH = TerrainTileManager.sliceHeight.toFloat()
+    private fun createTerrainTile(clipName: String, x: Float, y: Float) {
+        val texturePath = "sprites/terrain/anim_pack/pack_ground.png"
+        val jsonPath = "sprites/terrain/description/pack_ground.json"
 
-        for (slice in IsoTileSlice.entries) {
-            val textureRegion = slices[slice] ?: continue
-            // col va de gauche à droite (0,1,2)
-            // row 0 = haut de la texture = Y le plus grand dans libGDX (Y-up)
-            val posX = x + slice.col * (sliceW + spacing)
-            val posY = y + (2 - slice.row) * (sliceH + spacing)
-            batch.draw(textureRegion, posX, posY, sliceW, sliceH)
-        }
+        val spriteSheet = SpriteSheetParser().parseJson(jsonPath)
+        val clip = spriteSheet.clips.first { it.name == clipName }
+        val frame = clip.frames[0]
+
+        val texture = TextureManager.getTexture(texturePath)
+        val region = TextureRegion(
+            texture,
+            frame.x,
+            frame.y,
+            spriteSheet.cellWidth,
+            spriteSheet.cellHeight
+        )
+
+        val entity = Entity()
+        entity.add(PositionComponent(x, y))
+        entity.add(TextureRegionComponent(region))
+        entity.add(SpriteComponent(
+            texturePath = texturePath,
+            width = spriteSheet.cellWidth,
+            height = spriteSheet.cellHeight
+        ))
+
+        ecsEngine.engine.addEntity(entity)
     }
 }
