@@ -50,8 +50,8 @@ object SpriteEntityFactory {
             texturePath = SpriteAnimationManager.getTexturePath(unitType),
             width = 65,
             height = 70,
-            scaleX = 3f,
-            scaleY = 3f
+            scaleX = 1f,
+            scaleY = 1f
         ))
 
         // Components client (core) - Animation

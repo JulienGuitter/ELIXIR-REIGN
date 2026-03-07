@@ -1,0 +1,90 @@
+{
+  "frame_count": 7,
+  "columns": 3,
+  "rows": 3,
+  "frames_per_row": 3,
+  "frames_per_column": 3,
+  "cell_width": 114,
+  "cell_height": 88,
+  "frame_width": 114,
+  "frame_height": 88,
+  "sheet_width": 342,
+  "sheet_height": 264,
+  "align_origins": true,
+  "name": "pack_ground",
+  "source_file": "building_bases.sc",
+  "export_mode": "animation_pack",
+  "clip_count": 7,
+  "pack_frame_count": 7,
+  "visible_frame_count": 7,
+  "mask_mode": "clean",
+  "force_cell_size": false,
+  "requested_cell_width": null,
+  "requested_cell_height": null,
+  "filter_query": "",
+  "clips": [
+    {
+      "name": "ground_1",
+      "start_frame": 0,
+      "frame_count": 1,
+      "end_frame": 1,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_2",
+      "start_frame": 1,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_3",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 3,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_4",
+      "start_frame": 3,
+      "frame_count": 1,
+      "end_frame": 4,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_5",
+      "start_frame": 4,
+      "frame_count": 1,
+      "end_frame": 5,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_6",
+      "start_frame": 5,
+      "frame_count": 1,
+      "end_frame": 6,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    },
+    {
+      "name": "ground_7",
+      "start_frame": 6,
+      "frame_count": 1,
+      "end_frame": 7,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 1
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.assets.AssetManager
 import com.mjm.elixir_reign.core.platform.PlatformBridge
+import com.mjm.elixir_reign.core.screens.GameScreen
 import com.mjm.elixir_reign.core.screens.MenuScreen
 
 class Main(val platform: PlatformBridge) : Game() {
@@ -16,7 +17,7 @@ class Main(val platform: PlatformBridge) : Game() {
         batch = SpriteBatch()
         assets = AssetManager()
 
-        changeScreen(MenuScreen(this))
+        changeScreen(GameScreen(this))
     }
 
     fun changeScreen(screen: Screen) {
