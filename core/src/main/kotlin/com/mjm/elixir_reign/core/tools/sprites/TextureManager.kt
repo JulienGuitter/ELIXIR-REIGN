@@ -11,6 +11,10 @@ object TextureManager {
         }
     }
 
+    fun getTexture(path: String, textureFactory: () -> Texture): Texture {
+        return textureCache.getOrPut(path, textureFactory)
+    }
+
     fun unloadTexture(path: String) {
         textureCache[path]?.dispose()
         textureCache.remove(path)
@@ -23,4 +27,3 @@ object TextureManager {
 
     fun getCacheSize(): Int = textureCache.size
 }
-

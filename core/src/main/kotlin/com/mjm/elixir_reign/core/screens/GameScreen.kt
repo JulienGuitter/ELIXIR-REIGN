@@ -8,14 +8,11 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.ecs.CoreGameEngine
-import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
-import com.mjm.elixir_reign.core.tools.sprites.TextureManager
-import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.SpriteSheetParser
+import com.mjm.elixir_reign.core.ecs.factories.TerrainEntityFactory
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
@@ -28,6 +25,7 @@ import com.mjm.elixir_reign.shared.logic.UnitType
  */
 
 const val CAMERA_ZOOM = 0.5f
+const val MAP_SIZE = 4 // 4x4 tiles
 
 class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var camera: OrthographicCamera
@@ -35,7 +33,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var ecsEngine: CoreGameEngine
 
     private val lastTouch = Vector2()
-    private val cubePosition = Vector2(0f, 0f)
 
     private val input = object : InputAdapter() {
 
@@ -76,8 +73,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Initialiser l'engine ECS avec le batch
         ecsEngine = CoreGameEngine(batch)
 
-        // Créer une tile de terrain (ground_1) via ECS
-        createTerrainTile("ground_1", cubePosition.x, cubePosition.y)
+        val terrain = TerrainEntityFactory.createIsoTerrain(
+            clipName = "ground_5",
+            gridColumns = MAP_SIZE,
+            gridRows = MAP_SIZE,
+            engine = ecsEngine.engine
+        )
+        centerEntity(terrain)
+
+        Gdx.input.inputProcessor = input
 
         SpriteEntityFactory.createUnit(
             unitType = UnitType.BARBARIAN,
@@ -85,20 +89,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             y = 0f,
             engine = ecsEngine.engine
         )
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.ARCHER,
-            x = 150f,
-            y = 150f,
-            engine = ecsEngine.engine
-        )
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.GIANT,
-            x = -150f,
-            y = 150f,
-            engine = ecsEngine.engine
-        )
-
-        Gdx.input.inputProcessor = input
     }
 
     override fun render(delta: Float) {
@@ -128,41 +118,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         ecsEngine.dispose()
     }
 
-    /**
-     * Crée une entité ECS pour une tile de terrain.
-     * Utilise le SpriteSheetParser existant pour lire le JSON terrain
-     * et TextureManager pour charger la texture.
-     *
-     * @param clipName nom du clip dans le JSON (ground_1 … ground_7)
-     * @param x position X en pixels
-     * @param y position Y en pixels
-     */
-    private fun createTerrainTile(clipName: String, x: Float, y: Float) {
-        val texturePath = "sprites/terrain/anim_pack/pack_ground.png"
-        val jsonPath = "sprites/terrain/description/pack_ground.json"
-
-        val spriteSheet = SpriteSheetParser().parseJson(jsonPath)
-        val clip = spriteSheet.clips.first { it.name == clipName }
-        val frame = clip.frames[0]
-
-        val texture = TextureManager.getTexture(texturePath)
-        val region = TextureRegion(
-            texture,
-            frame.x,
-            frame.y,
-            spriteSheet.cellWidth,
-            spriteSheet.cellHeight
-        )
-
-        val entity = Entity()
-        entity.add(PositionComponent(x, y))
-        entity.add(TextureRegionComponent(region))
-        entity.add(SpriteComponent(
-            texturePath = texturePath,
-            width = spriteSheet.cellWidth,
-            height = spriteSheet.cellHeight
-        ))
-
-        ecsEngine.engine.addEntity(entity)
+    private fun centerEntity(entity: Entity) {
+        val position = entity.getComponent(PositionComponent::class.java)
+        val sprite = entity.getComponent(SpriteComponent::class.java)
+        position.x = -(sprite.width / 2f)
+        position.y = -(sprite.height / 2f)
     }
 }
