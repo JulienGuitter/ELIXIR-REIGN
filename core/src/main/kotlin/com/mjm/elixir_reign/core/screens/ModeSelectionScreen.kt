@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
-import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
@@ -20,7 +19,7 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
-class MenuScreen(private val game: Main) : ScreenAdapter() {
+class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
     private lateinit var stage: Stage
     private lateinit var spriteBatch: SpriteBatch
@@ -33,26 +32,43 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         Gdx.input.inputProcessor = stage
 
         // Créer les boutons avec les textes localisés
-        val playBtn = TextButton(Localization.get("menu.play"), UiAssets.skin)
-        val settingsBtn = TextButton(Localization.get("menu.settings"), UiAssets.skin)
-        val quitBtn = TextButton(Localization.get("menu.quit"), UiAssets.skin)
+        val btnSolo = TextButton(Localization.get("modeSelection.solo"), UiAssets.skin)
+        val btn1v1 = TextButton("1 " + Localization.get("modeSelection.versus") + " 1", UiAssets.skin)
+        val btn1v3 = TextButton("1 " + Localization.get("modeSelection.versus") + " 3", UiAssets.skin)
+        val btn2v2 = TextButton("2 " + Localization.get("modeSelection.versus") + " 2", UiAssets.skin)
+        val btnReturn = TextButton(Localization.get("global.back"), UiAssets.skin)
 
         // Ajouter les listeners
-        playBtn.addListener(object : ChangeListener() {
+        btnSolo.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(ModeSelectionScreen(game))
+                game.changeScreen(GameScreen(game))
             }
         })
 
-        settingsBtn.addListener(object : ChangeListener() {
+        btn1v1.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(SettingsScreen(game))
+                // TODO : Start 1v1 mode
+                game.changeScreen(LobbyWaitingMenu(game))
             }
         })
 
-        quitBtn.addListener(object : ChangeListener() {
+        btn1v3.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                Gdx.app.exit()
+                // TODO : Start 1v3 mode
+                game.changeScreen(LobbyWaitingMenu(game))
+            }
+        })
+
+        btn2v2.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                // TODO : Start 2v2 mode
+                game.changeScreen(LobbyWaitingMenu(game))
+            }
+        })
+
+        btnReturn.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                game.changeScreen(MenuScreen(game))
             }
         })
 
@@ -63,18 +79,16 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         // Créer la table pour organiser les boutons au centre
         val table = Table().apply {
             setFillParent(true)
-            color = Color(1f, 1f, 1f, 0f)   // invisible au départ
-            add(logoImage).width(350f).height(350f).padBottom(20f).row()
-            add(playBtn).width(300f).height(80f).pad(15f).row()
-            add(settingsBtn).width(300f).height(80f).pad(15f).row()
-            add(quitBtn).width(300f).height(80f).pad(15f)
+            add(logoImage).width(220f).height(220f).padBottom(20f).row()
+            add(btnSolo).width(300f).height(80f).pad(15f).row()
+            add(btn1v1).width(300f).height(80f).pad(15f).row()
+            add(btn1v3).width(300f).height(80f).pad(15f).row()
+            add(btn2v2).width(300f).height(80f).pad(15f).row()
+            add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 
         stage.addActor(table)
         stage.addActor(UiAssets.createVersionTable())
-
-        // Fade-in du contenu uniquement — le background reste visible en continu
-        table.addAction(Actions.fadeIn(0.5f))
     }
 
     override fun resize(width: Int, height: Int) {
