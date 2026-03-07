@@ -48,7 +48,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val deltaX = screenX - lastTouch.x
             val deltaY = screenY - lastTouch.y
 
-            camera.translate(-deltaX, deltaY)
+            camera.translate(-deltaX * camera.zoom, deltaY * camera.zoom)
             camera.update()
 
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
@@ -111,8 +111,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun resize(width: Int, height: Int) {
         val oldX = camera.position.x
         val oldY = camera.position.y
+        val oldZoom = camera.zoom
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
         camera.position.set(oldX, oldY, 0f)
+        camera.zoom = oldZoom
         camera.update()
     }
 
