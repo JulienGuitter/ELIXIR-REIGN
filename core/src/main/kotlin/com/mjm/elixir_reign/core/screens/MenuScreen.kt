@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
@@ -14,7 +15,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import com.badlogic.gdx.utils.ScreenUtils
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
@@ -63,7 +63,8 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         // Créer la table pour organiser les boutons au centre
         val table = Table().apply {
             setFillParent(true)
-            add(logoImage).width(220f).height(220f).padBottom(20f).row()
+            color = Color(1f, 1f, 1f, 0f)   // invisible au départ
+            add(logoImage).width(350f).height(350f).padBottom(20f).row()
             add(playBtn).width(300f).height(80f).pad(15f).row()
             add(settingsBtn).width(300f).height(80f).pad(15f).row()
             add(quitBtn).width(300f).height(80f).pad(15f)
@@ -71,7 +72,7 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
 
         // Label version en bas à droite
         val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
-            color = Color(1f, 1f, 1f, 0.6f)
+            color = Color(1f, 1f, 1f, 0f)   // invisible au départ
         }
 
         val versionTable = Table().apply {
@@ -82,6 +83,11 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
 
         stage.addActor(table)
         stage.addActor(versionTable)
+
+        // Fade-in du contenu uniquement — le background reste visible en continu
+        table.addAction(Actions.fadeIn(0.5f))
+        // Fade jusqu'à 0.6f (teinte discrète de la version)
+        versionLabel.addAction(Actions.alpha(0.6f, 0.5f))
     }
 
     override fun resize(width: Int, height: Int) {
