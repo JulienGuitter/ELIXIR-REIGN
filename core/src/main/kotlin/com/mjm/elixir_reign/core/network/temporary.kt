@@ -11,7 +11,7 @@ import com.mjm.elixir_reign.shared.network.PacketLogin
 import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 import kotlin.concurrent.thread
 
 class temporary {
