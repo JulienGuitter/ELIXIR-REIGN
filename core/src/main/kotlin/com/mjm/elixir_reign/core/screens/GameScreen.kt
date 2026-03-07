@@ -52,13 +52,18 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         inputController.activate()
 
-        val nbr = 10;
+        val nbr = 10
+        val unitTypes = listOf(UnitType.BARBARIAN, UnitType.ARCHER, UnitType.GIANT)
+
         for (i in nbr downTo 1) {
             for (j in nbr downTo 1) {
+
+                val randomType = unitTypes.random()
+
                 SpriteEntityFactory.createUnit(
-                    unitType = UnitType.BARBARIAN,
-                    x = i * 20f - 100f,
-                    y = j * 20f - 100f,
+                    unitType = randomType,
+                    x = i * 30f - 200f,
+                    y = j * 30f - 200f,
                     engine = ecsEngine.engine
                 )
             }
