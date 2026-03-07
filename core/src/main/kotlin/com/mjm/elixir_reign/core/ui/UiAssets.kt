@@ -21,12 +21,15 @@ object UiAssets {
 
     lateinit var backgroundTexture: Texture
         private set
+    lateinit var logoTransparent: Texture
+        private set
 
     lateinit var buttonTexture: Texture
         private set
 
     fun load() {
         backgroundTexture = Texture("ui/background.png")
+        logoTransparent = Texture("ui/icon_transp.png")
         skin = Skin()
 
         val font: BitmapFont = try {

@@ -4,16 +4,21 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.badlogic.gdx.utils.ScreenUtils
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
 class MenuScreen(private val game: Main) : ScreenAdapter() {
 
@@ -51,15 +56,32 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
             }
         })
 
+        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
+            color = Color(1f, 1f, 1f, 0.85f)
+        }
+
         // Créer la table pour organiser les boutons au centre
         val table = Table().apply {
             setFillParent(true)
+            add(logoImage).width(220f).height(220f).padBottom(20f).row()
             add(playBtn).width(300f).height(80f).pad(15f).row()
             add(settingsBtn).width(300f).height(80f).pad(15f).row()
             add(quitBtn).width(300f).height(80f).pad(15f)
         }
 
+        // Label version en bas à droite
+        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
+            color = Color(1f, 1f, 1f, 0.6f)
+        }
+
+        val versionTable = Table().apply {
+            setFillParent(true)
+            bottom().right()
+            add(versionLabel).pad(12f)
+        }
+
         stage.addActor(table)
+        stage.addActor(versionTable)
     }
 
     override fun resize(width: Int, height: Int) {
