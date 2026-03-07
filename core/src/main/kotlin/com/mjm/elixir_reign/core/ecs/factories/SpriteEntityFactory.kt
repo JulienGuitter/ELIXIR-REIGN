@@ -79,7 +79,7 @@ object SpriteEntityFactory {
         entity.add(TextureRegionComponent(textureRegion))
 
         // Components de sélection
-        entity.add(SelectableComponent(isSelected = true))
+        entity.add(SelectableComponent(isSelected = false))
 
         // Component de profondeur (pour tri automatique par Y-sorting)
         entity.add(DepthComponent())

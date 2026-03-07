@@ -39,8 +39,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
-            // Sélectionner l'entité au clic
-            selectionInputHandler.selectEntityAtScreenCoords(screenX, screenY, camera)
+            // Initialiser la sélection (détecte double-clic)
+            selectionInputHandler.touchDown(screenX, screenY, camera)
             return true
         }
 
@@ -48,10 +48,22 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val deltaX = screenX - lastTouch.x
             val deltaY = screenY - lastTouch.y
 
-            camera.translate(-deltaX, deltaY)
-            camera.update()
+            // Si mode double-clic actif, faire le drag selection
+            if (selectionInputHandler.isDoubleClickModeActive()) {
+                selectionInputHandler.touchDragged(screenX, screenY, camera)
+            } else {
+                // Sinon, bouger la caméra normalement
+                camera.translate(-deltaX, deltaY)
+                camera.update()
+            }
 
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
+            return true
+        }
+
+        override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+            // Finaliser la sélection/drag selection
+            selectionInputHandler.touchUp()
             return true
         }
 
@@ -76,8 +88,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
-        // Initialiser le gestionnaire de sélection
-        selectionInputHandler = SelectionInputHandler(gameWorld.coreEngine.engine)
+        // Récupérer le selectionInputHandler depuis le CoreGameEngine
+        selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -107,6 +119,32 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
         drawIsoCube(cubePosition.x, cubePosition.y)
         shapeRenderer.end()
+
+        // Dessiner le rectangle de drag selection si actif
+        if (selectionInputHandler.isDraggingNow()) {
+            val dragRect = selectionInputHandler.getDragRectangle()
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
+            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            shapeRenderer.end()
+        }
+
+        // DEBUG : Afficher les bounding boxes de sélection pour toutes les entités
+        /* shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+        for (entity in gameWorld.coreEngine.engine.entities) {
+            val boundingBox = selectionInputHandler.getEntityBoundingBox(entity)
+            if (boundingBox != null) {
+                // Rouge pour les entités non sélectionnées, bleu pour les sélectionnées
+                if (selectionInputHandler.isEntitySelected(entity)) {
+                    shapeRenderer.color.set(0f, 0.5f, 1f, 0.6f)  // Bleu
+                } else {
+                    shapeRenderer.color.set(1f, 0f, 0f, 0.3f)  // Rouge transparent
+                }
+
+                shapeRenderer.rect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
+            }
+        }
+        shapeRenderer.end() */
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
