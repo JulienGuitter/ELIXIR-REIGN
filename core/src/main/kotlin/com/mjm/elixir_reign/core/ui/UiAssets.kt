@@ -37,7 +37,7 @@ object UiAssets {
                 val generatedFont = generator.generateFont(parameter)
                 generator.dispose()
                 generatedFont.color = Color.WHITE
-                println("Font loaded successfully from: ${fontFile.path()}")
+                Gdx.app.log("UiAssets", "Font loaded successfully from: ${fontFile.path()}")
                 generatedFont
             } else {
                 throw Exception("No TTF font found")
