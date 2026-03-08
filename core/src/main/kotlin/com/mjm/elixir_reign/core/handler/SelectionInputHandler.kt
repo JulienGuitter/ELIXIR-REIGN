@@ -7,6 +7,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 
@@ -126,5 +127,22 @@ class SelectionInputHandler(private val engine: Engine) {
     fun isDoubleClickModeActive(): Boolean = isDoubleClickActive
     fun getEntityBoundingBox(entity: Entity): Rectangle? = BoundingBoxUtils.getBoundingBox(entity)
     fun isEntitySelected(entity: Entity): Boolean = entity in selectedEntities
-}
 
+    /**
+     * Commande aux entités sélectionnées de se déplacer vers une destination
+     * @param targetX Position X mondiale de la destination
+     * @param targetY Position Y mondiale de la destination
+     */
+    fun moveSelectedEntitiesToTarget(targetX: Float, targetY: Float) {
+        println("[SelectionInput] Commande de déplacement à (${targetX.toInt()},${targetY.toInt()}) pour ${selectedEntities.size} entité(s)")
+        for (entity in selectedEntities) {
+            val destination = entity.getComponent(DestinationComponent::class.java)
+            if (destination != null) {
+                destination.targetX = targetX
+                destination.targetY = targetY
+                destination.isActive = true
+                println("[SelectionInput] ✓ Entité mise à jour: destination.isActive = true")
+            }
+        }
+    }
+}

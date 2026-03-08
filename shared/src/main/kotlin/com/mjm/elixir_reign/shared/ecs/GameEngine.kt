@@ -15,6 +15,7 @@ open class GameEngine {
 
     init {
         // Ajouter uniquement les systems partagés (logique métier pure)
+        engine.addSystem(DestinationMovementSystem())
         engine.addSystem(MovementSystem())
         engine.addSystem(AttackSystem())
     }

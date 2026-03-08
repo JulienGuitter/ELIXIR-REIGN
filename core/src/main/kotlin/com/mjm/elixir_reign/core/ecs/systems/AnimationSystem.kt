@@ -9,6 +9,7 @@ import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
+import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 
 /**
  * AnimationSystem côté client (ECS-pur)
@@ -29,7 +30,8 @@ class AnimationSystem : IteratingSystem(
         AnimationComponent::class.java,
         SpriteAnimatorComponent::class.java,
         TextureRegionComponent::class.java,
-        UnitTypeComponent::class.java
+        UnitTypeComponent::class.java,
+        MovementComponent::class.java
     ).get()
 ) {
 
@@ -39,8 +41,13 @@ class AnimationSystem : IteratingSystem(
         val textureRegionComp = entity.getComponent(TextureRegionComponent::class.java)
         val unitTypeComp = entity.getComponent(UnitTypeComponent::class.java)
         val spriteComp = entity.getComponent(SpriteComponent::class.java)
+        val movementComp = entity.getComponent(MovementComponent::class.java)
 
         val spriteAnimator = spriteAnimatorComp.spriteAnimator
+
+        // Synchro de la direction d'animation avec le mouvement
+        // Le personnage regarde toujours dans la direction où il se déplace
+        animationComp.currentDirectionType = movementComp.directionType
 
         // Vérifier si l'action ou la direction a changé
         val actionChanged = animationComp.currentActionType != spriteAnimatorComp.lastActionType

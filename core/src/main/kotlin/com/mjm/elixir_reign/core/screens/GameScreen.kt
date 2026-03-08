@@ -40,7 +40,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             lastTouch.set(screenX.toFloat(), screenY.toFloat())
-            // Initialiser la sélection (détecte double-clic)
+
+            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+
+            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+
+            // Clic gauche = sélectionner
             selectionInputHandler.touchDown(screenX, screenY, camera)
             return true
         }

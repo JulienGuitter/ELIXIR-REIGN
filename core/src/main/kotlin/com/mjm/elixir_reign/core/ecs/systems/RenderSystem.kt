@@ -9,6 +9,7 @@ import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
+import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 import java.util.Comparator
 
@@ -47,11 +48,19 @@ class RenderSystem(private val batch: SpriteBatch) : SortedIteratingSystem(
             val spriteWidth = sprite.width * sprite.scaleX
             val spriteHeight = sprite.height * sprite.scaleY
 
+            val animatorComp = entity.getComponent(SpriteAnimatorComponent::class.java)
+            val isFlipped = animatorComp?.spriteAnimator?.shouldFlip() ?: false
+            val finalDrawX = if (isFlipped) {
+                // Use scaled width so flip offset stays consistent with BoundingBoxUtils and other normalized offsets
+                drawX - sprite.width * animatorComp.spriteAnimator.spriteSheet.footX
+            } else {
+                drawX
+            }
 
             // Dessiner le sprite
             batch.draw(
                 textureRegion.textureRegion,
-                drawX,
+                finalDrawX,
                 drawY,
                 spriteWidth,
                 spriteHeight

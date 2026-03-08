@@ -12,8 +12,8 @@ class SpriteSheetParser {
         val cellWidth = json.getInt("cell_width")
         val cellHeight = json.getInt("cell_height")
         val columns = json.getInt("columns")
-        val footX = json.getFloat("foot_x")
-        val footY = json.getFloat("foot_y")
+        val footX = json.getDouble("foot_x").toFloat()
+        val footY = json.getDouble("foot_y").toFloat()
 
         val clipsArray = json.getJSONArray("clips")
         val clips = mutableListOf<AnimationClip>()
