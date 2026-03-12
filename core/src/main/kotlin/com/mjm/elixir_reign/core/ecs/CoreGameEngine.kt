@@ -26,7 +26,7 @@ class CoreGameEngine(
     init {
         engine.addSystem(AnimationSystem())
         engine.addSystem(HealthSystem())
-        engine.addSystem(SelectionRenderSystem(batch, shapeRenderer, camera, selectionInputHandler))
+        // engine.addSystem(SelectionRenderSystem(batch, shapeRenderer, camera, selectionInputHandler))
         engine.addSystem(RenderSystem(batch))
         engine.addSystem(HealthBarRenderSystem(batch, shapeRenderer, camera))
     }
