@@ -17,6 +17,7 @@ class TerrainRenderer(
 
     private val renderTiles: List<RenderTile> = buildRenderTiles()
     private val terrainContourCommands: List<ContourPreviewCommand> = buildTerrainContourCommands()
+    private val grassBottomAngleCommands: List<ContourPreviewCommand> = buildGrassBottomAngleCommands()
     private val terrainBounds: Rectangle = buildTerrainBounds()
 
     fun render(batch: SpriteBatch) {
@@ -32,6 +33,10 @@ class TerrainRenderer(
         }
 
         terrainContourCommands.forEach { command ->
+            drawContourCommand(batch, command)
+        }
+
+        grassBottomAngleCommands.forEach { command ->
             drawContourCommand(batch, command)
         }
     }
@@ -163,10 +168,11 @@ class TerrainRenderer(
         val minTileY = renderTiles.minOf { it.y }
         val maxTileY = renderTiles.maxOf { it.y + tileHeight }
 
-        val minContourX = terrainContourCommands.minOfOrNull { it.x } ?: minTileX
-        val maxContourX = terrainContourCommands.maxOfOrNull { it.x + it.width } ?: maxTileX
-        val minContourY = terrainContourCommands.minOfOrNull { it.y } ?: minTileY
-        val maxContourY = terrainContourCommands.maxOfOrNull { it.y + it.height } ?: maxTileY
+        val allContourCommands = terrainContourCommands + grassBottomAngleCommands
+        val minContourX = allContourCommands.minOfOrNull { it.x } ?: minTileX
+        val maxContourX = allContourCommands.maxOfOrNull { it.x + it.width } ?: maxTileX
+        val minContourY = allContourCommands.minOfOrNull { it.y } ?: minTileY
+        val maxContourY = allContourCommands.maxOfOrNull { it.y + it.height } ?: maxTileY
 
         val minX = minOf(minTileX, minContourX)
         val maxX = maxOf(maxTileX, maxContourX)
@@ -174,6 +180,34 @@ class TerrainRenderer(
         val maxY = maxOf(maxTileY, maxContourY)
 
         return Rectangle(minX, minY, maxX - minX, maxY - minY)
+    }
+
+    private fun buildGrassBottomAngleCommands(): List<ContourPreviewCommand> {
+        val commands = mutableListOf<ContourPreviewCommand>()
+
+        renderTiles.forEach { tile ->
+            if (!tile.type.isGrass) {
+                return@forEach
+            }
+
+            val hasNonGrassLeftDown = matrix[tile.row + 1, tile.col]?.isGrass == false
+            val hasNonGrassRightDown = matrix[tile.row, tile.col + 1]?.isGrass == false
+
+            if (hasNonGrassLeftDown && hasNonGrassRightDown) {
+                commands += buildContourOverlayCommand(
+                    id = ContourSpriteId.TOP_LEFT_CORNER,
+                    overlayCellX = tile.x,
+                    overlayCellY = tile.y - tileHeight * 2f
+                )
+                commands += buildContourOverlayCommand(
+                    id = ContourSpriteId.TOP_RIGHT_CORNER,
+                    overlayCellX = tile.x,
+                    overlayCellY = tile.y - tileHeight * 2f
+                )
+            }
+        }
+
+        return commands
     }
 
     private fun buildContourOverlayCommand(

@@ -17,7 +17,6 @@ import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
-import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -165,35 +164,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
             shapeRenderer.end()
         }
-
-        // DEBUG : Afficher les bounding boxes de sélection pour toutes les entités
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-        for (entity in gameWorld.coreEngine.engine.entities) {
-            val boundingBox = selectionInputHandler.getEntityBoundingBox(entity)
-            if (boundingBox != null) {
-                // Rouge pour les entités non sélectionnées, bleu pour les sélectionnées
-                if (selectionInputHandler.isEntitySelected(entity)) {
-                    shapeRenderer.color.set(0f, 0.5f, 1f, 0.6f)  // Bleu
-                } else {
-                    shapeRenderer.color.set(1f, 0f, 0f, 0.3f)  // Rouge transparent
-                }
-
-                shapeRenderer.rect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
-            }
-        }
-        shapeRenderer.end()
-
-        // DEBUG : Afficher les cercles de sélection pour toutes les entités
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        shapeRenderer.color.set(1f, 1f, 1f, 0.8f)
-        for (entity in gameWorld.coreEngine.engine.entities) {
-            val position = entity.getComponent(PositionComponent::class.java)
-            if (position != null) {
-                // Dessiner un cercle blanc rempli autour de chaque entité
-                shapeRenderer.circle(position.x, position.y, 5f)
-            }
-        }
-        shapeRenderer.end()
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
