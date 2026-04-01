@@ -3,6 +3,8 @@ package com.mjm.elixir_reign.core.terrain
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.shared.terrain.TerrainMatrix
+import com.mjm.elixir_reign.shared.terrain.TerrainType
 
 class TerrainRenderer(
     private val matrix: TerrainMatrix,
