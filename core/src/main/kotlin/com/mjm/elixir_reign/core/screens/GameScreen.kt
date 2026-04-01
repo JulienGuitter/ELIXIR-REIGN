@@ -9,12 +9,14 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
-import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
+import com.mjm.elixir_reign.core.terrain.TerrainPresets
+import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -26,50 +28,83 @@ import com.mjm.elixir_reign.shared.logic.UnitType
 
 class GameScreen(private val game: Main) : ScreenAdapter() {
 
-    private val tileSize = 256f
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
+    private lateinit var terrainRenderer: TerrainRenderer
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
+    private lateinit var terrainBounds: Rectangle
 
-    private val lastTouch = Vector2()
-    private val cubePosition = Vector2(0f, 0f)
+    private val activeTouches = mutableMapOf<Int, Vector2>()
+    private var pinchState: PinchState? = null
 
     private val input = object : InputAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            lastTouch.set(screenX.toFloat(), screenY.toFloat())
-
-            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-
-            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-
+            // val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            // selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
             // Clic gauche = sélectionner
-            selectionInputHandler.touchDown(screenX, screenY, camera)
+            // selectionInputHandler.touchDown(screenX, screenY, camera)
+
+            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+
+            if (activeTouches.size >= 2) {
+                beginPinch()
+            }
             return true
         }
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
-            val deltaX = screenX - lastTouch.x
-            val deltaY = screenY - lastTouch.y
-
             // Si mode double-clic actif, faire le drag selection
-            if (selectionInputHandler.isDoubleClickModeActive()) {
-                selectionInputHandler.touchDragged(screenX, screenY, camera)
-            } else {
-                // Sinon, bouger la caméra normalement
-                camera.translate(-deltaX, deltaY)
-                camera.update()
+            // if (selectionInputHandler.isDoubleClickModeActive()) {
+            //     selectionInputHandler.touchDragged(screenX, screenY, camera)
+            //     return true
+            // }
+
+            val previousTouch = activeTouches[pointer] ?: return false
+
+            if (pinchState != null) {
+                previousTouch.set(screenX.toFloat(), screenY.toFloat())
+                updatePinchZoom()
+                return true
             }
 
-            lastTouch.set(screenX.toFloat(), screenY.toFloat())
+            if (activeTouches.size != 1) {
+                return false
+            }
+
+            val deltaX = screenX.toFloat() - previousTouch.x
+            val deltaY = screenY.toFloat() - previousTouch.y
+
+            // Sinon, bouger la caméra normalement
+            camera.translate(-deltaX * camera.zoom, deltaY * camera.zoom, 0f)
+            clampCameraPosition()
+            camera.update()
+            previousTouch.set(screenX.toFloat(), screenY.toFloat())
             return true
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             // Finaliser la sélection/drag selection
-            selectionInputHandler.touchUp()
+            // selectionInputHandler.touchUp()
+
+            activeTouches.remove(pointer)
+
+            if (activeTouches.size >= 2) {
+                beginPinch()
+            } else {
+                endPinch()
+            }
+            return true
+        }
+
+        override fun scrolled(amountX: Float, amountY: Float): Boolean {
+            if (amountY == 0f) {
+                return false
+            }
+
+            applyZoom(camera.zoom * (1f + amountY * SCROLL_ZOOM_STEP))
             return true
         }
 
@@ -91,11 +126,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
 
+        terrainRenderer = TerrainRenderer(TerrainPresets.map())
+
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
+        terrainBounds = terrainRenderer.worldBounds()
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -104,19 +142,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             y = 0f,
             engine = gameWorld.coreEngine.engine
         )
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.ARCHER,
-            x = 150f,
-            y = 150f,
-            engine = gameWorld.coreEngine.engine
-        )
 
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.GIANT,
-            x = -150f,
-            y = 150f,
-            engine = gameWorld.coreEngine.engine
-        )
+        configureCamera(resetView = true)
 
         Gdx.input.inputProcessor = input
     }
@@ -129,10 +156,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        drawIsoCube(cubePosition.x, cubePosition.y)
-        shapeRenderer.end()
-
         // Dessiner le rectangle de drag selection si actif
         if (selectionInputHandler.isDraggingNow()) {
             val dragRect = selectionInputHandler.getDragRectangle()
@@ -142,37 +165,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             shapeRenderer.end()
         }
 
-        // DEBUG : Afficher les bounding boxes de sélection pour toutes les entités
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-        for (entity in gameWorld.coreEngine.engine.entities) {
-            val boundingBox = selectionInputHandler.getEntityBoundingBox(entity)
-            if (boundingBox != null) {
-                // Rouge pour les entités non sélectionnées, bleu pour les sélectionnées
-                if (selectionInputHandler.isEntitySelected(entity)) {
-                    shapeRenderer.color.set(0f, 0.5f, 1f, 0.6f)  // Bleu
-                } else {
-                    shapeRenderer.color.set(1f, 0f, 0f, 0.3f)  // Rouge transparent
-                }
-
-                shapeRenderer.rect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
-            }
-        }
-        shapeRenderer.end()
-
-        // DEBUG : Afficher les cercles de sélection pour toutes les entités
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        shapeRenderer.color.set(1f, 1f, 1f, 0.8f)
-        for (entity in gameWorld.coreEngine.engine.entities) {
-            val position = entity.getComponent(PositionComponent::class.java)
-            if (position != null) {
-                // Dessiner un cercle blanc rempli autour de chaque entité
-                shapeRenderer.circle(position.x, position.y, 5f)
-            }
-        }
-        shapeRenderer.end()
-
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
+        terrainRenderer.render(batch)
         gameWorld.update(delta)
         batch.end()
     }
@@ -183,33 +178,108 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val oldY = camera.position.y
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
         camera.position.set(oldX, oldY, 0f)
-        camera.update()
+        configureCamera(resetView = false)
     }
 
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
         gameWorld.dispose()
+        terrainRenderer.dispose()
     }
 
-    private fun drawIsoCube(x: Float, y: Float) {
-        val cubeHeight = tileSize / 2f
-        val halfW = tileSize / 2f
-        val halfH = tileSize / 4f
+    private fun beginPinch() {
+        if (activeTouches.size < 2) {
+            return
+        }
 
-        // TOP
-        shapeRenderer.color = Color.LIGHT_GRAY
-        shapeRenderer.triangle(x, y + halfH, x - halfW, y, x + halfW, y)
-        shapeRenderer.triangle(x, y - halfH, x - halfW, y, x + halfW, y)
-
-        // LEFT
-        shapeRenderer.color = Color.GRAY
-        shapeRenderer.triangle(x - halfW, y, x - halfW, y - cubeHeight, x, y - halfH)
-        shapeRenderer.triangle(x - halfW, y - cubeHeight, x, y - cubeHeight - halfH, x, y - halfH)
-
-        // RIGHT
-        shapeRenderer.color = Color.DARK_GRAY
-        shapeRenderer.triangle(x + halfW, y, x + halfW, y - cubeHeight, x, y - halfH)
-        shapeRenderer.triangle(x + halfW, y - cubeHeight, x, y - cubeHeight - halfH, x, y - halfH)
+        val touches = activeTouches.values.toList()
+        pinchState = PinchState(
+            initialDistance = touches[0].dst(touches[1]).coerceAtLeast(1f),
+            initialZoom = camera.zoom
+        )
     }
+
+    private fun endPinch() {
+        pinchState = null
+    }
+
+    private fun updatePinchZoom() {
+        val currentPinchState = pinchState ?: return
+        if (activeTouches.size < 2) {
+            return
+        }
+
+        val touches = activeTouches.values.toList()
+        val currentDistance = touches[0].dst(touches[1])
+
+        if (currentDistance <= 0f) {
+            return
+        }
+
+        applyZoom(currentPinchState.initialZoom * (currentPinchState.initialDistance / currentDistance))
+    }
+
+    private fun applyZoom(requestedZoom: Float) {
+        val minZoomToFit = computeMinZoomToFit().coerceAtLeast(MAX_ZOOM_IN)
+        camera.zoom = requestedZoom.coerceIn(MAX_ZOOM_IN, minZoomToFit)
+        clampCameraPosition()
+        camera.update()
+    }
+
+    private fun configureCamera(resetView: Boolean) {
+        val minZoomToFit = computeMinZoomToFit().coerceAtLeast(MAX_ZOOM_IN)
+
+        if (resetView) {
+            camera.zoom = minZoomToFit
+            camera.position.set(terrainBounds.x + terrainBounds.width / 2f, terrainBounds.y + terrainBounds.height / 2f, 0f)
+        } else {
+            camera.zoom = camera.zoom.coerceIn(MAX_ZOOM_IN, minZoomToFit)
+        }
+
+        clampCameraPosition()
+        camera.update()
+    }
+
+    private fun computeMinZoomToFit(): Float {
+        val fitZoomX = (terrainBounds.width + MIN_ZOOM_PADDING_X * 2f) / camera.viewportWidth
+        val fitZoomY = (terrainBounds.height + MIN_ZOOM_PADDING_Y * 2f) / camera.viewportHeight
+        return maxOf(1f, fitZoomX, fitZoomY)
+    }
+
+    private fun clampCameraPosition() {
+        val visibleHalfWidth = camera.viewportWidth * camera.zoom / 2f
+        val visibleHalfHeight = camera.viewportHeight * camera.zoom / 2f
+
+        val minCameraX = terrainBounds.x - DRAG_PADDING_X + visibleHalfWidth
+        val maxCameraX = terrainBounds.x + terrainBounds.width + DRAG_PADDING_X - visibleHalfWidth
+        val minCameraY = terrainBounds.y - DRAG_PADDING_Y + visibleHalfHeight
+        val maxCameraY = terrainBounds.y + terrainBounds.height + DRAG_PADDING_Y - visibleHalfHeight
+
+        camera.position.x = if (minCameraX <= maxCameraX) {
+            camera.position.x.coerceIn(minCameraX, maxCameraX)
+        } else {
+            terrainBounds.x + terrainBounds.width / 2f
+        }
+
+        camera.position.y = if (minCameraY <= maxCameraY) {
+            camera.position.y.coerceIn(minCameraY, maxCameraY)
+        } else {
+            terrainBounds.y + terrainBounds.height / 2f
+        }
+    }
+
+    companion object {
+        private const val MAX_ZOOM_IN = 0.6f
+        private const val SCROLL_ZOOM_STEP = 0.1f
+        private const val MIN_ZOOM_PADDING_X = 96f
+        private const val MIN_ZOOM_PADDING_Y = 96f
+        private const val DRAG_PADDING_X = 48f
+        private const val DRAG_PADDING_Y = 96f
+    }
+
+    private data class PinchState(
+        val initialDistance: Float,
+        val initialZoom: Float
+    )
 }

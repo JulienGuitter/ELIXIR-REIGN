@@ -1,6 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="PC Client" type="Application" factoryName="Application" singleton="false">
     <option name="MAIN_CLASS_NAME" value="com.mjm.elixir_reign.lwjgl3.Lwjgl3Launcher" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/assets" />
     <module name="ELIXIR-REIGN.lwjgl3.main" />
     <selectedOptions>
       <option name="environmentVariables" visible="false" />
