@@ -80,7 +80,7 @@ class TerrainRenderer(
     private fun buildRawTiles(): List<RawTile> {
         val rawTiles = mutableListOf<RawTile>()
 
-        worldMap.groundChunks().forEach { chunk ->
+        worldMap.allChunks().forEach { chunk ->
             chunk.ground.forEachIndexed { localRow, localCol, type ->
                 if (type == null) {
                     return@forEachIndexed
@@ -236,7 +236,7 @@ class TerrainRenderer(
     }
 
     private fun buildChunkDebugOutlines(): List<ChunkDebugOutline> {
-        return worldMap.groundChunks().mapNotNull { chunk ->
+        return worldMap.allChunks().mapNotNull { chunk ->
             val chunkRows = minOf(chunk.size, worldMap.height - chunk.originRow)
             val chunkCols = minOf(chunk.size, worldMap.width - chunk.originCol)
 

@@ -27,7 +27,7 @@ class WorldMap private constructor(
         return chunks[coord]
     }
 
-    fun groundChunks(): Collection<WorldChunk> {
+    fun allChunks(): Collection<WorldChunk> {
         return chunks.values
     }
 
@@ -62,10 +62,6 @@ class WorldMap private constructor(
 
             for (chunkY in 0 until chunkHeight) {
                 for (chunkX in 0 until chunkWidth) {
-                    if ((chunkX == 0 && chunkY == 0) || (chunkX == 1 && chunkY == 1)) {
-                        continue
-                    }
-
                     val ground = TileGrid.empty<TerrainType>(size = chunkSize)
 
                     for (localRow in 0 until chunkSize) {
