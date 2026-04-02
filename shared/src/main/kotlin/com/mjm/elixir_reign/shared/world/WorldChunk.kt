@@ -16,12 +16,4 @@ class WorldChunk(
 
     val originCol: Int
         get() = coord.x * size
-
-    fun layer(layer: MapLayer): Any {
-        return when (layer) {
-            MapLayer.GROUND -> ground
-            MapLayer.ENTITY -> entities
-            MapLayer.OVERLAY -> overlay
-        }
-    }
 }
