@@ -1,13 +1,16 @@
 package com.mjm.elixir_reign.core.terrain
 
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.Disposable
-import com.mjm.elixir_reign.shared.terrain.TerrainMatrix
 import com.mjm.elixir_reign.shared.terrain.TerrainType
+import com.mjm.elixir_reign.shared.world.ChunkCoord
+import com.mjm.elixir_reign.shared.world.WorldMap
 
 class TerrainRenderer(
-    private val matrix: TerrainMatrix,
+    private val worldMap: WorldMap,
     private val scale: Float = 4f
 ) : Disposable {
 
@@ -17,9 +20,12 @@ class TerrainRenderer(
     private val halfTileWidth = tileWidth / 2f
     private val halfTileHeight = tileHeight / 2f
 
+    private val rawTiles: List<RawTile> = buildRawTiles()
+    private val renderOffset: RenderOffset = computeRenderOffset(rawTiles)
     private val renderTiles: List<RenderTile> = buildRenderTiles()
     private val terrainContourCommands: List<ContourPreviewCommand> = buildTerrainContourCommands()
     private val grassBottomAngleCommands: List<ContourPreviewCommand> = buildGrassBottomAngleCommands()
+    private val chunkDebugOutlines: List<ChunkDebugOutline> = buildChunkDebugOutlines()
     private val terrainBounds: Rectangle = buildTerrainBounds()
 
     fun render(batch: SpriteBatch) {
@@ -47,16 +53,41 @@ class TerrainRenderer(
         return Rectangle(terrainBounds)
     }
 
+    fun renderChunkDebug(shapeRenderer: ShapeRenderer) {
+        chunkDebugOutlines.forEach { outline ->
+            shapeRenderer.line(outline.topX, outline.topY, outline.rightX, outline.rightY)
+            shapeRenderer.line(outline.rightX, outline.rightY, outline.bottomX, outline.bottomY)
+            shapeRenderer.line(outline.bottomX, outline.bottomY, outline.leftX, outline.leftY)
+            shapeRenderer.line(outline.leftX, outline.leftY, outline.topX, outline.topY)
+        }
+    }
+
+    fun renderChunkDebugLabels(batch: SpriteBatch, font: BitmapFont) {
+        chunkDebugOutlines.forEach { outline ->
+            font.draw(
+                batch,
+                "(${outline.coord.x},${outline.coord.y})",
+                outline.labelX,
+                outline.labelY
+            )
+        }
+    }
+
     override fun dispose() {
         tileset.dispose()
     }
 
-    private fun buildRenderTiles(): List<RenderTile> {
+    private fun buildRawTiles(): List<RawTile> {
         val rawTiles = mutableListOf<RawTile>()
 
-        for (row in 0 until matrix.height) {
-            for (col in 0 until matrix.width) {
-                val type = matrix[row, col] ?: continue
+        worldMap.groundChunks().forEach { chunk ->
+            chunk.ground.forEachIndexed { localRow, localCol, type ->
+                if (type == null) {
+                    return@forEachIndexed
+                }
+
+                val row = chunk.originRow + localRow
+                val col = chunk.originCol + localCol
 
                 rawTiles += RawTile(
                     row = row,
@@ -68,13 +99,29 @@ class TerrainRenderer(
             }
         }
 
+        return rawTiles
+    }
+
+    private fun computeRenderOffset(rawTiles: List<RawTile>): RenderOffset {
+        if (rawTiles.isEmpty()) {
+            return RenderOffset(x = 0f, y = 0f)
+        }
+
         val minX = rawTiles.minOf { it.rawX }
         val maxX = rawTiles.maxOf { it.rawX + tileWidth }
         val minY = rawTiles.minOf { it.rawY }
         val maxY = rawTiles.maxOf { it.rawY + tileHeight }
 
-        val offsetX = -((minX + maxX) / 2f)
-        val offsetY = -((minY + maxY) / 2f)
+        return RenderOffset(
+            x = -((minX + maxX) / 2f),
+            y = -((minY + maxY) / 2f)
+        )
+    }
+
+    private fun buildRenderTiles(): List<RenderTile> {
+        if (rawTiles.isEmpty()) {
+            return emptyList()
+        }
 
         return rawTiles
             .sortedWith(compareBy<RawTile> { it.row + it.col }.thenBy { it.row }.thenBy { it.col })
@@ -83,8 +130,8 @@ class TerrainRenderer(
                     row = tile.row,
                     col = tile.col,
                     type = tile.type,
-                    x = tile.rawX + offsetX,
-                    y = tile.rawY + offsetY
+                    x = tile.rawX + renderOffset.x,
+                    y = tile.rawY + renderOffset.y
                 )
             }
     }
@@ -97,10 +144,10 @@ class TerrainRenderer(
                 return@forEach
             }
 
-            val hasGrassLeftUp = matrix[tile.row, tile.col - 1]?.isGrass == true
-            val hasGrassRightUp = matrix[tile.row - 1, tile.col]?.isGrass == true
-            val hasGrassLeftDown = matrix[tile.row + 1, tile.col]?.isGrass == true
-            val hasGrassRightDown = matrix[tile.row, tile.col + 1]?.isGrass == true
+            val hasGrassLeftUp = worldMap[tile.row, tile.col - 1]?.isGrass == true
+            val hasGrassRightUp = worldMap[tile.row - 1, tile.col]?.isGrass == true
+            val hasGrassLeftDown = worldMap[tile.row + 1, tile.col]?.isGrass == true
+            val hasGrassRightDown = worldMap[tile.row, tile.col + 1]?.isGrass == true
 
             if (hasGrassLeftUp) {
                 commands += buildContourOverlayCommand(
@@ -165,6 +212,10 @@ class TerrainRenderer(
     }
 
     private fun buildTerrainBounds(): Rectangle {
+        if (renderTiles.isEmpty()) {
+            return Rectangle()
+        }
+
         val minTileX = renderTiles.minOf { it.x }
         val maxTileX = renderTiles.maxOf { it.x + tileWidth }
         val minTileY = renderTiles.minOf { it.y }
@@ -184,6 +235,51 @@ class TerrainRenderer(
         return Rectangle(minX, minY, maxX - minX, maxY - minY)
     }
 
+    private fun buildChunkDebugOutlines(): List<ChunkDebugOutline> {
+        return worldMap.groundChunks().mapNotNull { chunk ->
+            val chunkRows = minOf(chunk.size, worldMap.height - chunk.originRow)
+            val chunkCols = minOf(chunk.size, worldMap.width - chunk.originCol)
+
+            if (chunkRows <= 0 || chunkCols <= 0) {
+                return@mapNotNull null
+            }
+
+            val topLeft = tileRenderPosition(row = chunk.originRow, col = chunk.originCol)
+            val topRight = tileRenderPosition(row = chunk.originRow, col = chunk.originCol + chunkCols - 1)
+            val bottomRight = tileRenderPosition(
+                row = chunk.originRow + chunkRows - 1,
+                col = chunk.originCol + chunkCols - 1
+            )
+            val bottomLeft = tileRenderPosition(
+                row = chunk.originRow + chunkRows - 1,
+                col = chunk.originCol
+            )
+
+            val topX = topLeft.x + halfTileWidth
+            val topY = topLeft.y + tileHeight
+            val rightX = topRight.x + tileWidth
+            val rightY = topRight.y + halfTileHeight
+            val bottomX = bottomRight.x + halfTileWidth
+            val bottomY = bottomRight.y
+            val leftX = bottomLeft.x
+            val leftY = bottomLeft.y + halfTileHeight
+
+            ChunkDebugOutline(
+                coord = chunk.coord,
+                topX = topX,
+                topY = topY,
+                rightX = rightX,
+                rightY = rightY,
+                bottomX = bottomX,
+                bottomY = bottomY,
+                leftX = leftX,
+                leftY = leftY,
+                labelX = (topX + rightX + bottomX + leftX) / 4f,
+                labelY = (topY + rightY + bottomY + leftY) / 4f
+            )
+        }
+    }
+
     private fun buildGrassBottomAngleCommands(): List<ContourPreviewCommand> {
         val commands = mutableListOf<ContourPreviewCommand>()
 
@@ -192,8 +288,8 @@ class TerrainRenderer(
                 return@forEach
             }
 
-            val hasNonGrassLeftDown = matrix[tile.row + 1, tile.col]?.isGrass == false
-            val hasNonGrassRightDown = matrix[tile.row, tile.col + 1]?.isGrass == false
+            val hasNonGrassLeftDown = worldMap[tile.row + 1, tile.col]?.isGrass == false
+            val hasNonGrassRightDown = worldMap[tile.row, tile.col + 1]?.isGrass == false
 
             if (hasNonGrassLeftDown && hasNonGrassRightDown) {
                 commands += buildContourOverlayCommand(
@@ -250,6 +346,23 @@ class TerrainRenderer(
         batch.draw(region, x, y, width, height)
     }
 
+    private fun tileRenderPosition(row: Int, col: Int): Point {
+        return Point(
+            x = (col - row) * halfTileWidth + renderOffset.x,
+            y = -(col + row) * halfTileHeight + renderOffset.y
+        )
+    }
+
+    private data class RenderOffset(
+        val x: Float,
+        val y: Float
+    )
+
+    private data class Point(
+        val x: Float,
+        val y: Float
+    )
+
     private data class RawTile(
         val row: Int,
         val col: Int,
@@ -272,5 +385,19 @@ class TerrainRenderer(
         val y: Float,
         val width: Float,
         val height: Float
+    )
+
+    private data class ChunkDebugOutline(
+        val coord: ChunkCoord,
+        val topX: Float,
+        val topY: Float,
+        val rightX: Float,
+        val rightY: Float,
+        val bottomX: Float,
+        val bottomY: Float,
+        val leftX: Float,
+        val leftY: Float,
+        val labelX: Float,
+        val labelY: Float
     )
 }

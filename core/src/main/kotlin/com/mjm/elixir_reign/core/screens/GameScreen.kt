@@ -1,5 +1,6 @@
 package com.mjm.elixir_reign.core.screens
 
+import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
@@ -7,6 +8,7 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
@@ -16,7 +18,7 @@ import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
-import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -31,13 +33,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var terrainRenderer: TerrainRenderer
+    private lateinit var debugFont: BitmapFont
+    private lateinit var worldRenderer: WorldRenderer
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
+    private var isDebugModeEnabled = false
 
     private val input = object : InputAdapter() {
 
@@ -109,6 +113,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun keyDown(keycode: Int): Boolean {
+            if (supportsDesktopDebugMode() && keycode == Input.Keys.F3) {
+                isDebugModeEnabled = !isDebugModeEnabled
+                return true
+            }
+
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
                 game.platform.onBackPressed(game)
                 return true
@@ -125,15 +134,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
+        debugFont = BitmapFont().apply {
+            data.setScale(DEBUG_LABEL_SCALE)
+            color = DEBUG_LABEL_COLOR
+        }
 
-        terrainRenderer = TerrainRenderer(TerrainPresets.map())
+        worldRenderer = WorldRenderer(TerrainPresets.map())
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = terrainRenderer.worldBounds()
+        terrainBounds = worldRenderer.worldBounds()
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -156,20 +169,36 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
-        // Dessiner le rectangle de drag selection si actif
-        if (selectionInputHandler.isDraggingNow()) {
-            val dragRect = selectionInputHandler.getDragRectangle()
+        // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
+        batch.begin()
+        worldRenderer.renderGround(batch)
+        gameWorld.update(delta)
+        worldRenderer.renderOverlay(batch)
+        batch.end()
+
+        if (selectionInputHandler.isDraggingNow() || shouldRenderChunkDebug()) {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
-            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+
+            if (selectionInputHandler.isDraggingNow()) {
+                val dragRect = selectionInputHandler.getDragRectangle()
+                shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)
+                shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            }
+
+            if (shouldRenderChunkDebug()) {
+                shapeRenderer.color.set(DEBUG_CHUNK_COLOR)
+                worldRenderer.renderChunkDebug(shapeRenderer)
+            }
+
             shapeRenderer.end()
         }
 
-        // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
-        batch.begin()
-        terrainRenderer.render(batch)
-        gameWorld.update(delta)
-        batch.end()
+        if (shouldRenderChunkDebug()) {
+            batch.begin()
+            debugFont.color.set(DEBUG_LABEL_COLOR)
+            worldRenderer.renderChunkDebugLabels(batch, debugFont)
+            batch.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -184,8 +213,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
+        debugFont.dispose()
         gameWorld.dispose()
-        terrainRenderer.dispose()
+        worldRenderer.dispose()
+    }
+
+    private fun supportsDesktopDebugMode(): Boolean {
+        return Gdx.app.type == Application.ApplicationType.Desktop
+    }
+
+    private fun shouldRenderChunkDebug(): Boolean {
+        return supportsDesktopDebugMode() && isDebugModeEnabled
     }
 
     private fun beginPinch() {
@@ -276,6 +314,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
+        private const val DEBUG_LABEL_SCALE = 1.2f
+        private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
+        private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
     }
 
     private data class PinchState(
