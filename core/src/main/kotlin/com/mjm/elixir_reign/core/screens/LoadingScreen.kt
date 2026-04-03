@@ -153,7 +153,8 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
                         Actions.fadeOut(0.5f),
                         Actions.run {
                             game.onAssetsLoaded()
-                            game.changeScreen(MenuScreen(game))
+                            //game.changeScreen(MenuScreen(game)) // TODO : reenable it
+                            game.changeScreen(GameScreen(game))
                         }
                     )
                 )

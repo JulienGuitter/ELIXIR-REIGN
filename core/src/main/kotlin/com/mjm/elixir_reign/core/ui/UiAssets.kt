@@ -34,6 +34,8 @@ object UiAssets {
         private set
     lateinit var buttonTexture: Texture
         private set
+    lateinit var iconHammer: Texture
+        private set
 
     private const val FONT_ASSET_NAME = "fonts/Macondo-Regular.ttf"
 
@@ -46,6 +48,9 @@ object UiAssets {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
         backgroundTexture = Texture("ui/background.png").also {
+            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+        }
+        iconHammer = Texture("icons/hammer.png").also {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
     }

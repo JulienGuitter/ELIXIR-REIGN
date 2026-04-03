@@ -3,20 +3,33 @@ package com.mjm.elixir_reign.core.screens
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.NinePatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton
+import com.badlogic.gdx.scenes.scene2d.ui.Table
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
+import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
+import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.core.ui.NineSliceImageButton
+import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -35,6 +48,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
+    private lateinit var uiStage: Stage
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
@@ -145,7 +159,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         configureCamera(resetView = true)
 
-        Gdx.input.inputProcessor = input
+        show_UI()
     }
 
     override fun render(delta: Float) {
@@ -170,6 +184,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         terrainRenderer.render(batch)
         gameWorld.update(delta)
         batch.end()
+
+        // L'UI est dessinée en dernier pour rester au-dessus du terrain.
+        uiStage.act(delta)
+        uiStage.draw()
     }
 
     override fun resize(width: Int, height: Int) {
@@ -179,6 +197,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
         camera.position.set(oldX, oldY, 0f)
         configureCamera(resetView = false)
+        uiStage.viewport.update(width, height, true)
     }
 
     override fun dispose() {
@@ -186,6 +205,27 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         batch.dispose()
         gameWorld.dispose()
         terrainRenderer.dispose()
+        uiStage.dispose()
+    }
+
+    private fun show_UI() {
+        uiStage = Stage(ScreenViewport())
+
+        val btnBuildMenu = NineSliceImageButton(UiAssets.buttonTexture, UiAssets.iconHammer).apply {
+            onClick { _, _ ->
+                Gdx.app.log("GameScreen", "Build menu button clicked")
+                // TODO : ouvrir le menu de construction
+            }
+        }
+
+        val hudTable = Table().apply {
+            setFillParent(true)
+            bottom().left()
+            add(btnBuildMenu).size(96f).pad(24f)
+        }
+
+        uiStage.addActor(hudTable)
+        Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
     }
 
     private fun beginPinch() {
