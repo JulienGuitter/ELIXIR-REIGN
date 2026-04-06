@@ -29,6 +29,7 @@ import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
+import com.mjm.elixir_reign.core.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.shared.logic.UnitType
 
@@ -211,10 +212,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private fun show_UI() {
         uiStage = Stage(ScreenViewport())
 
+        uiStage.addActor(Shop)
+
         val btnBuildMenu = NineSliceImageButton(UiAssets.buttonTexture, UiAssets.iconHammer).apply {
             onClick { _, _ ->
                 Gdx.app.log("GameScreen", "Build menu button clicked")
                 // TODO : ouvrir le menu de construction
+                Shop.show()
             }
         }
 

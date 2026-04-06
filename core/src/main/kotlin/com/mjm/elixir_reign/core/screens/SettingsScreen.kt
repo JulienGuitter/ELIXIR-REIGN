@@ -17,7 +17,6 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
-import com.mjm.elixir_reign.shared.GameVersion.VERSION
 
 class SettingsScreen(private val game: Main) : ScreenAdapter() {
 

@@ -19,10 +19,11 @@ import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.utils.ScreenUtils
-import com.mjm.elixir_reign.shared.GameVersion.VERSION
 import com.mjm.elixir_reign.core.tools.sprites.TextureManager
+import com.mjm.elixir_reign.shared.GameConfiguration
 
 object UiAssets {
     lateinit var skin: Skin
@@ -113,15 +114,9 @@ object UiAssets {
 
         val patchLeft = 20; val patchRight = 20; val patchTop = 20; val patchBottom = 20
 
-        val buttonUp = NinePatchDrawable(NinePatch(buttonTexture, patchLeft, patchRight, patchTop, patchBottom)).apply {
-            tint(Color(0.9f, 0.9f, 0.9f, 1f)); setMinWidth(100f); setMinHeight(50f)
-        }
-        val buttonDown = NinePatchDrawable(NinePatch(buttonTexture, patchLeft, patchRight, patchTop, patchBottom)).apply {
-            tint(Color(0.6f, 0.6f, 0.6f, 1f)); setMinWidth(100f); setMinHeight(50f)
-        }
-        val buttonOver = NinePatchDrawable(NinePatch(buttonTexture, patchLeft, patchRight, patchTop, patchBottom)).apply {
-            tint(Color(1f, 1f, 1f, 1f)); setMinWidth(100f); setMinHeight(50f)
-        }
+        val buttonUp = makeButtonDrawable(buttonTexture, Color(0.9f, 0.9f, 0.9f, 1f))
+        val buttonDown = makeButtonDrawable(buttonTexture, Color(0.6f, 0.6f, 0.6f, 1f))
+        val buttonOver = makeButtonDrawable(buttonTexture, Color.WHITE)
 
         skin.add("default", TextButton.TextButtonStyle().apply {
             up = buttonUp; down = buttonDown; over = buttonOver
@@ -144,6 +139,28 @@ object UiAssets {
             this.font = font; background = buttonUp
             this.listStyle = listStyle; this.scrollStyle = scrollPaneStyle
         }, SelectBox.SelectBoxStyle::class.java)
+
+        val shopBg = NinePatchDrawable(
+            NinePatch(buttonTexture, patchLeft, patchRight, patchTop, patchBottom)
+        ).apply {
+            tint(Color(0.8f, 0.8f, 0.8f, 1f))
+            setMinWidth(200f)
+            setMinHeight(200f)
+        }
+        skin.add("shopBackground", shopBg, Drawable::class.java)
+
+        // Close btn style (simple image)
+        val closeDrawable = NinePatchDrawable(NinePatch(buttonTexture, patchLeft, patchRight, patchTop, patchBottom)).apply {
+            tint(Color(0.9f, 0f, 0f, 1f)); setMinWidth(30f); setMinHeight(30f)
+        }
+        skin.add("closeBtn", closeDrawable, Drawable::class.java)
+
+        // Default scroll pane style
+        val defaultScrollStyle = com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle().apply {
+            background = buttonUp
+        }
+        skin.add("default", defaultScrollStyle, com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle::class.java)
+
     }
 
     fun dispose() {
@@ -154,6 +171,13 @@ object UiAssets {
 
     fun getProgress(assets: AssetManager): Float = assets.progress
 
+    private fun makeButtonDrawable(texture: Texture, tint: Color): Drawable {
+        return NinePatchDrawable(NinePatch(texture, 20, 20, 20, 20))
+            .tint(tint).apply {
+                setMinWidth(100f)
+                setMinHeight(50f)
+            }
+    }
 
     fun drawBackground(stage: Stage, spriteBatch: SpriteBatch) {
         ScreenUtils.clear(Color.BLACK)
@@ -177,7 +201,7 @@ object UiAssets {
 
     fun createVersionTable(): Table {
         // Label version en bas à droite
-        val versionLabel = Label("v$VERSION", UiAssets.skin).apply {
+        val versionLabel = Label("v${GameConfiguration}.VERSION", UiAssets.skin).apply {
             color = Color(1f, 1f, 1f, 0.6f)
         }
         return Table().apply {

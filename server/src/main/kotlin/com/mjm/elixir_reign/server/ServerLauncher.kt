@@ -5,7 +5,7 @@ import com.esotericsoftware.kryonet.Listener
 import com.esotericsoftware.kryonet.Server
 import com.mjm.elixir_reign.server.instance.InstanceManager
 import com.mjm.elixir_reign.server.lobby.LobbyManager
-import com.mjm.elixir_reign.shared.GameVersion
+import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.network.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -37,9 +37,9 @@ class ServerLauncher {
                     is PacketLogin -> {
                         println("Le client ${message.pseudo} vient de se connecter !")
 
-                        if(message.version != GameVersion.VERSION){
+                        if(message.version != GameConfiguration.VERSION){
                             println("Le client ${message.pseudo} n'a pas la bonne version !")
-                            connection.sendTCP(PacketLoginRefused("Version incompatible ! Requis : ${GameVersion.VERSION}, CLient : ${message.version}"))
+                            connection.sendTCP(PacketLoginRefused("Version incompatible ! Requis : ${GameConfiguration.VERSION}, CLient : ${message.version}"))
                             connection.close()
                             return
                         }

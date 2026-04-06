@@ -20,6 +20,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiAssets.createRoundedRectTexture
 import java.awt.Font
@@ -93,7 +94,7 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
             labelFont,
             Color.WHITE
         )
-        loadingLabel = Label("Chargement...", labelStyle)
+        loadingLabel = Label(Localization.get("loading.loading"), labelStyle)
 
         // -- Logo --
         val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
