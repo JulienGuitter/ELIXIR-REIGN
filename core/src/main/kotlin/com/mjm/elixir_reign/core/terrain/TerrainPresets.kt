@@ -1,10 +1,12 @@
 package com.mjm.elixir_reign.core.terrain
 
-import com.mjm.elixir_reign.shared.terrain.TerrainMatrix
 import com.mjm.elixir_reign.shared.terrain.TerrainType
+import com.mjm.elixir_reign.shared.world.WorldMap
 
 object TerrainPresets {
-    fun map(): TerrainMatrix {
+    private const val DEFAULT_CHUNK_SIZE = 16
+
+    fun map(): WorldMap {
         val G1 = TerrainType.GRASS_1
         val G2 = TerrainType.GRASS_2
         val G3 = TerrainType.GRASS_3
@@ -15,7 +17,8 @@ object TerrainPresets {
         val W2 = TerrainType.WATER_2
         val W3 = TerrainType.WATER_3
 
-        return TerrainMatrix(
+        return WorldMap.fromGroundRows(
+            chunkSize = DEFAULT_CHUNK_SIZE,
             rows = listOf(
                 listOf(G1, S1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, W1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1),
                 listOf(G1, S1, G1, G1, G1, G1, G2, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, W1, W1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1),
