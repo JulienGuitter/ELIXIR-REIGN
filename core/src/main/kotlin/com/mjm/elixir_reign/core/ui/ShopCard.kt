@@ -8,7 +8,7 @@ class ShopCard(title: String, price: Int) : Table() {
 
      init {
 
-         background = UiAssets.skin.getDrawable("shopBackground")
+         background = UiAssets.skin.getDrawable("shopCardBackground")
          pad(10f)
 
          val titleLabel = Label(title, UiAssets.skin)

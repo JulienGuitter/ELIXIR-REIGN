@@ -2,7 +2,6 @@ package com.mjm.elixir_reign.core.ui
 
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.badlogic.gdx.scenes.scene2d.Actor
-import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton
@@ -12,7 +11,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import com.badlogic.gdx.utils.Align
 import com.mjm.elixir_reign.core.i18n.Localization
-import com.mjm.elixir_reign.shared.GameConfiguration
 
 object Shop : Table() {
 
@@ -25,7 +23,8 @@ object Shop : Table() {
         touchable = Touchable.enabled
 
         setFillParent(true)
-        isVisible = false
+        align(Align.bottom)
+        isVisible = true
 
         container.background = UiAssets.skin.getDrawable("shopBackground")
         container.pad(20f)
@@ -33,7 +32,8 @@ object Shop : Table() {
         val title = Label(Localization.get("shop.title"), UiAssets.skin)
         title.setAlignment(Align.left)
 
-        val closeBtn = ImageButton(UiAssets.skin.getDrawable("closeBtn"))
+        val closeBtn = ImageButton(UiAssets.skin.get("shopCloseButton", ImageButton.ImageButtonStyle::class.java))
+        closeBtn.imageCell.pad(5f)
         closeBtn.addListener(object : ClickListener(){
             override fun clicked(event: com.badlogic.gdx.scenes.scene2d.InputEvent?, x: Float, y: Float) {
                 hide()
@@ -44,16 +44,18 @@ object Shop : Table() {
         topTable.add(title).expandX().fillX().left().padBottom(10f)
         topTable.add(closeBtn).size(30f).padBottom(10f)
 
-        // List items
-        itemsTable.defaults().pad(10f).expandX().fillX()
+        // Horizontal list of shop cards.
+        itemsTable.defaults().padRight(12f)
         for(i in 1..20) {
             val itemCard = ShopCard("Item $i", i * 10)
             itemsTable.add(itemCard)
-            itemsTable.row()
         }
 
-        scrollPane = ScrollPane(itemsTable, UiAssets.skin)
+        scrollPane = ScrollPane(itemsTable, UiAssets.skin, "shopTransparent")
         scrollPane.setFadeScrollBars(false)
+        scrollPane.setScrollingDisabled(false, true)
+        scrollPane.setForceScroll(true, false)
+        scrollPane.setScrollbarsOnTop(true)
         scrollPane.addListener(object : InputListener() {
             override fun enter(event: InputEvent?, x: Float, y: Float, pointer: Int, fromActor: Actor?) {
                 if (!isVisible || pointer != -1) {
@@ -74,13 +76,24 @@ object Shop : Table() {
                     }
                 }
             }
+
+            override fun scrolled(event: InputEvent?, x: Float, y: Float, amountX: Float, amountY: Float): Boolean {
+                if (!isVisible) {
+                    return false
+                }
+
+                // Map wheel/trackpad vertical movement to horizontal card scrolling.
+                val scrollAmount = (amountY + amountX) * 75f
+                scrollPane.scrollX += scrollAmount
+                scrollPane.updateVisualScroll()
+                return true
+            }
         })
 
         container.add(topTable).expandX().fillX().row()
-        container.add(scrollPane).expand().fill()
+        container.add(scrollPane).expandX().fillX().height(220f)
 
-        add(container).expand().left()
-        applyDebugRecursively(this, GameConfiguration.DEBUG)
+        add(container).expand().fillX().bottom()
 
         addCaptureListener(object : InputListener() {
             override fun touchDown(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int): Boolean {
@@ -127,13 +140,5 @@ object Shop : Table() {
         }
     }
 
-    private fun applyDebugRecursively(actor: Actor, enabled: Boolean) {
-        actor.setDebug(enabled)
-        if (actor is Group) {
-            for (i in 0 until actor.children.size) {
-                applyDebugRecursively(actor.children[i], enabled)
-            }
-        }
-    }
 
 }

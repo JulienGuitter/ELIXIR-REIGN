@@ -15,6 +15,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton
 import com.badlogic.gdx.scenes.scene2d.ui.Table
@@ -31,6 +32,7 @@ import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.core.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -50,6 +52,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
+    private var uiDebugEnabled = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
@@ -124,6 +127,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun keyDown(keycode: Int): Boolean {
+            if(GameConfiguration.DEBUG){
+                if ((keycode == Input.Keys.B && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
+                    (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.B))) {
+                    toggleUiDebug()
+                    return true
+                }
+            }
+
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
                 game.platform.onBackPressed(game)
                 return true
@@ -216,11 +227,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         val btnBuildMenu = NineSliceImageButton(UiAssets.buttonTexture, UiAssets.iconHammer).apply {
             onClick { _, _ ->
-                Gdx.app.log("GameScreen", "Build menu button clicked")
-                // TODO : ouvrir le menu de construction
                 Shop.show()
             }
         }
+
+        val
 
         val hudTable = Table().apply {
             setFillParent(true)
@@ -229,7 +240,23 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         uiStage.addActor(hudTable)
+        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
+    }
+
+    private fun toggleUiDebug() {
+        uiDebugEnabled = !uiDebugEnabled
+        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
+        Gdx.app.log("GameScreen", "UI debug: ${if (uiDebugEnabled) "ON" else "OFF"}")
+    }
+
+    private fun applyUiDebugRecursively(actor: Actor, enabled: Boolean) {
+        actor.setDebug(enabled)
+        if (actor is Group) {
+            for (i in 0 until actor.children.size) {
+                applyUiDebugRecursively(actor.children[i], enabled)
+            }
+        }
     }
 
     private fun beginPinch() {
