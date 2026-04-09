@@ -19,6 +19,8 @@ class NineSliceImageButton(
     var ninePatchBorder: Int = 20
     var buttonUpColor: Color = Color(0.95f, 0.95f, 0.95f, 1f)
     var buttonDownColor: Color = Color(0.75f, 0.75f, 0.75f, 1f)
+    var buttonCheckedColor: Color = Color(0.92f, 0.77f, 0.30f, 1f)
+    var iconCheckedColor: Color = Color(1f, 0.98f, 0.88f, 1f)
 
     init {
         val buttonUp = NinePatchDrawable(
@@ -29,14 +31,29 @@ class NineSliceImageButton(
             NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
         ).tint(buttonDownColor)
 
+        val buttonChecked = NinePatchDrawable(
+            NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
+        ).tint(buttonCheckedColor)
+
         val iconDrawable = TextureRegionDrawable(TextureRegion(iconTexture))
+        val iconCheckedDrawable = TextureRegionDrawable(TextureRegion(iconTexture)).tint(iconCheckedColor)
 
         style = ImageButtonStyle().apply {
             up = buttonUp
             down = buttonDown
             imageUp = iconDrawable
             imageDown = iconDrawable
+            checked = buttonChecked
+            checkedDown = buttonChecked
+            imageChecked = iconCheckedDrawable
         }
+    }
+
+    fun setHighlighted(highlighted: Boolean) {
+        val previous = programmaticChangeEvents
+        programmaticChangeEvents = false
+        isChecked = highlighted
+        programmaticChangeEvents = previous
     }
 
     fun onClick(callback: (ChangeEvent, Actor) -> Unit) {

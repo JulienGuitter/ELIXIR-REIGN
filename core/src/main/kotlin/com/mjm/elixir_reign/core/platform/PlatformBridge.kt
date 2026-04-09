@@ -1,13 +1,20 @@
 package com.mjm.elixir_reign.core.platform
 
+import com.badlogic.gdx.Screen
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.navigation.ScreenRoute
 
 /**
  * Interface implémentée par chaque plateforme (Android, Desktop…).
  * Permet à Core d'appeler des comportements spécifiques à la plateforme
- * sans en dépendre directement.
+ * sans connaître les classes d'écran concrètes.
  */
 interface PlatformBridge {
+
+    /**
+     * Construit l'écran concret correspondant à la route demandée par le core.
+     */
+    fun createScreen(route: ScreenRoute, game: Main): Screen
 
     /**
      * Action à exécuter quand le joueur veut "revenir en arrière"
@@ -17,5 +24,4 @@ interface PlatformBridge {
      */
     fun onBackPressed(game: Main)
 }
-
 

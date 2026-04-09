@@ -46,6 +46,8 @@ object UiAssets {
     private lateinit var leftPanelNinePatch: NinePatch
     lateinit var iconHammer: Texture
         private set
+    lateinit var iconSelect: Texture
+        private set
 
     private const val FONT_ASSET_NAME = "fonts/Macondo-Regular.ttf"
 
@@ -61,6 +63,9 @@ object UiAssets {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
         iconHammer = Texture("icons/hammer.png").also {
+            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+        }
+        iconSelect = Texture("icons/selection.png").also {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
     }
@@ -287,7 +292,7 @@ object UiAssets {
 
     fun createVersionTable(): Table {
         // Label version en bas à droite
-        val versionLabel = Label("v${GameConfiguration}.VERSION", UiAssets.skin).apply {
+        val versionLabel = Label("v${GameConfiguration.VERSION}", UiAssets.skin).apply {
             color = Color(1f, 1f, 1f, 0.6f)
         }
         return Table().apply {
