@@ -23,6 +23,7 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiAssets.createRoundedRectTexture
+import com.mjm.elixir_reign.core.ui.UiImage
 
 class LoadingScreen(private val game: Main) : ScreenAdapter() {
 
@@ -96,7 +97,7 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
         loadingLabel = Label(Localization.get("loading.loading"), labelStyle)
 
         // -- Logo --
-        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
+        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.LOGO_TRANSPARENT)))).apply {
             color = Color(1f, 1f, 1f, 0.9f)
         }
 
@@ -139,11 +140,12 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
             progressBar.value = progress
 
             val pct = (progress * 100).toInt()
-            loadingLabel.setText("Chargement... $pct%")
+            //            loadingLabel.setText("Chargement... $pct%")
+            loadingLabel.setText(Localization.get("loading.loadingPercentage", pct))
 
             if (finished && progress >= 1f) {
                 loadingDone = true
-                loadingLabel.setText("Initialisation des animations...")
+                loadingLabel.setText(Localization.get("loading.initAnim"))
                 progressBar.value = 1f
 
                 // Fade-out du contenu seulement, le background reste visible

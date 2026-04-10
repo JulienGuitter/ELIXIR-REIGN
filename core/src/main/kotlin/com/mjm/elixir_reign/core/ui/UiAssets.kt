@@ -27,47 +27,42 @@ import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.utils.ScreenUtils
 import com.mjm.elixir_reign.core.tools.sprites.TextureManager
 import com.mjm.elixir_reign.shared.GameConfiguration
+import java.util.EnumMap
 
 object UiAssets {
     private const val BUTTON_PATCH_INSET = 20
 
     lateinit var skin: Skin
         private set
-
-    lateinit var backgroundTexture: Texture
-        private set
-    lateinit var logoTransparent: Texture
-        private set
-    lateinit var buttonTexture: Texture
-        private set
-    lateinit var leftPanelTexture: Texture
-        private set
     private lateinit var buttonNinePatch: NinePatch
     private lateinit var leftPanelNinePatch: NinePatch
-    lateinit var iconHammer: Texture
-        private set
-    lateinit var iconSelect: Texture
-        private set
+
+    private val textures = EnumMap<UiImage, Texture>(UiImage::class.java)
 
     private const val FONT_ASSET_NAME = "fonts/Macondo-Regular.ttf"
 
+    fun texture(image: UiImage): Texture = textures.getValue(image)
+
+    /*
+     * Applique le filtre de texture approprié (linéaire ou nearest) en fonction de la configuration de l'image.
+     */
+    private fun applyFilter(tex: Texture, linear: Boolean){
+        val filter = if(linear) Texture.TextureFilter.Linear else Texture.TextureFilter.Nearest
+        tex.setFilter(filter, filter)
+    }
+
     /**
-     * Charge UNIQUEMENT le logo — appelé dans Main.create() avant le LoadingScreen.
-     * Doit rester minimal pour ne pas bloquer le démarrage.
+     * Charge les assets marqués "minimal" directement, pour pouvoir afficher une UI basique pendant le chargement async des autres assets via AssetManager.
      */
     fun loadMinimal() {
-        logoTransparent = Texture("ui/icon_transp.png").also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
-        backgroundTexture = Texture("ui/background.png").also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
-        iconHammer = Texture("icons/hammer.png").also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
-        iconSelect = Texture("icons/selection.png").also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
+
+        UiImage.entries
+            .filter { it.minimal }
+            .forEach { img ->
+                val tex = Texture(img.path)
+                applyFilter(tex, img.linearFilter)
+                textures[img] = tex
+            }
     }
 
     /**
@@ -91,36 +86,32 @@ object UiAssets {
         }
         assets.load(FONT_ASSET_NAME, BitmapFont::class.java, fontParams)
 
-        // Textures UI (background déjà chargé dans loadMinimal)
-        assets.load("ui/btn_9patch.png", Texture::class.java)
-        assets.load("ui/left_panel_9patch.png", Texture::class.java)
-        assets.load("ui/shop_card_9patch.png", Texture::class.java)
-        assets.load("ui/icon_transp.png", Texture::class.java)
-        assets.load("icons/close.png", Texture::class.java)
+        UiImage.entries
+            .filter { it.loadedByAssetManager }
+            .forEach { img -> assets.load(img.path, Texture::class.java) }
 
         // Sprites du jeu
         TextureManager.queueAll(assets)
     }
 
     /**
-     * Construit le Skin à partir des assets chargés par l'AssetManager.
-     * Appelé depuis Main.onAssetsLoaded(), après que assets.update() retourne true.
+     * Récupère les assets du AssetManager une fois le chargement terminé, et crée les styles de skin.
      */
     fun finishLoading(assets: AssetManager) {
-        // background déjà chargé dans loadMinimal(), on ne le re-fetch pas
-        buttonTexture = assets.get("ui/btn_9patch.png", Texture::class.java).also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
-        leftPanelTexture = assets.get("ui/left_panel_9patch.png", Texture::class.java).also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
-        // Remplacer le logo minimal par la version chargée par l'AssetManager
-        if(this::logoTransparent.isInitialized){
-            logoTransparent.dispose()
-        }
-        logoTransparent = assets.get("ui/icon_transp.png", Texture::class.java).also {
-            it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-        }
+
+        UiImage.entries
+            .filter { it.loadedByAssetManager }
+            .forEach { img ->
+                if (!assets.isLoaded(img.path, Texture::class.java)) {
+                    Gdx.app.error("UiAssets", "Asset not loaded: ${img.path}, keeping existing texture")
+                    return@forEach
+                }
+                // si déjà chargé en minimal et remplacé ensuite, on dispose avant overwrite
+                textures[img]?.takeIf { it !== assets.get(img.path, Texture::class.java) }?.dispose()
+                val tex = assets.get(img.path, Texture::class.java)
+                applyFilter(tex, img.linearFilter)
+                textures[img] = tex
+            }
 
         val font: BitmapFont = if (assets.isLoaded(FONT_ASSET_NAME, BitmapFont::class.java)) {
             assets.get(FONT_ASSET_NAME, BitmapFont::class.java).also { it.color = Color.WHITE }
@@ -133,7 +124,7 @@ object UiAssets {
         skin.add("default", font, BitmapFont::class.java)
 
         buttonNinePatch = NinePatch(
-            buttonTexture,
+            texture(UiImage.BUTTON_9PATCH),
             BUTTON_PATCH_INSET,
             BUTTON_PATCH_INSET,
             BUTTON_PATCH_INSET,
@@ -141,7 +132,7 @@ object UiAssets {
         )
 
         leftPanelNinePatch = NinePatch(
-            leftPanelTexture,
+            texture(UiImage.LEFT_PANEL_9PATCH),
             0,
             0,
             BUTTON_PATCH_INSET,
@@ -181,15 +172,19 @@ object UiAssets {
 
         val listStyle = com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle().apply {
             this.font = font
-            fontColorUnselected = Color.WHITE; fontColorSelected = Color.BLACK
+            fontColorUnselected = Color.WHITE
+            fontColorSelected = Color.WHITE
             selection = buttonDown
         }
-        val scrollPaneStyle = com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle().apply {
 
+        val selectBoxDropdownScrollStyle = com.badlogic.gdx.scenes.scene2d.ui.ScrollPane.ScrollPaneStyle().apply {
+            background = buttonUp
         }
         skin.add("default", SelectBox.SelectBoxStyle().apply {
-            this.font = font; background = buttonUp
-            this.listStyle = listStyle; this.scrollStyle = scrollPaneStyle
+            this.font = font
+            background = buttonUp
+            this.listStyle = listStyle
+            this.scrollStyle = selectBoxDropdownScrollStyle
         }, SelectBox.SelectBoxStyle::class.java)
     }
 
@@ -256,8 +251,12 @@ object UiAssets {
 
     fun dispose() {
         if (::skin.isInitialized) skin.dispose()
-        // backgroundTexture, buttonTexture, logoTransparent sont gérés par l'AssetManager
-        if (::backgroundTexture.isInitialized) backgroundTexture.dispose()
+
+        UiImage.entries
+            .filter { !it.loadedByAssetManager } // chargées "à la main"
+            .forEach { img -> textures[img]?.dispose() }
+
+        textures.clear()
     }
 
     fun getProgress(assets: AssetManager): Float = assets.progress
@@ -274,10 +273,12 @@ object UiAssets {
         ScreenUtils.clear(Color.BLACK)
         stage.viewport.apply()
 
+        val bg = texture(UiImage.BACKGROUND)
+
         val worldWidth = stage.viewport.worldWidth
         val worldHeight = stage.viewport.worldHeight
-        val texWidth = backgroundTexture.width.toFloat()
-        val texHeight = backgroundTexture.height.toFloat()
+        val texWidth = bg.width.toFloat()
+        val texHeight = bg.height.toFloat()
         val scale = maxOf(worldWidth / texWidth, worldHeight / texHeight)
         val drawWidth = texWidth * scale
         val drawHeight = texHeight * scale
@@ -286,7 +287,7 @@ object UiAssets {
 
         spriteBatch.projectionMatrix.set(stage.viewport.camera.combined)
         spriteBatch.begin()
-        spriteBatch.draw(backgroundTexture, xBack, yBack, drawWidth, drawHeight)
+        spriteBatch.draw(bg, xBack, yBack, drawWidth, drawHeight)
         spriteBatch.end()
     }
 

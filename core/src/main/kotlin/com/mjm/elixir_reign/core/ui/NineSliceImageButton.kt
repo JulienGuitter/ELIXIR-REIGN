@@ -13,7 +13,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 
 class NineSliceImageButton(
     backgroundTexture: Texture,
-    iconTexture: Texture
+    iconTexture: Texture,
+    private val toggleVisuals: Boolean = false
 ) : ImageButton(ImageButtonStyle()) {
 
     var ninePatchBorder: Int = 20
@@ -23,33 +24,31 @@ class NineSliceImageButton(
     var iconCheckedColor: Color = Color(1f, 0.98f, 0.88f, 1f)
 
     init {
-        val buttonUp = NinePatchDrawable(
-            NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
-        ).tint(buttonUpColor)
+        val patch = NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
 
-        val buttonDown = NinePatchDrawable(
-            NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
-        ).tint(buttonDownColor)
-
-        val buttonChecked = NinePatchDrawable(
-            NinePatch(backgroundTexture, ninePatchBorder, ninePatchBorder, ninePatchBorder, ninePatchBorder)
-        ).tint(buttonCheckedColor)
+        val buttonUp = NinePatchDrawable(patch).tint(buttonUpColor)
+        val buttonDown = NinePatchDrawable(patch).tint(buttonDownColor)
 
         val iconDrawable = TextureRegionDrawable(TextureRegion(iconTexture))
-        val iconCheckedDrawable = TextureRegionDrawable(TextureRegion(iconTexture)).tint(iconCheckedColor)
 
         style = ImageButtonStyle().apply {
             up = buttonUp
             down = buttonDown
             imageUp = iconDrawable
             imageDown = iconDrawable
-            checked = buttonChecked
-            checkedDown = buttonChecked
-            imageChecked = iconCheckedDrawable
+
+            if (toggleVisuals) {
+                val buttonChecked = NinePatchDrawable(patch).tint(buttonCheckedColor)
+                val iconChecked = TextureRegionDrawable(TextureRegion(iconTexture)).tint(iconCheckedColor)
+                checked = buttonChecked
+                checkedDown = buttonChecked
+                imageChecked = iconChecked
+            }
         }
     }
 
     fun setHighlighted(highlighted: Boolean) {
+        if (!toggleVisuals) return
         val previous = programmaticChangeEvents
         programmaticChangeEvents = false
         isChecked = highlighted

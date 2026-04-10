@@ -39,7 +39,7 @@ class ServerLauncher {
 
                         if(message.version != GameConfiguration.VERSION){
                             println("Le client ${message.pseudo} n'a pas la bonne version !")
-                            connection.sendTCP(PacketLoginRefused("Version incompatible ! Requis : ${GameConfiguration.VERSION}, CLient : ${message.version}"))
+                            connection.sendTCP(PacketLoginRefused("Version incompatible ! Requis : ${GameConfiguration.VERSION}, Client : ${message.version}"))
                             connection.close()
                             return
                         }

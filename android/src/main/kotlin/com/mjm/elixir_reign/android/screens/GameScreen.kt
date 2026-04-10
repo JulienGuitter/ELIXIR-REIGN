@@ -26,6 +26,7 @@ import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.android.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.logic.UnitType
 
@@ -227,13 +228,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         uiStage.addActor(Shop)
 
-        val btnBuildMenu = NineSliceImageButton(UiAssets.buttonTexture, UiAssets.iconHammer).apply {
+        val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
             onClick { _, _ ->
                 Shop.show()
             }
         }
 
-        btnSelectTroops = NineSliceImageButton(UiAssets.buttonTexture, UiAssets.iconSelect).apply {
+        btnSelectTroops = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_SELECT), toggleVisuals = true).apply {
             onClick { _, _ ->
                 isSelectionMode = !isSelectionMode
                 updateSelectionButtonState()

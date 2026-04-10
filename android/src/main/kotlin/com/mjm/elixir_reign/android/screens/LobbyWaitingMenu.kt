@@ -18,6 +18,7 @@ import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.core.ui.UiImage
 
 class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
 
@@ -44,7 +45,7 @@ class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
         val titleLabel = Label(Localization.get("lobbyWaiting.title"), UiAssets.skin)
         titleLabel.setFontScale(2f)
 
-        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
+        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.LOGO_TRANSPARENT)))).apply {
             color = Color(1f, 1f, 1f, 0.85f)
         }
 

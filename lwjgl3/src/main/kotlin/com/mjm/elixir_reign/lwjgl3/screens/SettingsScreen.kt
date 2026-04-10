@@ -23,13 +23,6 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var spriteBatch: SpriteBatch
     private lateinit var backBtn: TextButton
 
-    // Liste des langues disponibles : code -> nom affiché
-    // Pour ajouter une langue, ajoutez simplement une ligne ici !
-    private val availableLanguages = listOf(
-        "fr" to "Français",
-        "en" to "English"
-    )
-
     override fun show() {
         stage = Stage(ExtendViewport(1920f, 1080f))
         spriteBatch = SpriteBatch()
@@ -58,26 +51,24 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
         langLabel.setFontScale(1.5f)
         mainTable.add(langLabel).colspan(2).pad(10f).row()
 
-        // Créer la SelectBox avec les langues
-        val languageItems = Array<String>()
-        for ((_, langName) in availableLanguages) {
-            languageItems.add(langName)
-        }
 
         val selectBox = SelectBox<String>(UiAssets.skin)
+
+        // Liste des langues (source centralisée)
+        val languageItems = Array<String>()
+        for (lang in Localization.availableLanguages) {
+            languageItems.add(lang.displayName)
+        }
         selectBox.items = languageItems
 
-        // Définir la sélection courante
-        val currentLangIndex = availableLanguages.indexOfFirst { it.first == Localization.getCurrentLanguage() }
+        val currentLangIndex = Localization.indexOfCurrentLanguage()
         if (currentLangIndex >= 0) {
             selectBox.selectedIndex = currentLangIndex
         }
 
         selectBox.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                val selectedIndex = selectBox.selectedIndex
-                if (selectedIndex >= 0 && selectedIndex < availableLanguages.size) {
-                    val (langCode, _) = availableLanguages[selectedIndex]
+                Localization.languageCodeAt(selectBox.selectedIndex)?.let { langCode ->
                     Localization.setLanguage(langCode)
                     refreshUI()
                 }
