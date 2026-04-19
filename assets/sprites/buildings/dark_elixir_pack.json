@@ -1,0 +1,88 @@
+{
+  "frame_count": 71,
+  "columns": 9,
+  "rows": 8,
+  "frames_per_row": 9,
+  "frames_per_column": 8,
+  "cell_width": 156,
+  "cell_height": 164,
+  "frame_width": 156,
+  "frame_height": 164,
+  "sheet_width": 1404,
+  "sheet_height": 1312,
+  "align_origins": true,
+  "name": "dark_elixir_pack",
+  "source_file": "buildings.sc",
+  "export_mode": "animation_pack",
+  "clip_count": 5,
+  "pack_frame_count": 71,
+  "visible_frame_count": 71,
+  "mask_mode": "clean",
+  "force_cell_size": false,
+  "requested_cell_width": null,
+  "requested_cell_height": null,
+  "foot_x": 0.35,
+  "foot_y": 0.15,
+  "foot_coord_space": "normalized_bottom_left",
+  "filter_query": "",
+  "clips": [
+    {
+      "name": "darkelixir_pump_building",
+      "anim_index": 675,
+      "selection": "frame=1",
+      "source_frame_indices": [
+        0
+      ],
+      "start_frame": 0,
+      "frame_count": 1,
+      "end_frame": 0,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "darkelixir_pump_destroyed",
+      "anim_index": 1221,
+      "selection": "frame=1",
+      "start_frame": 1,
+      "frame_count": 1,
+      "end_frame": 1,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 30
+    },
+    {
+      "name": "darkelixir_pump_lvl1",
+      "anim_index": 676,
+      "selection": "1-450/s20",
+      "start_frame": 2,
+      "frame_count": 23,
+      "end_frame": 24,
+      "timeline_frame_count": 450,
+      "visible_frame_count": 23,
+      "fps": 24
+    },
+    {
+      "name": "darkelixir_pump_lvl3",
+      "anim_index": 682,
+      "selection": "1-450/s20",
+      "start_frame": 25,
+      "frame_count": 23,
+      "end_frame": 47,
+      "timeline_frame_count": 450,
+      "visible_frame_count": 23,
+      "fps": 24
+    },
+    {
+      "name": "darkelixir_pump_lvl9",
+      "anim_index": 692,
+      "selection": "1-450/s20",
+      "start_frame": 48,
+      "frame_count": 23,
+      "end_frame": 70,
+      "timeline_frame_count": 450,
+      "visible_frame_count": 23,
+      "fps": 24
+    }
+  ]
+}

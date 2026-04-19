@@ -4,113 +4,150 @@ import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.SpriteSheet
 import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.SpriteSheetParser
 import com.mjm.elixir_reign.shared.logic.DirectionType
 import com.mjm.elixir_reign.shared.logic.ActionType
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.logic.EntityType
+import com.mjm.elixir_reign.shared.data.UnitStats
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.logic.BuildingState
 
 /**
  * Manager centralisé pour tous les SpriteSheets et création d'animateurs
- * Remplace SpriteAnimatorHelper
+ * Récupère les métadonnées directement depuis les stats objects
  * Charge les sprite sheets une seule fois et les cache
  */
 object SpriteAnimationManager {
-    private val spriteSheetCache = mutableMapOf<UnitType, SpriteSheet>()
+    // Caches séparés pour units et buildings (clés: String = stats.name)
+    private val unitSpriteSheetCache = mutableMapOf<String, SpriteSheet>()
+    private val buildingSpriteSheetCache = mutableMapOf<String, SpriteSheet>()
 
     /** True once preloadAll() has completed */
     var isReady: Boolean = false
         private set
 
-    // Métadonnées pour chaque unité
-    private val unitTypeMetadata = mapOf(
-        UnitType.BARBARIAN to UnitMetadata(
-            baseClipName = "barbarian",
-            texturePath = "sprites/anim_pack_chr_barbarian.png",
-            jsonPath = "sprites/anim_pack_chr_barbarian.json"
-        ),
-        UnitType.ARCHER to UnitMetadata(
-            baseClipName = "archer",
-            texturePath = "sprites/anim_pack_chr_archer.png",
-            jsonPath = "sprites/anim_pack_chr_archer.json"
-        ),
-        UnitType.GIANT to UnitMetadata(
-            baseClipName = "giant",
-            texturePath = "sprites/anim_pack_chr_giant.png",
-            jsonPath = "sprites/anim_pack_chr_giant.json"
-        )
-    )
-
     /**
      * Crée un SpriteAnimator pour une unité avec une action et direction
-     * Le SpriteSheet est chargé une seule fois et mis en cache
+     * Récupère les métadonnées depuis UnitStats
      */
-    fun createAnimator(
-        unitType: UnitType,
+    fun createUnitAnimator(
+        stats: UnitStats,
         actionType: ActionType,
         directionType: DirectionType
     ): SpriteAnimator {
-        val metadata = unitTypeMetadata[unitType] ?: throw IllegalArgumentException("Unknown unit type: $unitType")
-        val spriteSheet = getSpriteSheet(unitType, metadata)
+        val spriteSheet = getUnitSpriteSheet(stats)
 
         return SpriteAnimator(
             spriteSheet = spriteSheet,
-            texturePath = metadata.texturePath,
-            baseClipName = metadata.baseClipName,
+            texturePath = stats.texturePath,
+            baseClipName = stats.spriteBaseClipName,
             directionType = directionType,
             actionType = actionType
         )
     }
 
     /**
-     * Récupère la texture path pour une unité
+     * Récupère un SpriteAnimator pour un bâtiment
+     * Récupère les métadonnées depuis BuildingStats
+     * Les bâtiments peuvent ne pas avoir de JSON d'animation
      */
-    fun getTexturePath(unitType: UnitType): String {
-        return unitTypeMetadata[unitType]?.texturePath ?: throw IllegalArgumentException("Unknown unit type: $unitType")
+    fun createBuildingAnimator(
+        stats: BuildingStats,
+        buildingState: BuildingState
+    ): SpriteAnimator {
+        val spriteSheet = getBuildingSpriteSheet(stats)
+
+        // Pour les bâtiments: pas de direction/action, passer null
+        return SpriteAnimator(
+            spriteSheet = spriteSheet,
+            texturePath = stats.texturePath,
+            baseClipName = stats.spriteBaseClipName,
+            directionType = null,
+            actionType = null,
+            buildingState = buildingState
+        )
     }
 
     /**
-     * Récupère le base clip name pour une unité
+     * Récupère le base clip name pour une entité (unit ou building)
+     * Utilisé par AnimationSystem
      */
-    fun getBaseClipName(unitType: UnitType): String {
-        return unitTypeMetadata[unitType]?.baseClipName ?: throw IllegalArgumentException("Unknown unit type: $unitType")
-    }
-
-    /**
-     * Récupère le SpriteSheet (avec cache)
-     */
-    private fun getSpriteSheet(unitType: UnitType, metadata: UnitMetadata): SpriteSheet {
-        return spriteSheetCache.getOrPut(unitType) {
-            SpriteSheetParser().parseJson(metadata.jsonPath)
+    fun getBaseClipName(entityType: EntityType): String {
+        return when (entityType) {
+            // Units
+            EntityType.BARBARIAN -> UnitStats.BARBARIAN.spriteBaseClipName
+            EntityType.ARCHER -> UnitStats.ARCHER.spriteBaseClipName
+            EntityType.GIANT -> UnitStats.GIANT.spriteBaseClipName
+            // Buildings
+            EntityType.BARRACKS -> BuildingStats.BARRACKS.spriteBaseClipName
+            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP.spriteBaseClipName
+            EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP.spriteBaseClipName
         }
     }
 
     /**
-     * Pré-parse tous les JSON de sprite sheets et remplit le cache.
-     * À appeler une fois les textures chargées (dans Main.onAssetsLoaded).
-     * Après cet appel, createAnimator() n'effectue plus aucune I/O.
+     * Récupère le SpriteSheet pour une unit (avec cache)
+     */
+    private fun getUnitSpriteSheet(stats: UnitStats): SpriteSheet {
+        return unitSpriteSheetCache.getOrPut(stats.name) {
+            SpriteSheetParser().parseJson(stats.spriteSheetJsonPath)
+        }
+    }
+
+    /**
+     * Récupère le SpriteSheet pour un building (avec cache)
+     */
+    private fun getBuildingSpriteSheet(stats: BuildingStats): SpriteSheet {
+        return buildingSpriteSheetCache.getOrPut(stats.name) {
+            SpriteSheetParser().parseJson(stats.spriteSheetJsonPath)
+        }
+    }
+
+    /**
+     * Pré-parse tous les JSON de sprite sheets et remplit les caches
+     * À appeler une fois les textures chargées (dans Main.onAssetsLoaded)
+     * Après cet appel, aucune I/O n'est effectuée
      */
     fun preloadAll() {
         val parser = SpriteSheetParser()
-        unitTypeMetadata.forEach { (unitType, metadata) ->
-            spriteSheetCache.getOrPut(unitType) {
-                parser.parseJson(metadata.jsonPath)
+
+        // Preload units
+        listOf(UnitStats.BARBARIAN, UnitStats.ARCHER, UnitStats.GIANT).forEach { stats ->
+            loadSpriteSheet(parser, stats.name, stats.spriteSheetJsonPath, unitSpriteSheetCache)
+        }
+
+        // Preload buildings
+        listOf(BuildingStats.BARRACKS, BuildingStats.ELEXIR_PUMP, BuildingStats.DARCKELEXIR_PUMP).forEach { stats ->
+            if (stats.spriteSheetJsonPath.isNotEmpty()) {
+                loadSpriteSheet(parser, stats.name, stats.spriteSheetJsonPath, buildingSpriteSheetCache)
             }
         }
+
         isReady = true
+    }
+
+    /**
+     * Helper générique pour charger un sprite sheet avec gestion d'erreur
+     */
+    private fun loadSpriteSheet(
+        parser: SpriteSheetParser,
+        cacheKey: String,
+        spriteSheetPath: String,
+        cache: MutableMap<String, SpriteSheet>
+    ) {
+        try {
+            cache.getOrPut(cacheKey) {
+                parser.parseJson(spriteSheetPath)
+            }
+        } catch (e: Exception) {
+            println("Warning: Failed to load sprite sheet for $cacheKey: ${e.message}")
+        }
     }
 
     /**
      * Décharge tous les sprite sheets du cache
      */
     fun dispose() {
-        spriteSheetCache.clear()
+        unitSpriteSheetCache.clear()
+        buildingSpriteSheetCache.clear()
         isReady = false
     }
-
-    /**
-     * Métadonnées d'une unité
-     */
-    private data class UnitMetadata(
-        val baseClipName: String,
-        val texturePath: String,
-        val jsonPath: String
-    )
 }
 
