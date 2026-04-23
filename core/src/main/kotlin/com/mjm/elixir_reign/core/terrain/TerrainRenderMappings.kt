@@ -8,13 +8,19 @@ internal val TerrainMaterial.sheetColumn: Int
         TerrainMaterial.GRASS -> 0
         TerrainMaterial.SAND -> 1
         TerrainMaterial.WATER -> 2
+        TerrainMaterial.GOLD -> 3
+        TerrainMaterial.ELEXIR -> 4
+        TerrainMaterial.DARK_ELEXIR -> 5
     }
 
 internal val TerrainType.topVariant: GroundTopVariant
     get() = when (this) {
         TerrainType.GRASS_1,
         TerrainType.SAND_1,
-        TerrainType.WATER_1 -> GroundTopVariant.VARIANT_0
+        TerrainType.WATER_1,
+        TerrainType.GOLD,
+        TerrainType.ELEXIR,
+        TerrainType.DARK_ELEXIR -> GroundTopVariant.VARIANT_0
 
         TerrainType.GRASS_2,
         TerrainType.SAND_2,
