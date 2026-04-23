@@ -4,7 +4,7 @@ import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.world.WorldMap
 
 object TerrainPresets {
-    private const val DElFAULT_CHUNK_SIZE = 16
+    private const val DEFAULT_CHUNK_SIZE = 16
 
     fun map(): WorldMap {
         val G1 = TerrainType.GRASS_1
@@ -21,7 +21,7 @@ object TerrainPresets {
         val DEl = TerrainType.DARK_ELEXIR
 
         return WorldMap.fromGroundRows(
-            chunkSize = DElFAULT_CHUNK_SIZE,
+            chunkSize = DEFAULT_CHUNK_SIZE,
             rows = listOf(
                 listOf(S1, S1, G1, G1, G1, G1, G3, G3, G2, G3, G1, G1, G1, G1, G1, G1, G1, G1, G2, G3, G1, G1, G1, G1, G1, G1, G1, G1, G1, G1, W1, W1, W3, G2, G1, G1, G1, G1, G1, G1, G2, G3, G1, G1, G1, G1, G3, G1, G1, G3),
                 listOf(S1, S1, S1, G1, G1, G1, G1, G3, G1, G1, G1, G3, Go, G1, G1, G3, G1, G1, G1, G3, G1, G1, G3, G1, G1, G1, G1, G1, G2, W2, W1, W1, G2, G1, G1, G1, G1, G1, G2, G3, G1, G1, G2, G1, G1, G3, G1, G2, G1, G1),
