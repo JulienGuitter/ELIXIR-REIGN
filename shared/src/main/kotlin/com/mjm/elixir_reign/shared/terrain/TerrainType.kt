@@ -3,7 +3,10 @@ package com.mjm.elixir_reign.shared.terrain
 enum class TerrainMaterial {
     GRASS,
     SAND,
-    WATER
+    WATER,
+    GOLD,
+    ELEXIR,
+    DARK_ELEXIR
 }
 
 enum class TerrainType(
@@ -17,7 +20,10 @@ enum class TerrainType(
     SAND_3(material = TerrainMaterial.SAND),
     WATER_1(material = TerrainMaterial.WATER),
     WATER_2(material = TerrainMaterial.WATER),
-    WATER_3(material = TerrainMaterial.WATER);
+    WATER_3(material = TerrainMaterial.WATER),
+    GOLD(material = TerrainMaterial.GOLD),
+    ELEXIR(material = TerrainMaterial.ELEXIR),
+    DARK_ELEXIR(material = TerrainMaterial.DARK_ELEXIR);
 
     val isGrass: Boolean
         get() = material == TerrainMaterial.GRASS
