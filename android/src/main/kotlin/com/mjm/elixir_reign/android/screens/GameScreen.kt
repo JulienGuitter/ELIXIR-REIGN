@@ -1,24 +1,33 @@
-package com.mjm.elixir_reign.core.screens
+package com.mjm.elixir_reign.android.screens
 
-import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
-import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.Group
+import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.Table
+import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
-import com.mjm.elixir_reign.core.world.WorldRenderer
+import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.core.ui.NineSliceImageButton
+import com.mjm.elixir_reign.android.ui.Shop
+import com.mjm.elixir_reign.core.ui.UiAssets
+import com.mjm.elixir_reign.core.ui.UiImage
+import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -33,23 +42,29 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var debugFont: BitmapFont
-    private lateinit var worldRenderer: WorldRenderer
+    private lateinit var terrainRenderer: TerrainRenderer
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
+    private lateinit var uiStage: Stage
+    private lateinit var btnSelectTroops: NineSliceImageButton
+    private var uiDebugEnabled = false
+
+    private var isSelectionMode = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
-    private var isDebugModeEnabled = false
 
     private val input = object : InputAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            // val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-            // selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-            // Clic gauche = sélectionner
-            // selectionInputHandler.touchDown(screenX, screenY, camera)
+            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+            // emulate double click
+            selectionInputHandler.touchDown(screenX, screenY, camera)
+            if(isSelectionMode) {
+                selectionInputHandler.touchDown(screenX, screenY, camera)
+            }
 
             activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
@@ -61,14 +76,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             // Si mode double-clic actif, faire le drag selection
-            // if (selectionInputHandler.isDoubleClickModeActive()) {
-            //     selectionInputHandler.touchDragged(screenX, screenY, camera)
-            //     return true
-            // }
+             if (isSelectionMode) {
+                 selectionInputHandler.touchDragged(screenX, screenY, camera)
+                 return true
+             }
 
             val previousTouch = activeTouches[pointer] ?: return false
 
-            if (pinchState != null) {
+            if (pinchState != null && !isSelectionMode) {
                 previousTouch.set(screenX.toFloat(), screenY.toFloat())
                 updatePinchZoom()
                 return true
@@ -91,7 +106,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             // Finaliser la sélection/drag selection
-            // selectionInputHandler.touchUp()
+            selectionInputHandler.touchUp()
+            isSelectionMode = false
+            updateSelectionButtonState()
 
             activeTouches.remove(pointer)
 
@@ -113,9 +130,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun keyDown(keycode: Int): Boolean {
-            if (supportsDesktopDebugMode() && keycode == Input.Keys.F3) {
-                isDebugModeEnabled = !isDebugModeEnabled
-                return true
+            if(GameConfiguration.DEBUG){
+                if ((keycode == Input.Keys.B && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
+                    (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.B))) {
+                    toggleUiDebug()
+                    return true
+                }
             }
 
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
@@ -134,19 +154,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
-        debugFont = BitmapFont().apply {
-            data.setScale(DEBUG_LABEL_SCALE)
-            color = DEBUG_LABEL_COLOR
-        }
 
-        worldRenderer = WorldRenderer(TerrainPresets.map())
+        terrainRenderer = TerrainRenderer(TerrainPresets.map())
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = worldRenderer.worldBounds()
+        terrainBounds = terrainRenderer.worldBounds()
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -158,7 +174,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         configureCamera(resetView = true)
 
-        Gdx.input.inputProcessor = input
+        show_UI()
     }
 
     override fun render(delta: Float) {
@@ -171,34 +187,22 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
-        worldRenderer.renderGround(batch)
+        terrainRenderer.render(batch)
         gameWorld.update(delta)
-        worldRenderer.renderOverlay(batch)
         batch.end()
 
-        if (selectionInputHandler.isDraggingNow() || shouldRenderChunkDebug()) {
+        // Dessiner le rectangle de drag selection si actif
+        if (selectionInputHandler.isDraggingNow()) {
+            val dragRect = selectionInputHandler.getDragRectangle()
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-
-            if (selectionInputHandler.isDraggingNow()) {
-                val dragRect = selectionInputHandler.getDragRectangle()
-                shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)
-                shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
-            }
-
-            if (shouldRenderChunkDebug()) {
-                shapeRenderer.color.set(DEBUG_CHUNK_COLOR)
-                worldRenderer.renderChunkDebug(shapeRenderer)
-            }
-
+            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
+            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
             shapeRenderer.end()
         }
 
-        if (shouldRenderChunkDebug()) {
-            batch.begin()
-            debugFont.color.set(DEBUG_LABEL_COLOR)
-            worldRenderer.renderChunkDebugLabels(batch, debugFont)
-            batch.end()
-        }
+        // L'UI est dessinée en dernier pour rester au-dessus du terrain.
+        uiStage.act(delta)
+        uiStage.draw()
     }
 
     override fun resize(width: Int, height: Int) {
@@ -208,22 +212,75 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         camera.setToOrtho(false, width.toFloat(), height.toFloat())
         camera.position.set(oldX, oldY, 0f)
         configureCamera(resetView = false)
+        uiStage.viewport.update(width, height, true)
     }
 
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
-        debugFont.dispose()
         gameWorld.dispose()
-        worldRenderer.dispose()
+        terrainRenderer.dispose()
+        uiStage.dispose()
     }
 
-    private fun supportsDesktopDebugMode(): Boolean {
-        return Gdx.app.type == Application.ApplicationType.Desktop
+    private fun show_UI() {
+        uiStage = Stage(ScreenViewport())
+
+        uiStage.addActor(Shop)
+
+        val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
+            onClick { _, _ ->
+                Shop.show()
+            }
+        }
+
+        btnSelectTroops = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_SELECT), toggleVisuals = true).apply {
+            onClick { _, _ ->
+                isSelectionMode = !isSelectionMode
+                updateSelectionButtonState()
+            }
+        }
+        updateSelectionButtonState()
+
+        // TODO: Review this methode of drawing multiple elements
+        val hudLeftTable = Table().apply {
+            setFillParent(true)
+            bottom().left()
+            add(btnBuildMenu).size(96f).pad(24f)
+        }
+
+        val hudRightTable = Table().apply{
+            setFillParent(true)
+            bottom().right()
+            add(btnSelectTroops).size(96f).pad(24f)
+        }
+
+        uiStage.addActor(hudLeftTable)
+        uiStage.addActor(hudRightTable)
+        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
+        Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
     }
 
-    private fun shouldRenderChunkDebug(): Boolean {
-        return supportsDesktopDebugMode() && isDebugModeEnabled
+    private fun updateSelectionButtonState() {
+        if (!this::btnSelectTroops.isInitialized) {
+            return
+        }
+        btnSelectTroops.setHighlighted(isSelectionMode)
+    }
+
+    private fun toggleUiDebug() {
+        uiDebugEnabled = !uiDebugEnabled
+        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
+        Gdx.app.log("GameScreen", "UI debug: ${if (uiDebugEnabled) "ON" else "OFF"}")
+    }
+
+    private fun applyUiDebugRecursively(actor: Actor, enabled: Boolean) {
+        actor.setDebug(enabled)
+        if (actor is Group) {
+            for (i in 0 until actor.children.size) {
+                applyUiDebugRecursively(actor.children[i], enabled)
+            }
+        }
     }
 
     private fun beginPinch() {
@@ -314,9 +371,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
-        private const val DEBUG_LABEL_SCALE = 1.2f
-        private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
-        private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
     }
 
     private data class PinchState(

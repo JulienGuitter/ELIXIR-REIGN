@@ -4,7 +4,7 @@ import com.badlogic.gdx.Gdx
 import com.esotericsoftware.kryonet.Client
 import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
-import com.mjm.elixir_reign.shared.GameVersion
+import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketConnectToInstance
 import com.mjm.elixir_reign.shared.network.PacketLogin
@@ -65,7 +65,7 @@ class temporary {
                                     // Effectuer un login sur le serveur d'instance avant de rejoindre l'instance
                                     val instanceLogin = PacketLogin(
                                         pseudo = "CompteTest",
-                                        version = GameVersion.VERSION,
+                                        version = GameConfiguration.VERSION,
                                         gameType = GameType.G1V1
                                     )
                                     instanceClient.sendTCP(instanceLogin)
@@ -89,7 +89,7 @@ class temporary {
                 Gdx.app.log("NET", "Connecting to 10.0.2.2:${Network.PORT} ...")
                 client.connect(5000, "10.0.2.2", Network.PORT, Network.PORT)
 
-                val login = PacketLogin(pseudo = "CompteTest", version = GameVersion.VERSION, gameType = GameType.G1V1)
+                val login = PacketLogin(pseudo = "CompteTest", version = GameConfiguration.VERSION, gameType = GameType.G1V1)
                 client.sendTCP(login)
 
                 Gdx.app.log("NET", "Login packet sent")

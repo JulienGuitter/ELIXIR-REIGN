@@ -1,4 +1,4 @@
-package com.mjm.elixir_reign.core.screens
+package com.mjm.elixir_reign.lwjgl3.screens
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.ScreenAdapter
@@ -12,12 +12,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.Actor
-import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
+import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
-import com.mjm.elixir_reign.shared.GameVersion.VERSION
+import com.mjm.elixir_reign.core.ui.UiImage
 
 class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
@@ -27,7 +27,7 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
     override fun show() {
         // Le stage et le SpriteBatch
-        stage = Stage(ExtendViewport(1920f, 1080f))
+        stage = Stage(ExtendViewport(UiAssets.screenResolution.x, UiAssets.screenResolution.y))
         spriteBatch = SpriteBatch()
         Gdx.input.inputProcessor = stage
 
@@ -41,38 +41,38 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
         // Ajouter les listeners
         btnSolo.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(GameScreen(game))
+                game.navigateTo(ScreenRoute.GAME)
             }
         })
 
         btn1v1.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 // TODO : Start 1v1 mode
-                game.changeScreen(LobbyWaitingMenu(game))
+                game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn1v3.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 // TODO : Start 1v3 mode
-                game.changeScreen(LobbyWaitingMenu(game))
+                game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn2v2.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 // TODO : Start 2v2 mode
-                game.changeScreen(LobbyWaitingMenu(game))
+                game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btnReturn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                game.changeScreen(MenuScreen(game))
+                game.navigateTo(ScreenRoute.MENU)
             }
         })
 
-        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
+        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.LOGO_TRANSPARENT)))).apply {
             color = Color(1f, 1f, 1f, 0.85f)
         }
 

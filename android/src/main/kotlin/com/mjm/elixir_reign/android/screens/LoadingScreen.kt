@@ -1,9 +1,8 @@
-package com.mjm.elixir_reign.core.screens
+package com.mjm.elixir_reign.android.screens
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
@@ -20,9 +19,11 @@ import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.i18n.Localization
+import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiAssets.createRoundedRectTexture
-import java.awt.Font
+import com.mjm.elixir_reign.core.ui.UiImage
 
 class LoadingScreen(private val game: Main) : ScreenAdapter() {
 
@@ -42,7 +43,7 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
     private var loadingDone = false
 
     override fun show() {
-        stage = Stage(ExtendViewport(1920f, 1080f))
+        stage = Stage(ExtendViewport(UiAssets.screenResolution.x, UiAssets.screenResolution.y))
         spriteBatch = SpriteBatch()
 
         barBgTex = createRoundedRectTexture(
@@ -93,10 +94,10 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
             labelFont,
             Color.WHITE
         )
-        loadingLabel = Label("Chargement...", labelStyle)
+        loadingLabel = Label(Localization.get("loading.loading"), labelStyle)
 
         // -- Logo --
-        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.logoTransparent))).apply {
+        val logoImage = Image(TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.LOGO_TRANSPARENT)))).apply {
             color = Color(1f, 1f, 1f, 0.9f)
         }
 
@@ -139,11 +140,12 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
             progressBar.value = progress
 
             val pct = (progress * 100).toInt()
-            loadingLabel.setText("Chargement... $pct%")
+            //            loadingLabel.setText("Chargement... $pct%")
+            loadingLabel.setText(Localization.get("loading.loadingPercentage", pct))
 
             if (finished && progress >= 1f) {
                 loadingDone = true
-                loadingLabel.setText("Initialisation des animations...")
+                loadingLabel.setText(Localization.get("loading.initAnim"))
                 progressBar.value = 1f
 
                 // Fade-out du contenu seulement, le background reste visible
@@ -153,7 +155,8 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
                         Actions.fadeOut(0.5f),
                         Actions.run {
                             game.onAssetsLoaded()
-                            game.changeScreen(MenuScreen(game))
+                            game.navigateTo(ScreenRoute.MENU) // TODO : reenable it
+                            // game.navigateTo(ScreenRoute.GAME)
                         }
                     )
                 )

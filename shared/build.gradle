@@ -11,6 +11,7 @@ def versionOutputDir = file("$buildDir/generated/version")
 
 task generateVersion{
   def versionValue = project.hasProperty("projectVersion") ? project.property("projectVersion") : "0.0.0"
+  def debugValue = project.hasProperty("projectDebug") ? project.property("projectDebug") : "false"
 
   inputs.property("versionSurveillee", versionValue)
 
@@ -20,10 +21,11 @@ task generateVersion{
     def packageDir = new File(versionOutputDir, "com/mjm/elixir_reign/shared")
     packageDir.mkdirs()
 
-    new File(packageDir, "GameVersion.kt").text = """
+    new File(packageDir, "GameConfiguration.kt").text = """
         package com.mjm.elixir_reign.shared
-        object GameVersion {
+        object GameConfiguration {
             const val VERSION = "${versionValue}"
+            const val DEBUG = ${debugValue}
         }
     """.stripIndent()
   }
