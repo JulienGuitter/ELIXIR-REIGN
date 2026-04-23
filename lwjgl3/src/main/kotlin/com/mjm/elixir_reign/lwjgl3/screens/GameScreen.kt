@@ -1,12 +1,15 @@
 package com.mjm.elixir_reign.lwjgl3.screens
 
+import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
@@ -21,12 +24,12 @@ import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
-import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.lwjgl3.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
+import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -41,12 +44,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var terrainRenderer: TerrainRenderer
+    private lateinit var debugFont: BitmapFont
+    private lateinit var worldRenderer: WorldRenderer
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
     private var uiDebugEnabled = false
+    private var mapDebugEnabled = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
@@ -127,6 +132,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                     toggleUiDebug()
                     return true
                 }
+                if ((keycode == Input.Keys.G && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
+                    (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.G))) {
+                    toggleMapDebug()
+                    return true
+                }
             }
 
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
@@ -145,15 +155,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
+        debugFont = BitmapFont().apply {
+            data.setScale(DEBUG_LABEL_SCALE)
+            color = DEBUG_LABEL_COLOR
+        }
 
-        terrainRenderer = TerrainRenderer(TerrainPresets.map())
+        worldRenderer = WorldRenderer(TerrainPresets.map())
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = terrainRenderer.worldBounds()
+        terrainBounds = worldRenderer.worldBounds()
 
         // Créer une entité barbare au centre de la scène
         SpriteEntityFactory.createUnit(
@@ -178,22 +192,34 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
-        terrainRenderer.render(batch)
+        worldRenderer.renderGround(batch)
         gameWorld.update(delta)
+        worldRenderer.renderOverlay(batch)
         batch.end()
 
-        // Dessiner le rectangle de drag selection si actif
-        if (selectionInputHandler.isDraggingNow()) {
-            val dragRect = selectionInputHandler.getDragRectangle()
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
-            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
-            shapeRenderer.end()
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+        if (selectionInputHandler.isDraggingNow() || uiDebugEnabled) {
+            if (selectionInputHandler.isDraggingNow()) {
+                val dragRect = selectionInputHandler.getDragRectangle()
+                shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)
+                shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            }
         }
+        if (mapDebugEnabled) {
+            shapeRenderer.color.set(DEBUG_CHUNK_COLOR)
+            worldRenderer.renderChunkDebug(shapeRenderer)
+        }
+        shapeRenderer.end()
 
         // L'UI est dessinée en dernier pour rester au-dessus du terrain.
         uiStage.act(delta)
         uiStage.draw()
+        if (mapDebugEnabled) {
+            batch.begin()
+            debugFont.color.set(DEBUG_LABEL_COLOR)
+            worldRenderer.renderChunkDebugLabels(batch, debugFont)
+            batch.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -209,8 +235,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
+        debugFont.dispose()
         gameWorld.dispose()
-        terrainRenderer.dispose()
+        worldRenderer.dispose()
         uiStage.dispose()
     }
 
@@ -240,6 +267,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         uiDebugEnabled = !uiDebugEnabled
         applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.app.log("GameScreen", "UI debug: ${if (uiDebugEnabled) "ON" else "OFF"}")
+    }
+
+    private fun toggleMapDebug() {
+        mapDebugEnabled = !mapDebugEnabled
+        Gdx.app.log("GameScreen", "Map debug: ${if (mapDebugEnabled) "ON" else "OFF"}")
     }
 
     private fun applyUiDebugRecursively(actor: Actor, enabled: Boolean) {
@@ -339,6 +371,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
+        private const val DEBUG_LABEL_SCALE = 1.2f
+        private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
+        private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
     }
 
     private data class PinchState(
