@@ -30,6 +30,10 @@ import com.mjm.elixir_reign.shared.GameConfiguration
 import java.util.EnumMap
 
 object UiAssets {
+
+    var screenResolution = com.badlogic.gdx.math.Vector2(1920f, 1080f)
+        private set
+
     private const val BUTTON_PATCH_INSET = 20
 
     lateinit var skin: Skin

@@ -28,7 +28,7 @@ class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
 
     override fun show() {
         // Le stage et le SpriteBatch
-        stage = Stage(ExtendViewport(1920f, 1080f))
+        stage = Stage(ExtendViewport(UiAssets.screenResolution.x, UiAssets.screenResolution.y))
         spriteBatch = SpriteBatch()
         Gdx.input.inputProcessor = stage
 

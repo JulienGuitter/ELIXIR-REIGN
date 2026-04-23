@@ -43,7 +43,7 @@ class LoadingScreen(private val game: Main) : ScreenAdapter() {
     private var loadingDone = false
 
     override fun show() {
-        stage = Stage(ExtendViewport(1920f, 1080f))
+        stage = Stage(ExtendViewport(UiAssets.screenResolution.x, UiAssets.screenResolution.y))
         spriteBatch = SpriteBatch()
 
         barBgTex = createRoundedRectTexture(

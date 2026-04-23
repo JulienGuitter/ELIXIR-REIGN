@@ -24,7 +24,7 @@ class SettingsScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var backBtn: TextButton
 
     override fun show() {
-        stage = Stage(ExtendViewport(1920f, 1080f))
+        stage = Stage(ExtendViewport(UiAssets.screenResolution.x, UiAssets.screenResolution.y))
         spriteBatch = SpriteBatch()
         Gdx.input.inputProcessor = stage
 
