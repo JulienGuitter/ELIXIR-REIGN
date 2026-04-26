@@ -13,5 +13,9 @@ enum class UiImage(
     SHOP_CARD_9PATCH("ui/shop_card_9patch.png"),
     ICON_HAMMER("icons/hammer.png"),
     ICON_SELECT("icons/selection.png"),
-    ICON_CLOSE("icons/close.png")
+    ICON_CLOSE("icons/close.png"),
+    ICON_GOLD("icons/or.png"),
+    ICON_ELIXIR("icons/elixir.png"),
+    ICON_DARK_ELIXIR("icons/dark-elixir.png"),
+    ICON_SETTING("icons/setting.png")
 }

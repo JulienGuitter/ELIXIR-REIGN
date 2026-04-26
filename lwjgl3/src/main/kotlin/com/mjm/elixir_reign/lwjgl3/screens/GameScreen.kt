@@ -1,6 +1,5 @@
 package com.mjm.elixir_reign.lwjgl3.screens
 
-import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
@@ -10,14 +9,25 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.NinePatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.Touchable
+import com.badlogic.gdx.scenes.scene2d.ui.Image
+import com.badlogic.gdx.scenes.scene2d.ui.Label
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Table
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
+import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
+import com.badlogic.gdx.utils.Array
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
@@ -34,6 +44,9 @@ import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.core.network.MatchmakingClient
 import com.mjm.elixir_reign.core.session.GameMode
 import com.mjm.elixir_reign.core.session.GameSession
+import com.mjm.elixir_reign.core.i18n.Localization
+import com.mjm.elixir_reign.core.navigation.ScreenRoute
+import java.util.Locale
 
 /**
  * Écran de jeu principal.
@@ -59,20 +72,66 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
 
-    private fun onBackRequested() {
+    private lateinit var goldLabel: Label
+    private lateinit var elixirLabel: Label
+    private lateinit var darkElixirLabel: Label
+
+    private lateinit var pauseMenuTable: Table
+    private lateinit var settingsMenuTable: Table
+
+    private fun leaveGameToMainMenu() {
         if (GameSession.mode == GameMode.MULTI) {
             MatchmakingClient.cancelMatchmaking()
         }
-        game.platform.onBackPressed(game)
+        game.navigateTo(ScreenRoute.MENU)
+    }
+
+    private fun isPauseOverlayVisible(): Boolean {
+        if (!this::pauseMenuTable.isInitialized) return false
+        return pauseMenuTable.isVisible || settingsMenuTable.isVisible
+    }
+
+    private fun openPauseMenu() {
+        pauseMenuTable.isVisible = true
+        settingsMenuTable.isVisible = false
+    }
+
+    private fun openSettingsOverlay() {
+        pauseMenuTable.isVisible = false
+        settingsMenuTable.isVisible = true
+    }
+
+    private fun closeOverlays() {
+        pauseMenuTable.isVisible = false
+        settingsMenuTable.isVisible = false
+    }
+
+    private fun refreshInGameMenus(showSettings: Boolean) {
+        pauseMenuTable.remove()
+        settingsMenuTable.remove()
+
+        pauseMenuTable = buildPauseMenuTable()
+        settingsMenuTable = buildSettingsMenuTable()
+
+        uiStage.addActor(pauseMenuTable)
+        uiStage.addActor(settingsMenuTable)
+        if (showSettings) {
+            openSettingsOverlay()
+        } else {
+            openPauseMenu()
+        }
+        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
     }
 
     private val input = object : InputAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-             selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+            if (isPauseOverlayVisible()) return false
+
+            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
 //             Clic gauche = sélectionner
-             selectionInputHandler.touchDown(screenX, screenY, camera)
+            selectionInputHandler.touchDown(screenX, screenY, camera)
 
             activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
@@ -83,6 +142,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
+            if (isPauseOverlayVisible()) return false
+
             // Si mode double-clic actif, faire le drag selection
              if (selectionInputHandler.isDoubleClickModeActive()) {
                  selectionInputHandler.touchDragged(screenX, screenY, camera)
@@ -113,6 +174,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+            if (isPauseOverlayVisible()) return false
+
             // Finaliser la sélection/drag selection
              selectionInputHandler.touchUp()
 
@@ -127,6 +190,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         override fun scrolled(amountX: Float, amountY: Float): Boolean {
+            if (isPauseOverlayVisible()) return false
+
             if (amountY == 0f) {
                 return false
             }
@@ -150,7 +215,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
 
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
-                onBackRequested()
+                when {
+                    settingsMenuTable.isVisible -> openPauseMenu()
+                    pauseMenuTable.isVisible -> closeOverlays()
+                    else -> openPauseMenu()
+                }
                 return true
             }
             return false
@@ -200,14 +269,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
+        val soloPausedByMenu = GameSession.mode == GameMode.SOLO && isPauseOverlayVisible()
+
         if (GameSession.mode == GameMode.MULTI) {
             MatchmakingClient.sendGameplayTick(delta)
         }
 
-        // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
         worldRenderer.renderGround(batch)
-        gameWorld.update(delta)
+        if (!soloPausedByMenu) {
+            gameWorld.update(delta)
+        }
         worldRenderer.renderOverlay(batch)
         batch.end()
 
@@ -224,6 +296,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             worldRenderer.renderChunkDebug(shapeRenderer)
         }
         shapeRenderer.end()
+
+        updateResourceLabels()
 
         // L'UI est dessinée en dernier pour rester au-dessus du terrain.
         uiStage.act(delta)
@@ -270,15 +344,69 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
         }
 
+        val resourceBarTable = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.12f, 0.12f, 0.14f, 0.92f))
+            pad(10f, 14f, 10f, 14f)
+            goldLabel = addResourceEntry(this, UiImage.ICON_GOLD)
+            elixirLabel = addResourceEntry(this, UiImage.ICON_ELIXIR)
+            darkElixirLabel = addResourceEntry(this, UiImage.ICON_DARK_ELIXIR)
+        }
+
+        val hudTopTable = Table().apply {
+            setFillParent(true)
+            top().right()
+            padTop(16f)
+            padRight(16f)
+            add(resourceBarTable)
+        }
+
         val hudTable = Table().apply {
             setFillParent(true)
             bottom().left()
             add(btnBuildMenu).size(96f).pad(24f)
         }
 
+        pauseMenuTable = buildPauseMenuTable()
+        settingsMenuTable = buildSettingsMenuTable()
+
+        uiStage.addActor(hudTopTable)
         uiStage.addActor(hudTable)
+        uiStage.addActor(pauseMenuTable)
+        uiStage.addActor(settingsMenuTable)
+
         applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
+    }
+
+    private fun addResourceEntry(row: Table, icon: UiImage): Label {
+        val valueLabel = Label("0", UiAssets.skin)
+
+        val valueBox = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.SHOP_CARD_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.18f, 0.18f, 0.2f, 0.95f))
+            pad(6f, 12f, 6f, 12f)
+            add(valueLabel).minWidth(96f).right()
+        }
+
+        row.add(Image(UiAssets.texture(icon))).size(30f).padRight(8f)
+        row.add(valueBox).width(132f).padRight(14f)
+
+        return valueLabel
+    }
+
+    private fun updateResourceLabels() {
+        if (!this::goldLabel.isInitialized) return
+
+        goldLabel.setText(formatResource(GameSession.gold))
+        elixirLabel.setText(formatResource(GameSession.elixir))
+        darkElixirLabel.setText(formatResource(GameSession.darkElixir))
+    }
+
+    private fun formatResource(value: Int): String {
+        return String.format(Locale.US, "%,d", value).replace(',', ' ')
     }
 
     private fun toggleUiDebug() {
@@ -379,6 +507,99 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             camera.position.y.coerceIn(minCameraY, maxCameraY)
         } else {
             terrainBounds.y + terrainBounds.height / 2f
+        }
+    }
+
+    private fun buildPauseMenuTable(): Table {
+        val btnBack = TextButton(Localization.get("global.back"), UiAssets.skin)
+        val btnSettings = TextButton(Localization.get("menu.settings"), UiAssets.skin)
+        val btnQuit = TextButton(Localization.get("menu.quit"), UiAssets.skin)
+
+        btnBack.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                closeOverlays()
+            }
+        })
+        btnSettings.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                openSettingsOverlay()
+            }
+        })
+        btnQuit.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                leaveGameToMainMenu()
+            }
+        })
+
+        val panel = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.08f, 0.08f, 0.1f, 0.96f))
+            pad(16f)
+            add(btnBack).width(280f).height(72f).padBottom(10f).row()
+            add(btnSettings).width(280f).height(72f).padBottom(10f).row()
+            add(btnQuit).width(280f).height(72f)
+        }
+
+        return Table().apply {
+            setFillParent(true)
+            background = TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.BUTTON_9PATCH))).tint(Color(0f, 0f, 0f, 0.58f))
+            touchable = Touchable.enabled
+            isVisible = false
+            add(panel).center()
+        }
+    }
+
+    private fun buildSettingsMenuTable(): Table {
+        val title = Label(Localization.get("settings.title"), UiAssets.skin).apply { setFontScale(1.4f) }
+        val langLabel = Label(Localization.get("settings.language"), UiAssets.skin)
+
+        val selectBox = SelectBox<String>(UiAssets.skin)
+        val languageItems = Array<String>()
+        for (lang in Localization.availableLanguages) {
+            languageItems.add(lang.displayName)
+        }
+        selectBox.items = languageItems
+        val currentLangIndex = Localization.indexOfCurrentLanguage()
+        if (currentLangIndex >= 0) {
+            selectBox.selectedIndex = currentLangIndex
+        }
+        selectBox.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                val languageCode = Localization.languageCodeAt(selectBox.selectedIndex) ?: return
+                if (languageCode == Localization.getCurrentLanguage()) return
+
+                Localization.setLanguage(languageCode)
+                Gdx.app.postRunnable {
+                    refreshInGameMenus(showSettings = true)
+                }
+            }
+        })
+
+        val btnBack = TextButton(Localization.get("global.back"), UiAssets.skin)
+        btnBack.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                openPauseMenu()
+            }
+        })
+
+        val panel = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.08f, 0.08f, 0.1f, 0.96f))
+            pad(18f)
+            add(title).padBottom(12f).row()
+            add(langLabel).left().padBottom(8f).row()
+            add(selectBox).width(320f).height(68f).padBottom(14f).row()
+            add(btnBack).width(260f).height(70f)
+        }
+
+        return Table().apply {
+            setFillParent(true)
+            background = TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.BUTTON_9PATCH))).tint(Color(0f, 0f, 0f, 0.58f))
+            touchable = Touchable.enabled
+            isVisible = false
+            add(panel).center()
         }
     }
 
