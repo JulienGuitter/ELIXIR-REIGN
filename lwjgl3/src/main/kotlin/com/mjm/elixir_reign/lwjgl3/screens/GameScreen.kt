@@ -1,5 +1,6 @@
 package com.mjm.elixir_reign.lwjgl3.screens
 
+import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
@@ -46,7 +47,12 @@ import com.mjm.elixir_reign.core.session.GameMode
 import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
+import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
+import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import java.util.Locale
+import kotlin.math.sqrt
 
 /**
  * Écran de jeu principal.
@@ -78,6 +84,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private lateinit var pauseMenuTable: Table
     private lateinit var settingsMenuTable: Table
+    private lateinit var connectionErrorTable: Table
+    private lateinit var connectionErrorLabel: Label
+    private var fogElapsedSeconds = 0f
+    private var renderedMapRevision = -1
+    private val entitiesByUnitId = mutableMapOf<Int, Entity>()
 
     private fun leaveGameToMainMenu() {
         if (GameSession.mode == GameMode.MULTI) {
@@ -88,7 +99,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun isPauseOverlayVisible(): Boolean {
         if (!this::pauseMenuTable.isInitialized) return false
-        return pauseMenuTable.isVisible || settingsMenuTable.isVisible
+        return pauseMenuTable.isVisible ||
+            settingsMenuTable.isVisible ||
+            (this::connectionErrorTable.isInitialized && connectionErrorTable.isVisible)
     }
 
     private fun openPauseMenu() {
@@ -129,7 +142,21 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             if (isPauseOverlayVisible()) return false
 
             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            if (GameSession.mode == GameMode.MULTI) {
+                val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
+                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
+                MatchmakingClient.sendMoveUnitsRequest(
+                    unitIds = selectedUnitIds,
+                    targetRow = targetRow,
+                    targetCol = targetCol
+                )
+            }
             selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+            if (GameSession.mode == GameMode.MULTI) {
+                val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
+                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
+                applyPredictedMove(selectedUnitIds, targetRow, targetCol)
+            }
 //             Clic gauche = sélectionner
             selectionInputHandler.touchDown(screenX, screenY, camera)
 
@@ -239,7 +266,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             color = DEBUG_LABEL_COLOR
         }
 
-        worldRenderer = WorldRenderer(TerrainPresets.map())
+        val worldMap = if (GameSession.mode == GameMode.MULTI) {
+            GameSession.multiplayerWorldMap() ?: TerrainPresets.map()
+        } else {
+            TerrainPresets.map()
+        }
+        worldRenderer = WorldRenderer(worldMap)
+        renderedMapRevision = GameSession.mapRevision
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
@@ -249,12 +282,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         terrainBounds = worldRenderer.worldBounds()
 
         // Créer une entité barbare au centre de la scène
-        SpriteEntityFactory.createUnit(
-            unitType = UnitType.BARBARIAN,
-            x = 0f,
-            y = 0f,
-            engine = gameWorld.coreEngine.engine
-        )
+        spawnInitialUnits()
 
         configureCamera(resetView = true)
 
@@ -262,6 +290,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
+        refreshWorldRendererIfNeeded()
+
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
@@ -270,10 +300,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         batch.projectionMatrix = camera.combined
 
         val soloPausedByMenu = GameSession.mode == GameMode.SOLO && isPauseOverlayVisible()
+        fogElapsedSeconds += delta
 
         if (GameSession.mode == GameMode.MULTI) {
             MatchmakingClient.sendGameplayTick(delta)
+            syncNetworkUnits()
         }
+        updateConnectionErrorOverlay()
 
         batch.begin()
         worldRenderer.renderGround(batch)
@@ -281,6 +314,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             gameWorld.update(delta)
         }
         worldRenderer.renderOverlay(batch)
+        if (GameSession.mode == GameMode.MULTI) {
+            worldRenderer.renderFog(batch, GameSession.visibleTilesSnapshot(), fogElapsedSeconds)
+        }
         batch.end()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
@@ -352,6 +388,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             goldLabel = addResourceEntry(this, UiImage.ICON_GOLD)
             elixirLabel = addResourceEntry(this, UiImage.ICON_ELIXIR)
             darkElixirLabel = addResourceEntry(this, UiImage.ICON_DARK_ELIXIR)
+            addPlayerNamesRow(this)
         }
 
         val hudTopTable = Table().apply {
@@ -370,11 +407,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         pauseMenuTable = buildPauseMenuTable()
         settingsMenuTable = buildSettingsMenuTable()
+        connectionErrorTable = buildConnectionErrorTable()
 
         uiStage.addActor(hudTopTable)
         uiStage.addActor(hudTable)
         uiStage.addActor(pauseMenuTable)
         uiStage.addActor(settingsMenuTable)
+        uiStage.addActor(connectionErrorTable)
 
         applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
@@ -397,12 +436,191 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         return valueLabel
     }
 
+    private fun addPlayerNamesRow(row: Table) {
+        if (GameSession.playerNames.isEmpty()) return
+
+        row.row()
+        row.add(Label(GameSession.playerNames.joinToString("  |  "), UiAssets.skin).apply {
+            setFontScale(0.72f)
+            color = Color(1f, 1f, 1f, 0.82f)
+        }).colspan(6).padTop(6f).center()
+    }
+
+    private fun spawnInitialUnits() {
+        if (GameSession.mode != GameMode.MULTI) {
+            SpriteEntityFactory.createUnit(
+                unitType = UnitType.BARBARIAN,
+                x = 0f,
+                y = 0f,
+                engine = gameWorld.coreEngine.engine
+            )
+            return
+        }
+
+        GameSession.unitSnapshots().forEach { unit ->
+            val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
+            SpriteEntityFactory.createUnit(
+                unitType = unit.unitType,
+                x = position.x,
+                y = position.y,
+                engine = gameWorld.coreEngine.engine,
+                networkUnitId = unit.id,
+                ownerPlayerId = unit.ownerPlayerId,
+                selectable = unit.ownerPlayerId == GameSession.myPlayerId
+            )
+            gameWorld.coreEngine.engine.entities.firstOrNull {
+                it.getComponent(NetworkUnitComponent::class.java)?.unitId == unit.id
+            }?.let { entitiesByUnitId[unit.id] = it }
+        }
+    }
+
+    private fun syncNetworkUnits() {
+        val snapshots = GameSession.unitSnapshots()
+        val visibleIds = snapshots.mapTo(mutableSetOf()) { it.id }
+
+        entitiesByUnitId
+            .filterKeys { it !in visibleIds }
+            .values
+            .forEach { gameWorld.coreEngine.engine.removeEntity(it) }
+        entitiesByUnitId.keys.removeAll { it !in visibleIds }
+
+        snapshots.forEach { unit ->
+            val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
+            val existing = entitiesByUnitId[unit.id]
+            if (existing == null) {
+                SpriteEntityFactory.createUnit(
+                    unitType = unit.unitType,
+                    x = position.x,
+                    y = position.y,
+                    engine = gameWorld.coreEngine.engine,
+                    networkUnitId = unit.id,
+                    ownerPlayerId = unit.ownerPlayerId,
+                    selectable = unit.ownerPlayerId == GameSession.myPlayerId
+                )
+                val created = gameWorld.coreEngine.engine.entities.firstOrNull {
+                    it.getComponent(NetworkUnitComponent::class.java)?.unitId == unit.id
+                }
+                if (created != null) {
+                    entitiesByUnitId[unit.id] = created
+                    applyServerUnitState(created, unit.row, unit.col, unit.targetRow, unit.targetCol, unit.moving)
+                }
+            } else {
+                applyServerUnitState(existing, unit.row, unit.col, unit.targetRow, unit.targetCol, unit.moving)
+            }
+        }
+    }
+
+    private fun applyPredictedMove(unitIds: IntArray, targetRow: Int, targetCol: Int) {
+        unitIds.forEach { unitId ->
+            val entity = entitiesByUnitId[unitId] ?: return@forEach
+            val position = entity.getComponent(PositionComponent::class.java) ?: return@forEach
+            val sourceTile = worldRenderer.tileAtWorldPosition(position.x, position.y)
+            applyDestinationForTiles(
+                entity = entity,
+                sourceRow = sourceTile.first.toFloat(),
+                sourceCol = sourceTile.second.toFloat(),
+                targetRow = targetRow.toFloat(),
+                targetCol = targetCol.toFloat(),
+                moving = true
+            )
+        }
+    }
+
+    private fun applyServerUnitState(
+        entity: Entity,
+        row: Float,
+        col: Float,
+        targetRow: Float,
+        targetCol: Float,
+        moving: Boolean
+    ) {
+        val serverPosition = worldRenderer.tileCenterPosition(row, col)
+        val position = entity.getComponent(PositionComponent::class.java)
+        if (position != null) {
+            val dx = serverPosition.x - position.x
+            val dy = serverPosition.y - position.y
+            if (dx * dx + dy * dy > SERVER_SNAP_DISTANCE_SQUARED || !moving) {
+                position.x = serverPosition.x
+                position.y = serverPosition.y
+            }
+        }
+
+        applyDestinationForTiles(entity, row, col, targetRow, targetCol, moving)
+    }
+
+    private fun applyDestinationForTiles(
+        entity: Entity,
+        sourceRow: Float,
+        sourceCol: Float,
+        targetRow: Float,
+        targetCol: Float,
+        moving: Boolean
+    ) {
+        val destination = entity.getComponent(DestinationComponent::class.java) ?: return
+        if (!moving) {
+            destination.isActive = false
+            entity.getComponent(MovementComponent::class.java)?.isMoving = false
+            return
+        }
+
+        val target = worldRenderer.tileCenterPosition(targetRow, targetCol)
+        destination.targetX = target.x
+        destination.targetY = target.y
+        destination.isActive = true
+
+        entity.getComponent(MovementComponent::class.java)?.speed = computePredictedWorldSpeed(
+            sourceRow = sourceRow,
+            sourceCol = sourceCol,
+            targetRow = targetRow,
+            targetCol = targetCol
+        )
+    }
+
+    private fun computePredictedWorldSpeed(
+        sourceRow: Float,
+        sourceCol: Float,
+        targetRow: Float,
+        targetCol: Float
+    ): Float {
+        val tileDistance = sqrt((targetRow - sourceRow) * (targetRow - sourceRow) + (targetCol - sourceCol) * (targetCol - sourceCol))
+        if (tileDistance <= 0.0001f) return 0f
+
+        val source = worldRenderer.tileCenterPosition(sourceRow, sourceCol)
+        val target = worldRenderer.tileCenterPosition(targetRow, targetCol)
+        val worldDistance = source.dst(target)
+        return worldDistance / tileDistance * SERVER_UNIT_SPEED_TILES_PER_SECOND
+    }
+
+    private fun refreshWorldRendererIfNeeded() {
+        if (GameSession.mode != GameMode.MULTI || renderedMapRevision == GameSession.mapRevision) {
+            return
+        }
+
+        val worldMap = GameSession.multiplayerWorldMap() ?: return
+        worldRenderer.dispose()
+        worldRenderer = WorldRenderer(worldMap)
+        terrainBounds = worldRenderer.worldBounds()
+        renderedMapRevision = GameSession.mapRevision
+    }
+
     private fun updateResourceLabels() {
         if (!this::goldLabel.isInitialized) return
 
         goldLabel.setText(formatResource(GameSession.gold))
         elixirLabel.setText(formatResource(GameSession.elixir))
         darkElixirLabel.setText(formatResource(GameSession.darkElixir))
+    }
+
+    private fun updateConnectionErrorOverlay() {
+        val error = MatchmakingClient.getErrorText()
+        if (!this::connectionErrorTable.isInitialized || error.isNullOrBlank()) {
+            return
+        }
+
+        connectionErrorLabel.setText(error)
+        pauseMenuTable.isVisible = false
+        settingsMenuTable.isVisible = false
+        connectionErrorTable.isVisible = true
     }
 
     private fun formatResource(value: Int): String {
@@ -603,6 +821,37 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun buildConnectionErrorTable(): Table {
+        connectionErrorLabel = Label("", UiAssets.skin).apply {
+            setWrap(true)
+        }
+
+        val btnBack = TextButton(Localization.get("global.back"), UiAssets.skin)
+        btnBack.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                MatchmakingClient.cancelMatchmaking()
+                game.navigateTo(ScreenRoute.MENU)
+            }
+        })
+
+        val panel = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.08f, 0.08f, 0.1f, 0.98f))
+            pad(18f)
+            add(connectionErrorLabel).width(420f).padBottom(16f).row()
+            add(btnBack).width(280f).height(72f)
+        }
+
+        return Table().apply {
+            setFillParent(true)
+            background = TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.BUTTON_9PATCH))).tint(Color(0f, 0f, 0f, 0.68f))
+            touchable = Touchable.enabled
+            isVisible = false
+            add(panel).center()
+        }
+    }
+
     companion object {
         private const val MAX_ZOOM_IN = 0.6f
         private const val SCROLL_ZOOM_STEP = 0.1f
@@ -611,6 +860,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
         private const val DEBUG_LABEL_SCALE = 1.2f
+        private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
+        private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
     }

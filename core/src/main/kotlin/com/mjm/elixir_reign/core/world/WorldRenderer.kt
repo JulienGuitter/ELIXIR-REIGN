@@ -4,8 +4,10 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.WorldMap
 
 class WorldRenderer(
@@ -25,6 +27,10 @@ class WorldRenderer(
         // La couche OVERLAY n'est pas encore modelisee.
     }
 
+    fun renderFog(batch: SpriteBatch, visibleTiles: Set<Pair<Int, Int>>, elapsedSeconds: Float) {
+        terrainRenderer.renderFog(batch, visibleTiles, elapsedSeconds)
+    }
+
     fun renderChunkDebug(shapeRenderer: ShapeRenderer) {
         terrainRenderer.renderChunkDebug(shapeRenderer)
     }
@@ -35,6 +41,18 @@ class WorldRenderer(
 
     fun worldBounds(): Rectangle {
         return terrainRenderer.worldBounds()
+    }
+
+    fun tileCenterPosition(row: Int, col: Int): Vector2 {
+        return terrainRenderer.tileCenterPosition(row, col)
+    }
+
+    fun tileCenterPosition(row: Float, col: Float): Vector2 {
+        return terrainRenderer.tileCenterPosition(row, col)
+    }
+
+    fun tileAtWorldPosition(x: Float, y: Float): Pair<Int, Int> {
+        return terrainRenderer.tileAtWorldPosition(x, y)
     }
 
     override fun dispose() {

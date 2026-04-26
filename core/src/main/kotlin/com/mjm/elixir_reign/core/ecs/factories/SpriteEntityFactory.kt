@@ -15,6 +15,8 @@ import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
+import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
@@ -34,7 +36,10 @@ object SpriteEntityFactory {
         unitType: UnitType,
         x: Float,
         y: Float,
-        engine: Engine
+        engine: Engine,
+        networkUnitId: Int = 0,
+        ownerPlayerId: Int = 0,
+        selectable: Boolean = true
     ) {
         val stats = getUnitStats(unitType)
 
@@ -51,6 +56,8 @@ object SpriteEntityFactory {
             currentHP = stats.maxHP - 45, // For test
             maxHP = stats.maxHP
         ))
+        entity.add(OwnerComponent(ownerPlayerId))
+        entity.add(NetworkUnitComponent(networkUnitId))
 
         // Components client (core) - Animation
         entity.add(UnitTypeComponent(unitType))
@@ -87,7 +94,9 @@ object SpriteEntityFactory {
         entity.add(TextureRegionComponent(textureRegion))
 
         // Components de sélection
-        entity.add(SelectableComponent(isSelected = false))
+        if (selectable) {
+            entity.add(SelectableComponent(isSelected = false))
+        }
         entity.add(DestinationComponent())
 
         // Barre de vie : position et largeur calculées dynamiquement depuis le collider
@@ -114,5 +123,3 @@ object SpriteEntityFactory {
         }
     }
 }
-
-

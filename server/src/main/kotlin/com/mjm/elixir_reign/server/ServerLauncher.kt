@@ -26,7 +26,7 @@ class ServerLauncher {
             LobbyManager.init()
         }
 
-        val server = Server()
+        val server = Server(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(server.kryo)
 
         val clients = ConcurrentHashMap<Int, Client>()
@@ -52,8 +52,18 @@ class ServerLauncher {
                         )
                         connection.sendTCP(accepted)
 
+                        if(message.instanceUuid.isNotBlank() && config.instance && InstanceManager.isInit){
+                            val instance = InstanceManager.findByUUID(message.instanceUuid)
+                            if(instance != null){
+                                instance.addPlayer(connection.id, newClient)
+                                println("Client ${message.pseudo} connecte a l'instance ${message.instanceUuid}")
+                            } else {
+                                println("Instance ${message.instanceUuid} non trouvee !")
+                            }
+                        }
+
                         // Ajouter le client au lobby s'il est actif
-                        if(config.lobby && LobbyManager.isInit){
+                        if(message.instanceUuid.isBlank() && config.lobby && LobbyManager.isInit){
                             LobbyManager.addClient(connection.id, newClient)
                             println("Client ${message.pseudo} ajouté au lobby (${message.gameType})")
                         }
@@ -84,7 +94,7 @@ class ServerLauncher {
                             val instance = InstanceManager.findByUUID(message.uuid)
                             if(instance != null){
                                 val client = clients[connection.id]
-                                if(client != null){
+                                if(client != null && !instance.containsPlayer(connection.id)){
                                     instance.addPlayer(connection.id, client)
                                     println("Client ${client.pseudo} connecté à l'instance ${message.uuid}")
                                 }
@@ -96,6 +106,17 @@ class ServerLauncher {
 
                     is PacketGameplayTick -> {
                         // Placeholder for authoritative multiplayer simulation hooks.
+                    }
+
+                    is PacketMoveUnitsRequest -> {
+                        if(config.instance && InstanceManager.isInit){
+                            InstanceManager.handleMoveRequest(
+                                playerId = connection.id,
+                                unitIds = message.unitIds,
+                                targetRow = message.targetRow,
+                                targetCol = message.targetCol
+                            )
+                        }
                     }
                 }
             }
@@ -109,6 +130,9 @@ class ServerLauncher {
                 if(config.lobby && LobbyManager.isInit){
                     LobbyManager.removeClient(id)
                 }
+                if(config.instance && InstanceManager.isInit){
+                    InstanceManager.removePlayer(id)
+                }
             }
         })
 
@@ -117,8 +141,15 @@ class ServerLauncher {
         println("Serveur started sur le port ${config.port}")
 
         Thread {
+            var lastTickAt = System.nanoTime()
             while(true){
-                // Add serveur game loop
+                val now = System.nanoTime()
+                val deltaSeconds = (now - lastTickAt) / 1_000_000_000f
+                lastTickAt = now
+
+                if(config.instance && InstanceManager.isInit){
+                    InstanceManager.update(deltaSeconds)
+                }
 
                 Thread.sleep(50)
             }

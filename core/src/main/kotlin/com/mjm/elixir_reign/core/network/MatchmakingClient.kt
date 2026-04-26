@@ -10,11 +10,19 @@ import com.mjm.elixir_reign.core.utils.SettingsManager
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketConnectToInstance
+import com.mjm.elixir_reign.shared.network.PacketGameInit
+import com.mjm.elixir_reign.shared.network.PacketGameReady
 import com.mjm.elixir_reign.shared.network.PacketGameplayTick
 import com.mjm.elixir_reign.shared.network.PacketLogin
 import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
+import com.mjm.elixir_reign.shared.network.PacketMapChunk
+import com.mjm.elixir_reign.shared.network.PacketMoveUnitsRequest
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
+import com.mjm.elixir_reign.shared.network.PacketUnitRemove
+import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
+import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.shared.type.GameType
 import kotlin.concurrent.thread
 
@@ -61,7 +69,7 @@ object MatchmakingClient {
         val host = resolveHost()
         val port = resolvePort()
 
-        val newLobbyClient = Client()
+        val newLobbyClient = Client(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(newLobbyClient.kryo)
         newLobbyClient.addListener(object : Listener {
             override fun received(connection: Connection, message: Any) {
@@ -85,7 +93,7 @@ object MatchmakingClient {
             }
 
             override fun disconnected(connection: Connection?) {
-                if (!gameReady) {
+                if (lobbyClient === newLobbyClient && !gameReady) {
                     setError(Localization.get("network.error.disconnected"))
                 }
             }
@@ -150,12 +158,29 @@ object MatchmakingClient {
         }
     }
 
+    fun sendMoveUnitsRequest(unitIds: IntArray, targetRow: Int, targetCol: Int) {
+        if (unitIds.isEmpty()) return
+        val client = instanceClient ?: return
+
+        try {
+            client.sendTCP(
+                PacketMoveUnitsRequest(
+                    unitIds = unitIds,
+                    targetRow = targetRow,
+                    targetCol = targetCol
+                )
+            )
+        } catch (_: Exception) {
+            setError(Localization.get("network.error.disconnected"))
+        }
+    }
+
     private fun connectToInstance(redirect: PacketRedirectToInstance) {
         val host = if (redirect.ip == "this" || redirect.ip.isBlank()) resolveHost() else redirect.ip
         val port = if (redirect.port > 0) redirect.port else resolvePort()
         val instanceUuid = redirect.uuid
 
-        val newInstanceClient = Client()
+        val newInstanceClient = Client(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(newInstanceClient.kryo)
         newInstanceClient.addListener(object : Listener {
             override fun received(connection: Connection, message: Any) {
@@ -163,7 +188,6 @@ object MatchmakingClient {
                     is PacketLoginAccepted -> {
                         connection.sendTCP(PacketConnectToInstance(uuid = instanceUuid))
                         setStatus(Localization.get("network.status.connected"))
-                        gameReady = true
                     }
 
                     is PacketLoginRefused -> {
@@ -172,21 +196,51 @@ object MatchmakingClient {
                         }
                         setError(reason)
                     }
+
+                    is PacketGameInit -> {
+                        GameSession.applyGameInit(message)
+                    }
+
+                    is PacketMapChunk -> {
+                        GameSession.applyMapChunk(message)
+                    }
+
+                    is PacketVisibilityUpdate -> {
+                        GameSession.applyVisibilityUpdate(message)
+                    }
+
+                    is PacketUnitSnapshot -> {
+                        GameSession.applyUnitSnapshot(message)
+                    }
+
+                    is PacketUnitRemove -> {
+                        GameSession.applyUnitRemove(message)
+                    }
+
+                    is PacketGameReady -> {
+                        gameReady = true
+                    }
                 }
             }
 
             override fun disconnected(connection: Connection?) {
-                if (!gameReady) {
+                if (instanceClient === newInstanceClient) {
+                    setError(Localization.get("network.error.disconnected"))
+                } else if (!gameReady) {
                     setError(Localization.get("network.error.instanceConnectFailed", host, port))
                 }
             }
         })
 
         synchronized(lock) {
-            lobbyClient?.stop()
+            val stoppedLobbyClient = lobbyClient
+            val stoppedInstanceClient = instanceClient
+
             lobbyClient = null
-            instanceClient?.stop()
             instanceClient = newInstanceClient
+
+            stoppedLobbyClient?.stop()
+            stoppedInstanceClient?.stop()
         }
 
         thread(name = "kryonet-instance-connect", isDaemon = true) {
@@ -197,7 +251,8 @@ object MatchmakingClient {
                     PacketLogin(
                         pseudo = username,
                         version = GameConfiguration.VERSION,
-                        gameType = selectedGameType
+                        gameType = selectedGameType,
+                        instanceUuid = instanceUuid
                     )
                 )
             } catch (_: Exception) {
@@ -218,11 +273,14 @@ object MatchmakingClient {
     }
 
     private fun stopAllClientsLocked(clearState: Boolean) {
-        lobbyClient?.stop()
-        lobbyClient = null
+        val stoppedLobbyClient = lobbyClient
+        val stoppedInstanceClient = instanceClient
 
-        instanceClient?.stop()
+        lobbyClient = null
         instanceClient = null
+
+        stoppedLobbyClient?.stop()
+        stoppedInstanceClient?.stop()
 
         if (clearState) {
             statusText = ""

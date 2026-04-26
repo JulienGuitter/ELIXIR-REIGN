@@ -152,7 +152,7 @@ object LobbyManager {
             return
         }
 
-        val client = KryoClient()
+        val client = KryoClient(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(client.kryo)
         var latch = CountDownLatch(1)
 
@@ -244,7 +244,7 @@ object LobbyManager {
                 continue
             }
 
-            val client = KryoClient()
+            val client = KryoClient(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
             Network.register(client.kryo)
 
             var latch = CountDownLatch(1)

@@ -41,4 +41,22 @@ object InstanceManager {
     fun findByUUID(uuid: String): Instance? {
         return instances.firstOrNull { it.uuid == uuid && it.active }
     }
+
+    fun removePlayer(id: Int) {
+        instances
+            .filter { it.active && it.containsPlayer(id) }
+            .forEach { it.removePlayer(id) }
+    }
+
+    fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
+        instances
+            .firstOrNull { it.active && it.containsPlayer(playerId) }
+            ?.handleMoveRequest(playerId, unitIds, targetRow, targetCol)
+    }
+
+    fun update(deltaSeconds: Float) {
+        instances
+            .filter { it.active }
+            .forEach { it.update(deltaSeconds) }
+    }
 }

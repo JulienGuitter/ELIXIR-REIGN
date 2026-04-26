@@ -5,9 +5,13 @@ import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.graphics.Camera
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
+import com.mjm.elixir_reign.core.session.GameMode
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
+import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 
@@ -74,7 +78,7 @@ class SelectionInputHandler(private val engine: Engine) {
             val dragRect = getDragRectangle()
             selectedEntities.clear()
             for (entity in engine.entities) {
-                if (entityTouchesRectangle(entity, dragRect)) {
+                if (canInteractWith(entity) && entityTouchesRectangle(entity, dragRect)) {
                     selectedEntities.add(entity)
                 }
             }
@@ -91,6 +95,9 @@ class SelectionInputHandler(private val engine: Engine) {
     private fun findEntityAt(x: Float, y: Float): Entity? {
         for (entity in engine.entities) {
             if (entity.getComponent(SelectableComponent::class.java) != null) {
+                if (!canInteractWith(entity)) {
+                    continue
+                }
                 if (BoundingBoxUtils.pointInEntity(entity, x, y)) {
                     return entity
                 }
@@ -102,6 +109,13 @@ class SelectionInputHandler(private val engine: Engine) {
     private fun entityTouchesRectangle(entity: Entity, rect: Rectangle): Boolean {
         if (entity.getComponent(SelectableComponent::class.java) == null) return false
         return BoundingBoxUtils.entityTouchesRectangle(entity, rect)
+    }
+
+    private fun canInteractWith(entity: Entity): Boolean {
+        if (GameSession.mode != GameMode.MULTI) return true
+
+        val owner = entity.getComponent(OwnerComponent::class.java) ?: return false
+        return owner.playerId == GameSession.myPlayerId
     }
 
     fun getDragRectangle(): Rectangle {
@@ -127,6 +141,12 @@ class SelectionInputHandler(private val engine: Engine) {
     fun isDoubleClickModeActive(): Boolean = isDoubleClickActive
     fun getEntityBoundingBox(entity: Entity): Rectangle? = BoundingBoxUtils.getBoundingBox(entity)
     fun isEntitySelected(entity: Entity): Boolean = entity in selectedEntities
+    fun selectedNetworkUnitIds(): IntArray {
+        return selectedEntities
+            .mapNotNull { it.getComponent(NetworkUnitComponent::class.java)?.unitId }
+            .filter { it > 0 }
+            .toIntArray()
+    }
 
     /**
      * Commande aux entités sélectionnées de se déplacer vers une destination
