@@ -21,5 +21,6 @@ object Network {
         kryo?.register(PacketCreateInstance::class.java)
         kryo?.register(PacketRedirectToInstance::class.java)
         kryo?.register(PacketConnectToInstance::class.java)
+        kryo?.register(PacketGameplayTick::class.java)
     }
 }

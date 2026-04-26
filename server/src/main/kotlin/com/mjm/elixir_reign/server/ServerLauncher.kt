@@ -93,6 +93,10 @@ class ServerLauncher {
                             }
                         }
                     }
+
+                    is PacketGameplayTick -> {
+                        // Placeholder for authoritative multiplayer simulation hooks.
+                    }
                 }
             }
 

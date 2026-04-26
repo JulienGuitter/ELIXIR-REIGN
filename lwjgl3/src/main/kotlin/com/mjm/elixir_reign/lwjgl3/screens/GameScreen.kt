@@ -31,6 +31,9 @@ import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.core.network.MatchmakingClient
+import com.mjm.elixir_reign.core.session.GameMode
+import com.mjm.elixir_reign.core.session.GameSession
 
 /**
  * Écran de jeu principal.
@@ -55,6 +58,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
+
+    private fun onBackRequested() {
+        if (GameSession.mode == GameMode.MULTI) {
+            MatchmakingClient.cancelMatchmaking()
+        }
+        game.platform.onBackPressed(game)
+    }
 
     private val input = object : InputAdapter() {
 
@@ -140,7 +150,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
 
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
-                game.platform.onBackPressed(game)
+                onBackRequested()
                 return true
             }
             return false
@@ -190,6 +200,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
+        if (GameSession.mode == GameMode.MULTI) {
+            MatchmakingClient.sendGameplayTick(delta)
+        }
+
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
         worldRenderer.renderGround(batch)
@@ -233,6 +247,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun dispose() {
+        if (GameSession.mode == GameMode.MULTI) {
+            MatchmakingClient.cancelMatchmaking()
+        }
+
         shapeRenderer.dispose()
         batch.dispose()
         debugFont.dispose()

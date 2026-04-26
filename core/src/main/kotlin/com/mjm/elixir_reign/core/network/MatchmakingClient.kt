@@ -10,6 +10,7 @@ import com.mjm.elixir_reign.core.utils.SettingsManager
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketConnectToInstance
+import com.mjm.elixir_reign.shared.network.PacketGameplayTick
 import com.mjm.elixir_reign.shared.network.PacketLogin
 import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
@@ -40,6 +41,9 @@ object MatchmakingClient {
 
     @Volatile
     private var username: String = ""
+
+    @Volatile
+    private var lastGameplayTickSentAtMs: Long = 0L
 
     fun startMatchmaking(gameType: GameType) {
         synchronized(lock) {
@@ -128,6 +132,24 @@ object MatchmakingClient {
         return true
     }
 
+    fun sendGameplayTick(deltaSeconds: Float) {
+        val client = instanceClient ?: return
+        if (deltaSeconds <= 0f) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastGameplayTickSentAtMs < GAMEPLAY_TICK_SEND_INTERVAL_MS) {
+            return
+        }
+
+        val deltaMs = (deltaSeconds * 1000f).toInt().coerceAtLeast(1)
+        try {
+            client.sendUDP(PacketGameplayTick(deltaMs = deltaMs))
+            lastGameplayTickSentAtMs = now
+        } catch (_: Exception) {
+            setError(Localization.get("network.error.disconnected"))
+        }
+    }
+
     private fun connectToInstance(redirect: PacketRedirectToInstance) {
         val host = if (redirect.ip == "this" || redirect.ip.isBlank()) resolveHost() else redirect.ip
         val port = if (redirect.port > 0) redirect.port else resolvePort()
@@ -206,6 +228,7 @@ object MatchmakingClient {
             statusText = ""
             errorText = null
             gameReady = false
+            lastGameplayTickSentAtMs = 0L
         }
     }
 
@@ -228,5 +251,6 @@ object MatchmakingClient {
 
         return Network.PORT
     }
-}
 
+    private const val GAMEPLAY_TICK_SEND_INTERVAL_MS = 100L
+}
