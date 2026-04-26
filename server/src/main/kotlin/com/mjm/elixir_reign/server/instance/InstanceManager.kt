@@ -1,7 +1,7 @@
 package com.mjm.elixir_reign.server.instance
 
 import com.mjm.elixir_reign.server.ConfigManager
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 
 object InstanceManager {
     private var config = ConfigManager.getConfig()

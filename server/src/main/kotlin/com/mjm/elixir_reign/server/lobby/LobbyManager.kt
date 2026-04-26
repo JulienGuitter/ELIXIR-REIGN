@@ -9,7 +9,8 @@ import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketCreateInstance
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
 import com.mjm.elixir_reign.shared.network.PacketServerInfo
-import type.GameType
+import com.mjm.elixir_reign.shared.network.PacketLoginRefused
+import com.mjm.elixir_reign.shared.type.GameType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -83,6 +84,9 @@ object LobbyManager {
         for(gameType in GameType.entries){
             var userNeeded = 0
             when(gameType){
+                GameType.SOLO -> {
+                    userNeeded = 1
+                }
                 GameType.G1V1 -> {
                     userNeeded = 2
                 }
@@ -104,7 +108,7 @@ object LobbyManager {
                     clientsInGame[clientId] = client
                 }
                 if(clientsInGame.size == userNeeded){
-                    println("Starting a new G1V3 game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
+                    println("Starting a new $gameType game with clients: ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
                     createServerInstance(clientsInGame)
                 }
             }
@@ -133,12 +137,9 @@ object LobbyManager {
         // 2) Essayer les serveurs externes
         val server = availableServers.entries.firstOrNull { it.key != "this" && it.value > 0 }
         if(server == null){
-            println("No available server for the game ! Retry in ${NO_SERVER_COOLDOWN_MS / 1000}s...")
+            println("No available server for the game !")
+            notifyMatchFailure(clientsInGame, "Aucun serveur disponible pour lancer la partie.")
             noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
-            // Remettre les clients dans la queue
-            for((id, client) in clientsInGame){
-                gameTypeClients[client.gameType]?.add(id)
-            }
             return
         }
 
@@ -146,11 +147,7 @@ object LobbyManager {
         val ip = server.key.split(":")
         if(ip.size != 2) {
             println("Invalid server IP : ${server.key}")
-            // Re-queue clients to avoid dropping them from matchmaking
-            for((id, client) in clientsInGame){
-                gameTypeClients[client.gameType]?.add(id)
-            }
-            // Apply a cooldown similar to the no-available-server case
+            notifyMatchFailure(clientsInGame, "Serveur de partie invalide.")
             noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
             return
         }
@@ -174,6 +171,7 @@ object LobbyManager {
                             // Only send clients to instance if the UUID is not blank.
                             if (message.uuid.isBlank()) {
                                 println("Failed to create instance: received blank UUID from server, not redirecting clients.")
+                                notifyMatchFailure(clientsInGame, "Le serveur est plein. Reessayez dans quelques instants.")
                             } else {
                                 // Send clients to instance
                                 sendClientsToInstance(clientsInGame, message.uuid, ip[0], ip[1])
@@ -195,36 +193,25 @@ object LobbyManager {
             val ok = latch.await(10, TimeUnit.SECONDS)
             if(!ok){
                 println("Server ${server.key} did not respond to create instance in time !")
-                // Re-queue clients so they are not lost if the instance server does not respond.
-                requeueClientsInGame(clientsInGame)
-                // Optionally refresh available servers to avoid using an unresponsive one.
+                notifyMatchFailure(clientsInGame, "Le serveur de partie ne repond pas.")
                 updateAvailableServers()
             }
         } catch (e: Exception) {
             println("Failed to connect to server ${server.key} : ${e.message}")
-            // Re-queue clients so they are not lost if contacting the instance server fails.
-            requeueClientsInGame(clientsInGame)
-            // Optionally refresh available servers to avoid using an unresponsive one.
+            notifyMatchFailure(clientsInGame, "Impossible de contacter le serveur de partie.")
             updateAvailableServers()
         } finally {
             client.stop()
         }
     }
 
-    private fun requeueClientsInGame(clientsInGame: ConcurrentHashMap<Int, Client>) {
-        if (clientsInGame.isEmpty()) {
-            return
-        }
-
-        // All clients in this map should share the same game type.
-        val gameType = clientsInGame.values.first().gameType
-
-        // Ensure there is a queue for this game type and re-add clients to it.
-        val queue = gameTypeClients.computeIfAbsent(gameType) { ConcurrentLinkedQueue() }
-        for (client in clientsInGame.values) {
-            queue.add(client)
+    private fun notifyMatchFailure(clientsInGame: ConcurrentHashMap<Int, Client>, reason: String) {
+        for ((id, client) in clientsInGame) {
+            client.connection?.sendTCP(PacketLoginRefused(reason))
+            clients.remove(id)
         }
     }
+
     private fun sendClientsToInstance(clientsInGame: ConcurrentHashMap<Int, Client>, instanceUUID: String, instanceIP: String = "", instancePort: String = ""){
         for((id, client) in clientsInGame){
             println("Sending client ${client.pseudo} to instance $instanceUUID ...")

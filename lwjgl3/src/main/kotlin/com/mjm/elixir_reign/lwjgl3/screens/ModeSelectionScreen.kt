@@ -18,6 +18,8 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
+import com.mjm.elixir_reign.core.network.MatchmakingClient
+import com.mjm.elixir_reign.shared.type.GameType
 
 class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
@@ -47,21 +49,21 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
         btn1v1.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 1v1 mode
+                MatchmakingClient.startMatchmaking(GameType.G1V1)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn1v3.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 1v3 mode
+                MatchmakingClient.startMatchmaking(GameType.G1V3)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn2v2.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 2v2 mode
+                MatchmakingClient.startMatchmaking(GameType.G2V2)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
