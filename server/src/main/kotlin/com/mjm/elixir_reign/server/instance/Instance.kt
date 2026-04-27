@@ -107,14 +107,20 @@ class Instance(
         val state = gameState ?: return
         state.update(deltaSeconds)
 
+        val hasMovement = state.hasMovingUnits()
+        val syncInterval = if (hasMovement) ACTIVE_SYNC_INTERVAL_MS else IDLE_HEARTBEAT_INTERVAL_MS
+
         val now = System.currentTimeMillis()
-        if (now - lastSyncAtMs < SYNC_INTERVAL_MS) {
+        if (now - lastSyncAtMs < syncInterval) {
             return
         }
 
         for ((playerId, client) in players) {
             val connection = client.connection ?: continue
-            state.syncPacketsFor(playerId).forEach { packet ->
+            state.syncPacketsFor(
+                playerId = playerId,
+                forcePresenceHeartbeat = !hasMovement
+            ).forEach { packet ->
                 ServerLog.sendTcp(connection, packet)
             }
         }
@@ -140,6 +146,7 @@ class Instance(
     }
 
     companion object {
-        private const val SYNC_INTERVAL_MS = 100L
+        private const val ACTIVE_SYNC_INTERVAL_MS = 100L
+        private const val IDLE_HEARTBEAT_INTERVAL_MS = 500L
     }
 }

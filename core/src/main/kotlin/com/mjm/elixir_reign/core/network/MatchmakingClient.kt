@@ -367,6 +367,6 @@ object MatchmakingClient {
         return Network.PORT
     }
 
-    private const val GAMEPLAY_TICK_SEND_INTERVAL_MS = 100L
+    private const val GAMEPLAY_TICK_SEND_INTERVAL_MS = 500L
     private const val RECONNECT_RETRY_DELAY_MS = 1000L
 }

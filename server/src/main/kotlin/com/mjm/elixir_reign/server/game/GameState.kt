@@ -29,6 +29,8 @@ class GameState(
     private val sentChunksByPlayer = mutableMapOf<Int, MutableSet<ChunkCoord>>()
     private val visibleUnitsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val visibleTilesByPlayer = mutableMapOf<Int, MutableSet<Int>>()
+    private val lastPresenceSentByPlayer = mutableMapOf<Int, Map<Int, PlayerConnectionState>>()
+    private val lastMovingStateSentByPlayer = mutableMapOf<Int, MutableMap<Int, Boolean>>()
     private val reconnectDeadlineByPlayer = mutableMapOf<Int, Long>()
     private val connectionStateByPlayer = mutableMapOf<Int, PlayerConnectionState>()
     private var nextUnitId = 1
@@ -55,6 +57,8 @@ class GameState(
         sentChunksByPlayer.remove(playerId)
         visibleUnitsByPlayer.remove(playerId)
         visibleTilesByPlayer.remove(playerId)
+        lastPresenceSentByPlayer.remove(playerId)
+        lastMovingStateSentByPlayer.remove(playerId)
     }
 
     fun isStarted(): Boolean {
@@ -91,6 +95,12 @@ class GameState(
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
+        lastPresenceSentByPlayer.remove(playerId)
+        lastMovingStateSentByPlayer.remove(playerId)
+    }
+
+    fun hasMovingUnits(): Boolean {
+        return players.values.any { player -> player.units.any { it.moving } }
     }
 
     fun hasPlayer(playerId: Int): Boolean {
@@ -152,7 +162,7 @@ class GameState(
         return packets
     }
 
-    fun syncPacketsFor(playerId: Int): List<Any> {
+    fun syncPacketsFor(playerId: Int, forcePresenceHeartbeat: Boolean = false): List<Any> {
         val player = players[playerId] ?: return emptyList()
         val visibleTiles = computeVisibleTileIndices(player)
         val visibleChunks = computeVisibleChunks(visibleTiles)
@@ -181,28 +191,37 @@ class GameState(
             previouslyVisibleTiles.filterTo(linkedSetOf()) { it !in visibleTiles }
         }
 
-        packets += PacketVisibilityUpdate(
-            fullSync = fullSync,
-            visibleChunkIndices = visibleChunks
-                .map { chunk -> chunk.y * chunkColumns() + chunk.x }
-                .sorted()
-                .toIntArray(),
-            visibleTileIndices = addedVisibleTiles.sorted().toIntArray(),
-            hiddenTileIndices = hiddenTiles.sorted().toIntArray()
-        )
-
-        packets += PacketPlayerPresenceUpdate(
-            players = ArrayList(
-                players.values
-                    .sortedBy { it.id }
-                    .map { state ->
-                        PacketPlayerStatus(
-                            id = state.id,
-                            connectionState = connectionStateByPlayer[state.id] ?: PlayerConnectionState.CONNECTED
-                        )
-                    }
+        if (fullSync || addedVisibleTiles.isNotEmpty() || hiddenTiles.isNotEmpty()) {
+            packets += PacketVisibilityUpdate(
+                fullSync = fullSync,
+                visibleChunkIndices = visibleChunks
+                    .map { chunk -> chunk.y * chunkColumns() + chunk.x }
+                    .sorted()
+                    .toIntArray(),
+                visibleTileIndices = addedVisibleTiles.sorted().toIntArray(),
+                hiddenTileIndices = hiddenTiles.sorted().toIntArray()
             )
-        )
+        }
+
+        val presenceSnapshot = players.values
+            .associate { state -> state.id to (connectionStateByPlayer[state.id] ?: PlayerConnectionState.CONNECTED) }
+        val lastPresenceSnapshot = lastPresenceSentByPlayer[playerId]
+        val shouldSendPresence = forcePresenceHeartbeat || lastPresenceSnapshot != presenceSnapshot
+        if (shouldSendPresence) {
+            packets += PacketPlayerPresenceUpdate(
+                players = ArrayList(
+                    players.values
+                        .sortedBy { it.id }
+                        .map { state ->
+                            PacketPlayerStatus(
+                                id = state.id,
+                                connectionState = connectionStateByPlayer[state.id] ?: PlayerConnectionState.CONNECTED
+                            )
+                        }
+                )
+            )
+            lastPresenceSentByPlayer[playerId] = presenceSnapshot
+        }
 
         val currentlyVisibleUnits = players.values
             .flatMap { it.units }
@@ -217,10 +236,21 @@ class GameState(
             .filter { it !in currentlyVisibleUnits }
             .forEach { packets += PacketUnitRemove(it) }
 
+        val movingStateByUnit = lastMovingStateSentByPlayer.getOrPut(playerId) { mutableMapOf() }
         players.values
             .flatMap { it.units }
             .filter { it.id in currentlyVisibleUnits }
-            .forEach { unit -> packets += unit.toPacket() }
+            .forEach { unit ->
+                val lastMoving = movingStateByUnit[unit.id]
+                val becameVisible = unit.id !in previouslyVisibleUnits
+                val movingStateChanged = lastMoving != null && lastMoving != unit.moving
+                if (becameVisible || unit.moving || movingStateChanged) {
+                    packets += unit.toPacket()
+                    movingStateByUnit[unit.id] = unit.moving
+                }
+            }
+
+        movingStateByUnit.keys.removeAll { it !in currentlyVisibleUnits }
 
         previouslyVisibleUnits.clear()
         previouslyVisibleUnits += currentlyVisibleUnits
