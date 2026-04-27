@@ -184,6 +184,10 @@ object MatchmakingClient {
         Network.register(newInstanceClient.kryo)
         newInstanceClient.addListener(object : Listener {
             override fun received(connection: Connection, message: Any) {
+                if (instanceClient !== newInstanceClient) {
+                    return
+                }
+
                 when (message) {
                     is PacketLoginAccepted -> {
                         connection.sendTCP(PacketConnectToInstance(uuid = instanceUuid))
@@ -224,11 +228,8 @@ object MatchmakingClient {
             }
 
             override fun disconnected(connection: Connection?) {
-                if (instanceClient === newInstanceClient) {
-                    setError(Localization.get("network.error.disconnected"))
-                } else if (!gameReady) {
-                    setError(Localization.get("network.error.instanceConnectFailed", host, port))
-                }
+                if (instanceClient !== newInstanceClient) return
+                setError(Localization.get("network.error.disconnected"))
             }
         })
 
@@ -267,6 +268,7 @@ object MatchmakingClient {
 
     private fun setError(text: String) {
         errorText = text
+        gameReady = false
         synchronized(lock) {
             stopAllClientsLocked(clearState = false)
         }
@@ -281,12 +283,12 @@ object MatchmakingClient {
 
         stoppedLobbyClient?.stop()
         stoppedInstanceClient?.stop()
+        gameReady = false
+        lastGameplayTickSentAtMs = 0L
 
         if (clearState) {
             statusText = ""
             errorText = null
-            gameReady = false
-            lastGameplayTickSentAtMs = 0L
         }
     }
 

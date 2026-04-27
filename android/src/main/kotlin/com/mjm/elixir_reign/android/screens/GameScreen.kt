@@ -310,7 +310,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             gameWorld.update(delta)
         }
         if (GameSession.mode == GameMode.MULTI) {
-            terrainRenderer.renderFog(batch, GameSession.visibleTilesSnapshot(), fogElapsedSeconds)
+            terrainRenderer.renderFog(batch, GameSession.fogSnapshot(), fogElapsedSeconds)
         }
         batch.end()
 

@@ -17,7 +17,10 @@ object GameSession {
     private val networkStateLock = Any()
     private val knownChunks = linkedMapOf<ChunkCoord, WorldChunk>()
     private val visibleChunks = linkedSetOf<ChunkCoord>()
-    private val visibleTiles = linkedSetOf<Pair<Int, Int>>()
+    private val visibleTiles = linkedSetOf<Int>()
+    private var visibilityMask = BooleanArray(0)
+    @Volatile
+    private var currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
     private val networkUnits = linkedMapOf<Int, UnitState>()
 
     @Volatile
@@ -91,6 +94,12 @@ object GameSession {
             knownChunks.clear()
             visibleChunks.clear()
             visibleTiles.clear()
+            visibilityMask = if (mapWidth > 0 && mapHeight > 0) {
+                BooleanArray(mapWidth * mapHeight)
+            } else {
+                BooleanArray(0)
+            }
+            currentFogSnapshot = FogSnapshot(width = mapWidth, height = mapHeight, alphaByTile = FloatArray(mapWidth * mapHeight) { 1f })
             networkUnits.clear()
         }
     }
@@ -119,19 +128,34 @@ object GameSession {
     fun applyVisibilityUpdate(packet: PacketVisibilityUpdate) {
         synchronized(networkStateLock) {
             visibleChunks.clear()
-            visibleTiles.clear()
-            packet.visibleChunkKeys.mapNotNullTo(visibleChunks) { key ->
-                val parts = key.split(":")
-                val x = parts.getOrNull(0)?.toIntOrNull()
-                val y = parts.getOrNull(1)?.toIntOrNull()
-                if (x == null || y == null) null else ChunkCoord(x, y)
+            val chunkColumns = chunkColumns()
+            packet.visibleChunkIndices.forEach { chunkIndex ->
+                if (chunkColumns <= 0) return@forEach
+                val chunkY = chunkIndex / chunkColumns
+                val chunkX = chunkIndex % chunkColumns
+                if (chunkX >= 0 && chunkY >= 0) {
+                    visibleChunks += ChunkCoord(chunkX, chunkY)
+                }
             }
-            packet.visibleTileKeys.mapNotNullTo(visibleTiles) { key ->
-                val parts = key.split(":")
-                val row = parts.getOrNull(0)?.toIntOrNull()
-                val col = parts.getOrNull(1)?.toIntOrNull()
-                if (row == null || col == null) null else row to col
+
+            if (packet.fullSync) {
+                visibleTiles.clear()
+                visibilityMask.fill(false)
             }
+
+            packet.visibleTileIndices.forEach { tileIndex ->
+                if (tileIndex !in 0 until visibilityMask.size) return@forEach
+                visibleTiles += tileIndex
+                visibilityMask[tileIndex] = true
+            }
+
+            packet.hiddenTileIndices.forEach { tileIndex ->
+                if (tileIndex !in 0 until visibilityMask.size) return@forEach
+                visibleTiles.remove(tileIndex)
+                visibilityMask[tileIndex] = false
+            }
+
+            rebuildFogSnapshotLocked()
         }
     }
 
@@ -174,10 +198,8 @@ object GameSession {
         }
     }
 
-    fun visibleTilesSnapshot(): Set<Pair<Int, Int>> {
-        synchronized(networkStateLock) {
-            return visibleTiles.toSet()
-        }
+    fun fogSnapshot(): FogSnapshot {
+        return currentFogSnapshot
     }
 
     fun unitSnapshots(): List<UnitState> {
@@ -214,12 +236,72 @@ object GameSession {
             knownChunks.clear()
             visibleChunks.clear()
             visibleTiles.clear()
+            visibilityMask = BooleanArray(0)
+            currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
             networkUnits.clear()
         }
     }
+
+    private fun rebuildFogSnapshotLocked() {
+        if (mapWidth <= 0 || mapHeight <= 0) {
+            currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
+            return
+        }
+
+        val alphaByTile = FloatArray(mapWidth * mapHeight)
+        for (row in 0 until mapHeight) {
+            for (col in 0 until mapWidth) {
+                val tileIndex = row * mapWidth + col
+                if (visibilityMask.getOrNull(tileIndex) == true) {
+                    alphaByTile[tileIndex] = 0f
+                    continue
+                }
+
+                alphaByTile[tileIndex] = when {
+                    hasVisibleTileAround(row, col, maxDistanceSquared = FIRST_RING_DISTANCE_SQUARED) -> 0.4f
+                    hasVisibleTileAround(row, col, maxDistanceSquared = SECOND_RING_DISTANCE_SQUARED) -> 0.7f
+                    else -> 1f
+                }
+            }
+        }
+        currentFogSnapshot = FogSnapshot(width = mapWidth, height = mapHeight, alphaByTile = alphaByTile)
+    }
+
+    private fun hasVisibleTileAround(row: Int, col: Int, maxDistanceSquared: Int): Boolean {
+        val radius = if (maxDistanceSquared <= FIRST_RING_DISTANCE_SQUARED) FIRST_RING_RADIUS else SECOND_RING_RADIUS
+        for (testRow in (row - radius)..(row + radius)) {
+            if (testRow !in 0 until mapHeight) continue
+            for (testCol in (col - radius)..(col + radius)) {
+                if (testCol !in 0 until mapWidth) continue
+                val dRow = testRow - row
+                val dCol = testCol - col
+                if (dRow * dRow + dCol * dCol > maxDistanceSquared) continue
+                val testIndex = testRow * mapWidth + testCol
+                if (visibilityMask.getOrNull(testIndex) == true) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun chunkColumns(): Int {
+        if (chunkSize <= 0 || mapWidth <= 0) return 0
+        return (mapWidth + chunkSize - 1) / chunkSize
+    }
+
+    data class FogSnapshot(
+        val width: Int,
+        val height: Int,
+        val alphaByTile: FloatArray
+    )
 
     private const val DEFAULT_GOLD = 1200
     private const val DEFAULT_ELIXIR = 1200
     private const val DEFAULT_DARK_ELIXIR = 80
     private const val UNKNOWN_TILE = -1
+    private const val FIRST_RING_DISTANCE_SQUARED = 2
+    private const val SECOND_RING_DISTANCE_SQUARED = 8
+    private const val FIRST_RING_RADIUS = 1
+    private const val SECOND_RING_RADIUS = 2
 }

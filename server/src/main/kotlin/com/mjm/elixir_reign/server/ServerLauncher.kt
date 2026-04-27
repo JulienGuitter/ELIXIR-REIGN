@@ -44,6 +44,25 @@ class ServerLauncher {
                             return
                         }
 
+                        val requestedInstanceUuid = message.instanceUuid.trim()
+                        val targetInstance = if (requestedInstanceUuid.isNotBlank()) {
+                            if (!config.instance || !InstanceManager.isInit) {
+                                connection.sendTCP(PacketLoginRefused("Serveur d'instance indisponible."))
+                                connection.close()
+                                return
+                            }
+                            val foundInstance = InstanceManager.findByUUID(requestedInstanceUuid)
+                            if (foundInstance == null) {
+                                println("Instance $requestedInstanceUuid non trouvee !")
+                                connection.sendTCP(PacketLoginRefused("Instance invalide ou expiree."))
+                                connection.close()
+                                return
+                            }
+                            foundInstance
+                        } else {
+                            null
+                        }
+
                         var newClient = Client(pseudo = message.pseudo, gameType = message.gameType, connection = connection)
                         clients[connection.id] = newClient
 
@@ -52,14 +71,9 @@ class ServerLauncher {
                         )
                         connection.sendTCP(accepted)
 
-                        if(message.instanceUuid.isNotBlank() && config.instance && InstanceManager.isInit){
-                            val instance = InstanceManager.findByUUID(message.instanceUuid)
-                            if(instance != null){
-                                instance.addPlayer(connection.id, newClient)
-                                println("Client ${message.pseudo} connecte a l'instance ${message.instanceUuid}")
-                            } else {
-                                println("Instance ${message.instanceUuid} non trouvee !")
-                            }
+                        if(targetInstance != null){
+                            targetInstance.addPlayer(connection.id, newClient)
+                            println("Client ${message.pseudo} connecte a l'instance $requestedInstanceUuid")
                         }
 
                         // Ajouter le client au lobby s'il est actif

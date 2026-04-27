@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.WorldMap
@@ -27,8 +28,8 @@ class WorldRenderer(
         // La couche OVERLAY n'est pas encore modelisee.
     }
 
-    fun renderFog(batch: SpriteBatch, visibleTiles: Set<Pair<Int, Int>>, elapsedSeconds: Float) {
-        terrainRenderer.renderFog(batch, visibleTiles, elapsedSeconds)
+    fun renderFog(batch: SpriteBatch, fogSnapshot: GameSession.FogSnapshot, elapsedSeconds: Float) {
+        terrainRenderer.renderFog(batch, fogSnapshot, elapsedSeconds)
     }
 
     fun renderChunkDebug(shapeRenderer: ShapeRenderer) {

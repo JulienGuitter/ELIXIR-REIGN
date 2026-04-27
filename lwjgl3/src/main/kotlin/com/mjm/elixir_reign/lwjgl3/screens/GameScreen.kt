@@ -315,7 +315,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
         worldRenderer.renderOverlay(batch)
         if (GameSession.mode == GameMode.MULTI) {
-            worldRenderer.renderFog(batch, GameSession.visibleTilesSnapshot(), fogElapsedSeconds)
+            worldRenderer.renderFog(batch, GameSession.fogSnapshot(), fogElapsedSeconds)
         }
         batch.end()
 

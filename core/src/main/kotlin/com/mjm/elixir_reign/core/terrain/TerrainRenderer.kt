@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.WorldMap
@@ -52,15 +53,21 @@ class TerrainRenderer(
         }
     }
 
-    fun renderFog(batch: SpriteBatch, visibleTiles: Set<Pair<Int, Int>>, elapsedSeconds: Float) {
+    fun renderFog(batch: SpriteBatch, fogSnapshot: GameSession.FogSnapshot, elapsedSeconds: Float) {
+        if (fogSnapshot.width != worldMap.width || fogSnapshot.height != worldMap.height) return
         val frame = fogTileset.frame(elapsedSeconds)
+        val baseColor = batch.color.cpy()
+        val alphaByTile = fogSnapshot.alphaByTile
         for (row in 0 until worldMap.height) {
             for (col in 0 until worldMap.width) {
-                if ((row to col) in visibleTiles) continue
+                val tileIndex = row * worldMap.width + col
+                val fogAlpha = alphaByTile.getOrNull(tileIndex) ?: 1f
+                if (fogAlpha <= 0f) continue
 
                 val position = tileRenderPosition(row, col)
                 val fogWidth = tileWidth * FOG_SCALE
                 val fogHeight = tileHeight * FOG_SCALE
+                batch.setColor(baseColor.r, baseColor.g, baseColor.b, baseColor.a * fogAlpha)
                 drawRegion(
                     batch = batch,
                     region = frame,
@@ -71,6 +78,7 @@ class TerrainRenderer(
                 )
             }
         }
+        batch.color = baseColor
     }
 
     fun worldBounds(): Rectangle {

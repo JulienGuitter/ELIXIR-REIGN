@@ -25,6 +25,7 @@ class GameState(
     private val players = linkedMapOf<Int, PlayerState>()
     private val sentChunksByPlayer = mutableMapOf<Int, MutableSet<ChunkCoord>>()
     private val visibleUnitsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
+    private val visibleTilesByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private var nextUnitId = 1
     private var started = false
 
@@ -37,12 +38,14 @@ class GameState(
         players[playerId] = player
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
+        visibleTilesByPlayer[playerId] = mutableSetOf()
     }
 
     fun removePlayer(playerId: Int) {
         players.remove(playerId)
         sentChunksByPlayer.remove(playerId)
         visibleUnitsByPlayer.remove(playerId)
+        visibleTilesByPlayer.remove(playerId)
     }
 
     fun hasPlayer(playerId: Int): Boolean {
@@ -104,7 +107,7 @@ class GameState(
 
     fun syncPacketsFor(playerId: Int): List<Any> {
         val player = players[playerId] ?: return emptyList()
-        val visibleTiles = computeVisibleTiles(player)
+        val visibleTiles = computeVisibleTileIndices(player)
         val visibleChunks = computeVisibleChunks(visibleTiles)
         val packets = mutableListOf<Any>()
 
@@ -118,15 +121,33 @@ class GameState(
                 sentChunks += chunk.coord
             }
 
+        val previouslyVisibleTiles = visibleTilesByPlayer.getOrPut(playerId) { mutableSetOf() }
+        val fullSync = previouslyVisibleTiles.isEmpty()
+        val addedVisibleTiles = if (fullSync) {
+            visibleTiles
+        } else {
+            visibleTiles.filterTo(linkedSetOf()) { it !in previouslyVisibleTiles }
+        }
+        val hiddenTiles = if (fullSync) {
+            emptySet()
+        } else {
+            previouslyVisibleTiles.filterTo(linkedSetOf()) { it !in visibleTiles }
+        }
+
         packets += PacketVisibilityUpdate(
-            visibleChunkKeys = ArrayList(visibleChunks.map { it.toKey() }),
-            visibleTileKeys = ArrayList(visibleTiles.map { it.toKey() })
+            fullSync = fullSync,
+            visibleChunkIndices = visibleChunks
+                .map { chunk -> chunk.y * chunkColumns() + chunk.x }
+                .sorted()
+                .toIntArray(),
+            visibleTileIndices = addedVisibleTiles.sorted().toIntArray(),
+            hiddenTileIndices = hiddenTiles.sorted().toIntArray()
         )
 
         val currentlyVisibleUnits = players.values
             .flatMap { it.units }
             .filter { unit ->
-                unit.tileKey() in visibleTiles
+                unit.tileIndex() in visibleTiles
             }
             .map { it.id }
             .toMutableSet()
@@ -143,6 +164,8 @@ class GameState(
 
         previouslyVisibleUnits.clear()
         previouslyVisibleUnits += currentlyVisibleUnits
+        previouslyVisibleTiles.clear()
+        previouslyVisibleTiles += visibleTiles
 
         return packets
     }
@@ -196,8 +219,8 @@ class GameState(
         }
     }
 
-    private fun computeVisibleTiles(player: PlayerState): Set<Pair<Int, Int>> {
-        val visible = linkedSetOf<Pair<Int, Int>>()
+    private fun computeVisibleTileIndices(player: PlayerState): Set<Int> {
+        val visible = linkedSetOf<Int>()
         val radius = worldMap.chunkSize
         val radiusSquared = radius * radius
 
@@ -211,7 +234,7 @@ class GameState(
                     val dRow = row - centerRow
                     val dCol = col - centerCol
                     if (dRow * dRow + dCol * dCol <= radiusSquared) {
-                        visible += row to col
+                        visible += row * worldMap.width + col
                     }
                 }
             }
@@ -220,8 +243,10 @@ class GameState(
         return visible
     }
 
-    private fun computeVisibleChunks(visibleTiles: Set<Pair<Int, Int>>): Set<ChunkCoord> {
-        return visibleTiles.mapNotNullTo(linkedSetOf()) { (row, col) ->
+    private fun computeVisibleChunks(visibleTiles: Set<Int>): Set<ChunkCoord> {
+        return visibleTiles.mapNotNullTo(linkedSetOf()) { tileIndex ->
+            val row = tileIndex / worldMap.width
+            val col = tileIndex % worldMap.width
             worldMap.worldToChunkCoord(row, col)
         }
     }
@@ -251,16 +276,14 @@ class GameState(
         )
     }
 
-    private fun UnitState.tileKey(): Pair<Int, Int> {
-        return floor(row).toInt() to floor(col).toInt()
+    private fun UnitState.tileIndex(): Int {
+        val clampedRow = floor(row).toInt().coerceIn(0, worldMap.height - 1)
+        val clampedCol = floor(col).toInt().coerceIn(0, worldMap.width - 1)
+        return clampedRow * worldMap.width + clampedCol
     }
 
-    private fun ChunkCoord.toKey(): String {
-        return "$x:$y"
-    }
-
-    private fun Pair<Int, Int>.toKey(): String {
-        return "$first:$second"
+    private fun chunkColumns(): Int {
+        return (worldMap.width + worldMap.chunkSize - 1) / worldMap.chunkSize
     }
 
     companion object {

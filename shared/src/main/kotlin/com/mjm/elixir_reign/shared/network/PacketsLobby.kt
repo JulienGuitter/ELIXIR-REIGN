@@ -54,8 +54,10 @@ class PacketUnitSnapshot(
 )
 
 class PacketVisibilityUpdate(
-    var visibleChunkKeys: ArrayList<String> = arrayListOf(),
-    var visibleTileKeys: ArrayList<String> = arrayListOf()
+    var fullSync: Boolean = true,
+    var visibleChunkIndices: IntArray = intArrayOf(),
+    var visibleTileIndices: IntArray = intArrayOf(),
+    var hiddenTileIndices: IntArray = intArrayOf()
 )
 
 class PacketUnitRemove(var unitId: Int = 0)
