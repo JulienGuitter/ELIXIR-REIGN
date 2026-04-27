@@ -3,9 +3,11 @@ package com.mjm.elixir_reign.core.session
 import com.mjm.elixir_reign.shared.game.UnitState
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
+import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
 import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
+import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.type.GameType
 import com.mjm.elixir_reign.shared.world.ChunkCoord
@@ -22,6 +24,8 @@ object GameSession {
     @Volatile
     private var currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
     private val networkUnits = linkedMapOf<Int, UnitState>()
+    private val playerNameById = linkedMapOf<Int, String>()
+    private val playerStateById = linkedMapOf<Int, PlayerConnectionState>()
 
     @Volatile
     var mode: GameMode = GameMode.SOLO
@@ -83,6 +87,12 @@ object GameSession {
             mapHeight = packet.mapHeight
             chunkSize = packet.chunkSize
             playerNames = packet.players.map { it.name }
+            playerNameById.clear()
+            playerStateById.clear()
+            packet.players.forEach { player ->
+                playerNameById[player.id] = player.name
+                playerStateById[player.id] = player.connectionState
+            }
             mapRevision = 0
 
             packet.players.firstOrNull { it.id == packet.myPlayerId }?.let { player ->
@@ -180,6 +190,24 @@ object GameSession {
         }
     }
 
+    fun applyPlayerPresenceUpdate(packet: PacketPlayerPresenceUpdate) {
+        synchronized(networkStateLock) {
+            packet.players.forEach { status ->
+                if (playerNameById.containsKey(status.id)) {
+                    playerStateById[status.id] = status.connectionState
+                }
+            }
+        }
+    }
+
+    fun getPlayerState(playerName: String): PlayerConnectionState {
+        synchronized(networkStateLock) {
+            val playerId = playerNameById.entries.firstOrNull { it.value == playerName }?.key
+                ?: return PlayerConnectionState.CONNECTED
+            return playerStateById[playerId] ?: PlayerConnectionState.CONNECTED
+        }
+    }
+
     fun multiplayerWorldMap(): WorldMap? {
         synchronized(networkStateLock) {
             if (mapWidth <= 0 || mapHeight <= 0 || chunkSize <= 0) return null
@@ -233,6 +261,8 @@ object GameSession {
             chunkSize = 0
             mapRevision = 0
             playerNames = emptyList()
+            playerNameById.clear()
+            playerStateById.clear()
             knownChunks.clear()
             visibleChunks.clear()
             visibleTiles.clear()

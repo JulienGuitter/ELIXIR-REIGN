@@ -18,6 +18,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.ui.TextField
+import com.badlogic.gdx.scenes.scene2d.ui.Cell
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
@@ -25,6 +26,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
+import com.mjm.elixir_reign.core.network.MatchmakingClient
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.core.utils.SettingsManager
@@ -40,6 +42,8 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var usernameLabel: Label
     private lateinit var usernameField: TextField
     private lateinit var loginModalRoot: Table
+    private lateinit var reconnectBtn: TextButton
+    private lateinit var reconnectCell: Cell<TextButton>
 //    private lateinit var overlayTexture: Texture
 //    private lateinit var popupTexture: Texture
 
@@ -49,12 +53,21 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
         Gdx.input.inputProcessor = stage
 
         val playBtn = TextButton(Localization.get("menu.play"), UiAssets.skin)
+        reconnectBtn = TextButton(Localization.get("network.action.reconnect"), UiAssets.skin)
         val settingsBtn = TextButton(Localization.get("menu.settings"), UiAssets.skin)
         val quitBtn = TextButton(Localization.get("menu.quit"), UiAssets.skin)
 
         playBtn.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
                 game.navigateTo(ScreenRoute.MODE_SELECTION)
+            }
+        })
+
+        reconnectBtn.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                if (MatchmakingClient.reconnectToLastInstance()) {
+                    game.navigateTo(ScreenRoute.LOBBY_WAITING)
+                }
             }
         })
 
@@ -79,6 +92,8 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
             color = Color(1f, 1f, 1f, 0f)
             add(logoImage).width(350f).height(350f).padBottom(20f).row()
             add(playBtn).width(300f).height(80f).pad(15f).row()
+            reconnectCell = add(reconnectBtn).width(300f).height(80f).pad(15f)
+            row()
             add(settingsBtn).width(300f).height(80f).pad(15f).row()
             add(quitBtn).width(300f).height(80f).pad(15f)
         }
@@ -102,6 +117,14 @@ class MenuScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
+        val showReconnect = MatchmakingClient.canReconnectToLastInstance()
+        reconnectBtn.isVisible = showReconnect
+        reconnectBtn.touchable = if (showReconnect) Touchable.enabled else Touchable.disabled
+        if (showReconnect) {
+            reconnectCell.width(300f).height(80f).pad(15f)
+        } else {
+            reconnectCell.width(0f).height(0f).pad(0f)
+        }
         UiAssets.drawBackground(stage, spriteBatch)
         stage.act(delta)
         stage.draw()

@@ -4,6 +4,7 @@ import com.esotericsoftware.kryonet.Connection
 import com.esotericsoftware.kryonet.Listener
 import com.mjm.elixir_reign.server.ConfigManager
 import com.mjm.elixir_reign.server.instance.InstanceManager
+import com.mjm.elixir_reign.server.logging.ServerLog
 import com.mjm.elixir_reign.shared.network.Client
 import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketCreateInstance
@@ -108,7 +109,7 @@ object LobbyManager {
                     clientsInGame[clientId] = client
                 }
                 if(clientsInGame.size == userNeeded){
-                    println("Starting a new $gameType game with clients: ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
+                    ServerLog.info("Starting a new $gameType game with clients: ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
                     createServerInstance(clientsInGame)
                 }
             }
@@ -119,7 +120,7 @@ object LobbyManager {
         // 1) Essayer d'abord le serveur local ("this")
         val thisCount = availableServers["this"]
         if(thisCount != null && thisCount > 0){
-            println("Starting game on this server !")
+            ServerLog.info("Starting game on this server !")
             val instance = InstanceManager.createInstance(clientsInGame.values.first().gameType)
             if(instance != null){
                 // Mettre à jour le compteur
@@ -129,7 +130,7 @@ object LobbyManager {
                 sendClientsToInstance(clientsInGame, instance.uuid, "this", config.port.toString())
                 return
             } else {
-                println("No available instance on this server !")
+                ServerLog.info("No available instance on this server !")
                 availableServers["this"] = 0
             }
         }
@@ -137,16 +138,16 @@ object LobbyManager {
         // 2) Essayer les serveurs externes
         val server = availableServers.entries.firstOrNull { it.key != "this" && it.value > 0 }
         if(server == null){
-            println("No available server for the game !")
+            ServerLog.info("No available server for the game !")
             notifyMatchFailure(clientsInGame, "Aucun serveur disponible pour lancer la partie.")
             noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
             return
         }
 
-        println("Sending clients to server ${server.key} ...")
+        ServerLog.info("Sending clients to server ${server.key} ...")
         val ip = server.key.split(":")
         if(ip.size != 2) {
-            println("Invalid server IP : ${server.key}")
+            ServerLog.info("Invalid server IP : ${server.key}")
             notifyMatchFailure(clientsInGame, "Serveur de partie invalide.")
             noServerCooldownUntil = System.currentTimeMillis() + NO_SERVER_COOLDOWN_MS
             return
@@ -162,15 +163,16 @@ object LobbyManager {
 
             client.addListener(object : Listener {
                 override fun received(connection: Connection, message: Any) {
+                    ServerLog.inbound(connection.id, message)
                     when (message) {
                         is PacketCreateInstance -> {
-                            println("Instance created with UUID : ${message.uuid}")
+                            ServerLog.info("Instance created with UUID : ${message.uuid}")
                             connection.close()
                             latch.countDown()
 
                             // Only send clients to instance if the UUID is not blank.
                             if (message.uuid.isBlank()) {
-                                println("Failed to create instance: received blank UUID from server, not redirecting clients.")
+                                ServerLog.info("Failed to create instance: received blank UUID from server, not redirecting clients.")
                                 notifyMatchFailure(clientsInGame, "Le serveur est plein. Reessayez dans quelques instants.")
                             } else {
                                 // Send clients to instance
@@ -181,23 +183,24 @@ object LobbyManager {
                 }
 
                 override fun disconnected(connection: Connection) {
-                    println("Déconnecté du serveur")
+                    ServerLog.info("Deconnecte du serveur")
                 }
             })
 
             client.connect(5000, ip[0], ip[1].toInt(), ip[1].toInt())
 
             val request = PacketCreateInstance(gameType = clientsInGame.values.first().gameType)
+            ServerLog.outbound(null, request)
             client.sendTCP(request)
 
             val ok = latch.await(10, TimeUnit.SECONDS)
             if(!ok){
-                println("Server ${server.key} did not respond to create instance in time !")
+                ServerLog.info("Server ${server.key} did not respond to create instance in time !")
                 notifyMatchFailure(clientsInGame, "Le serveur de partie ne repond pas.")
                 updateAvailableServers()
             }
         } catch (e: Exception) {
-            println("Failed to connect to server ${server.key} : ${e.message}")
+            ServerLog.info("Failed to connect to server ${server.key} : ${e.message}")
             notifyMatchFailure(clientsInGame, "Impossible de contacter le serveur de partie.")
             updateAvailableServers()
         } finally {
@@ -207,21 +210,21 @@ object LobbyManager {
 
     private fun notifyMatchFailure(clientsInGame: ConcurrentHashMap<Int, Client>, reason: String) {
         for ((id, client) in clientsInGame) {
-            client.connection?.sendTCP(PacketLoginRefused(reason))
+            ServerLog.sendTcp(client.connection, PacketLoginRefused(reason))
             clients.remove(id)
         }
     }
 
     private fun sendClientsToInstance(clientsInGame: ConcurrentHashMap<Int, Client>, instanceUUID: String, instanceIP: String = "", instancePort: String = ""){
         for((id, client) in clientsInGame){
-            println("Sending client ${client.pseudo} to instance $instanceUUID ...")
+            ServerLog.info("Sending client ${client.pseudo} to instance $instanceUUID ...")
 
             val packet = PacketRedirectToInstance(
                 ip = instanceIP,
                 port = instancePort.toIntOrNull() ?: 0,
                 uuid = instanceUUID
             )
-            client.connection?.sendTCP(packet)
+            ServerLog.sendTcp(client.connection, packet)
 
             // Retirer le client du lobby (il est maintenant dans une instance)
             clients.remove(id)
@@ -240,7 +243,7 @@ object LobbyManager {
             }
 
             if(ip.size != 2){
-                println("Invalid server IP : $server")
+                ServerLog.info("Invalid server IP : $server")
                 continue
             }
 
@@ -254,9 +257,10 @@ object LobbyManager {
 
                 client.addListener(object : Listener {
                     override fun received(connection: Connection, message: Any) {
+                        ServerLog.inbound(connection.id, message)
                         when (message) {
                             is PacketServerInfo -> {
-                                println("[${server}] instance available : ${message.disponibilityCount}")
+                                ServerLog.info("[${server}] instance available : ${message.disponibilityCount}")
                                 if(message.disponibilityCount > 0){
                                     availableServers[server] = message.disponibilityCount
                                 } else {
@@ -271,26 +275,27 @@ object LobbyManager {
                     }
 
                     override fun disconnected(connection: Connection) {
-                        println("Déconnecté du serveur")
+                        ServerLog.info("Deconnecte du serveur")
                     }
                 })
 
                 client.connect(5000, ip[0], ip[1].toInt(), ip[1].toInt())
 
                 val request = PacketServerInfo()
+                ServerLog.outbound(null, request)
                 client.sendTCP(request)
 
                 val ok = latch.await(5, TimeUnit.SECONDS)
                 if(!ok){
-                    println("Server $server did not respond in time !")
+                    ServerLog.info("Server $server did not respond in time !")
                     availableServers.remove(server)
                     client.stop()
                     continue
                 }
 
-                println("Server $server is available !")
+                ServerLog.info("Server $server is available !")
             } catch (e: Exception) {
-                println("Server $server is not available !")
+                ServerLog.info("Server $server is not available !")
                 availableServers.remove(server)
             } finally {
                 client.stop()

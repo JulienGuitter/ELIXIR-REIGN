@@ -44,14 +44,14 @@ object InstanceManager {
 
     fun removePlayer(id: Int) {
         instances
-            .filter { it.active && it.containsPlayer(id) }
+            .filter { it.active && it.containsConnection(id) }
             .forEach { it.removePlayer(id) }
     }
 
     fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
-        instances
-            .firstOrNull { it.active && it.containsPlayer(playerId) }
-            ?.handleMoveRequest(playerId, unitIds, targetRow, targetCol)
+        val instance = instances.firstOrNull { it.active && it.containsConnection(playerId) } ?: return
+        val resolvedPlayerId = instance.playerIdForConnection(playerId) ?: return
+        instance.handleMoveRequest(resolvedPlayerId, unitIds, targetRow, targetCol)
     }
 
     fun update(deltaSeconds: Float) {

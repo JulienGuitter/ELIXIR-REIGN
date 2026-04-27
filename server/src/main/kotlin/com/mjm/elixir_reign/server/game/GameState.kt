@@ -6,10 +6,13 @@ import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketGameReady
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
+import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
+import com.mjm.elixir_reign.shared.network.PacketPlayerStatus
 import com.mjm.elixir_reign.shared.network.PacketPlayerSummary
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
 import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
+import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.shared.type.GameType
 import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.MapGenerator
@@ -26,6 +29,8 @@ class GameState(
     private val sentChunksByPlayer = mutableMapOf<Int, MutableSet<ChunkCoord>>()
     private val visibleUnitsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val visibleTilesByPlayer = mutableMapOf<Int, MutableSet<Int>>()
+    private val reconnectDeadlineByPlayer = mutableMapOf<Int, Long>()
+    private val connectionStateByPlayer = mutableMapOf<Int, PlayerConnectionState>()
     private var nextUnitId = 1
     private var started = false
 
@@ -36,6 +41,8 @@ class GameState(
         player.units += createStartingUnit(player, offset = 0)
         player.units += createStartingUnit(player, offset = 1)
         players[playerId] = player
+        connectionStateByPlayer[playerId] = PlayerConnectionState.CONNECTED
+        reconnectDeadlineByPlayer.remove(playerId)
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
@@ -43,9 +50,47 @@ class GameState(
 
     fun removePlayer(playerId: Int) {
         players.remove(playerId)
+        connectionStateByPlayer.remove(playerId)
+        reconnectDeadlineByPlayer.remove(playerId)
         sentChunksByPlayer.remove(playerId)
         visibleUnitsByPlayer.remove(playerId)
         visibleTilesByPlayer.remove(playerId)
+    }
+
+    fun isStarted(): Boolean {
+        return started
+    }
+
+    fun findReconnectablePlayerId(name: String, nowMs: Long): Int? {
+        expireReconnectWindows(nowMs)
+        return players.values
+            .firstOrNull { player ->
+                player.name == name && connectionStateByPlayer[player.id] == PlayerConnectionState.WAITING_RECONNECTION
+            }
+            ?.id
+    }
+
+    fun markPlayerDisconnected(playerId: Int, nowMs: Long) {
+        if (!players.containsKey(playerId)) return
+        if (!started) {
+            removePlayer(playerId)
+            return
+        }
+
+        connectionStateByPlayer[playerId] = PlayerConnectionState.WAITING_RECONNECTION
+        reconnectDeadlineByPlayer[playerId] = nowMs + RECONNECT_GRACE_PERIOD_MS
+    }
+
+    fun markPlayerReconnected(playerId: Int) {
+        if (!players.containsKey(playerId)) return
+        connectionStateByPlayer[playerId] = PlayerConnectionState.CONNECTED
+        reconnectDeadlineByPlayer.remove(playerId)
+    }
+
+    fun resetSyncStateForPlayer(playerId: Int) {
+        sentChunksByPlayer[playerId] = mutableSetOf()
+        visibleUnitsByPlayer[playerId] = mutableSetOf()
+        visibleTilesByPlayer[playerId] = mutableSetOf()
     }
 
     fun hasPlayer(playerId: Int): Boolean {
@@ -76,6 +121,7 @@ class GameState(
     }
 
     fun update(deltaSeconds: Float) {
+        expireReconnectWindows(System.currentTimeMillis())
         if (!started || deltaSeconds <= 0f) return
 
         players.values
@@ -96,7 +142,8 @@ class GameState(
                     name = summary.name,
                     gold = summary.gold,
                     elixir = summary.elixir,
-                    darkElixir = summary.darkElixir
+                    darkElixir = summary.darkElixir,
+                    connectionState = connectionStateByPlayer[summary.id] ?: PlayerConnectionState.CONNECTED
                 )
             })
         )
@@ -142,6 +189,19 @@ class GameState(
                 .toIntArray(),
             visibleTileIndices = addedVisibleTiles.sorted().toIntArray(),
             hiddenTileIndices = hiddenTiles.sorted().toIntArray()
+        )
+
+        packets += PacketPlayerPresenceUpdate(
+            players = ArrayList(
+                players.values
+                    .sortedBy { it.id }
+                    .map { state ->
+                        PacketPlayerStatus(
+                            id = state.id,
+                            connectionState = connectionStateByPlayer[state.id] ?: PlayerConnectionState.CONNECTED
+                        )
+                    }
+            )
         )
 
         val currentlyVisibleUnits = players.values
@@ -286,9 +346,22 @@ class GameState(
         return (worldMap.width + worldMap.chunkSize - 1) / worldMap.chunkSize
     }
 
+    private fun expireReconnectWindows(nowMs: Long) {
+        reconnectDeadlineByPlayer
+            .filterValues { deadline -> deadline <= nowMs }
+            .keys
+            .forEach { playerId ->
+                if (connectionStateByPlayer[playerId] == PlayerConnectionState.WAITING_RECONNECTION) {
+                    connectionStateByPlayer[playerId] = PlayerConnectionState.DISCONNECTED
+                }
+                reconnectDeadlineByPlayer.remove(playerId)
+            }
+    }
+
     companion object {
         private const val UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val ARRIVAL_THRESHOLD_TILES = 0.05f
         private const val UNKNOWN_TILE = -1
+        private const val RECONNECT_GRACE_PERIOD_MS = 3 * 60 * 1000L
     }
 }

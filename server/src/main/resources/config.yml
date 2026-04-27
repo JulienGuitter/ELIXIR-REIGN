@@ -7,3 +7,5 @@ maxInstances: 4         # Nb instance of the game possible
 serversIP:              # List all possible instance server to redirect client
   - this
   #- 127.0.0.1:54555
+
+logLevel: VERBOSE       # NONE, NORMAL, VERBOSE

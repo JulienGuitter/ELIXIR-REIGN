@@ -1,6 +1,7 @@
 package com.mjm.elixir_reign.server.instance
 
 import com.mjm.elixir_reign.server.game.GameState
+import com.mjm.elixir_reign.server.logging.ServerLog
 import com.mjm.elixir_reign.shared.network.Client
 import com.mjm.elixir_reign.shared.type.GameType
 import java.util.UUID
@@ -12,6 +13,7 @@ class Instance(
     var active: Boolean = false
 ) {
     val players = ConcurrentHashMap<Int, Client>()
+    private val playerIdByConnectionId = ConcurrentHashMap<Int, Int>()
     private var gameState: GameState? = null
     private var lastSyncAtMs: Long = 0L
 
@@ -20,20 +22,45 @@ class Instance(
         this.active = true
         this.gameState = GameState(gameType)
         this.lastSyncAtMs = 0L
-        println("Instance $uuid started for $gameType")
+        ServerLog.info("Instance $uuid started for $gameType")
     }
 
     fun stop() {
         this.active = false
         players.clear()
+        playerIdByConnectionId.clear()
         gameState = null
-        println("Instance $uuid stopped")
+        ServerLog.info("Instance $uuid stopped")
     }
 
-    fun addPlayer(id: Int, client: Client) {
-        players[id] = client
+    fun addPlayer(connectionId: Int, client: Client) {
         val state = gameState ?: return
-        state.addPlayer(id, client.pseudo)
+        val reconnectPlayerId = if (state.isStarted()) {
+            state.findReconnectablePlayerId(client.pseudo, System.currentTimeMillis())
+        } else {
+            null
+        }
+
+        if (reconnectPlayerId != null) {
+            players[reconnectPlayerId] = client
+            playerIdByConnectionId[connectionId] = reconnectPlayerId
+            state.markPlayerReconnected(reconnectPlayerId)
+            state.resetSyncStateForPlayer(reconnectPlayerId)
+            client.connection?.let { connection ->
+                state.initialPacketsFor(reconnectPlayerId).forEach { packet ->
+                    ServerLog.sendTcp(connection, packet)
+                }
+            }
+            return
+        }
+
+        if (state.isStarted()) {
+            return
+        }
+
+        players[connectionId] = client
+        playerIdByConnectionId[connectionId] = connectionId
+        state.addPlayer(connectionId, client.pseudo)
 
         if (state.canStart(expectedPlayerCount())) {
             state.markStarted()
@@ -41,16 +68,35 @@ class Instance(
         }
     }
 
-    fun removePlayer(id: Int) {
-        players.remove(id)
-        gameState?.removePlayer(id)
-        if (players.isEmpty()) {
-            stop()
+    fun removePlayer(connectionId: Int) {
+        val playerId = playerIdByConnectionId.remove(connectionId) ?: return
+        val state = gameState ?: return
+        val playerClient = players[playerId] ?: return
+
+        if (playerClient.connection?.id != connectionId && playerClient.connection != null) {
+            return
         }
+
+        playerClient.connection = null
+        state.markPlayerDisconnected(playerId, System.currentTimeMillis())
+
+        if (!state.isStarted()) {
+            players.remove(playerId)
+            if (players.isEmpty()) {
+                stop()
+            }
+            return
+        }
+
+        // Keep the instance running while the reconnect window is open.
     }
 
-    fun containsPlayer(id: Int): Boolean {
-        return players.containsKey(id)
+    fun containsConnection(connectionId: Int): Boolean {
+        return playerIdByConnectionId.containsKey(connectionId)
+    }
+
+    fun playerIdForConnection(connectionId: Int): Int? {
+        return playerIdByConnectionId[connectionId]
     }
 
     fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
@@ -69,7 +115,7 @@ class Instance(
         for ((playerId, client) in players) {
             val connection = client.connection ?: continue
             state.syncPacketsFor(playerId).forEach { packet ->
-                connection.sendTCP(packet)
+                ServerLog.sendTcp(connection, packet)
             }
         }
         lastSyncAtMs = now
@@ -79,7 +125,7 @@ class Instance(
         for ((playerId, client) in players) {
             val connection = client.connection ?: continue
             state.initialPacketsFor(playerId).forEach { packet ->
-                connection.sendTCP(packet)
+                ServerLog.sendTcp(connection, packet)
             }
         }
     }

@@ -20,12 +20,28 @@ class PacketConnectToInstance(var uuid: String = "")
 // Lightweight in-game sync packet for multiplayer mode.
 class PacketGameplayTick(var deltaMs: Int = 0)
 
+enum class PlayerConnectionState {
+    CONNECTED,
+    WAITING_RECONNECTION,
+    DISCONNECTED
+}
+
 class PacketPlayerSummary(
     var id: Int = 0,
     var name: String = "",
     var gold: Int = 0,
     var elixir: Int = 0,
-    var darkElixir: Int = 0
+    var darkElixir: Int = 0,
+    var connectionState: PlayerConnectionState = PlayerConnectionState.CONNECTED
+)
+
+class PacketPlayerStatus(
+    var id: Int = 0,
+    var connectionState: PlayerConnectionState = PlayerConnectionState.CONNECTED
+)
+
+class PacketPlayerPresenceUpdate(
+    var players: ArrayList<PacketPlayerStatus> = arrayListOf()
 )
 
 class PacketGameInit(

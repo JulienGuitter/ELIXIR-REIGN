@@ -18,6 +18,7 @@ import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
 import com.mjm.elixir_reign.shared.network.PacketMoveUnitsRequest
+import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
@@ -52,6 +53,12 @@ object MatchmakingClient {
 
     @Volatile
     private var lastGameplayTickSentAtMs: Long = 0L
+
+    @Volatile
+    private var lastInstanceRedirect: PacketRedirectToInstance? = null
+
+    @Volatile
+    private var reconnectAttemptAfterDisconnect: Boolean = false
 
     fun startMatchmaking(gameType: GameType) {
         synchronized(lock) {
@@ -140,6 +147,20 @@ object MatchmakingClient {
         return true
     }
 
+    fun canReconnectToLastInstance(): Boolean {
+        return lastInstanceRedirect != null
+    }
+
+    fun reconnectToLastInstance(): Boolean {
+        val redirect = lastInstanceRedirect ?: return false
+
+        errorText = null
+        gameReady = false
+        setStatus(Localization.get("network.status.connecting"))
+        connectToInstance(redirect, isReconnectAttempt = true)
+        return true
+    }
+
     fun sendGameplayTick(deltaSeconds: Float) {
         val client = instanceClient ?: return
         if (deltaSeconds <= 0f) return
@@ -175,10 +196,14 @@ object MatchmakingClient {
         }
     }
 
-    private fun connectToInstance(redirect: PacketRedirectToInstance) {
+    private fun connectToInstance(redirect: PacketRedirectToInstance, isReconnectAttempt: Boolean = false) {
         val host = if (redirect.ip == "this" || redirect.ip.isBlank()) resolveHost() else redirect.ip
         val port = if (redirect.port > 0) redirect.port else resolvePort()
         val instanceUuid = redirect.uuid
+        lastInstanceRedirect = PacketRedirectToInstance(ip = host, port = port, uuid = instanceUuid)
+        if (!isReconnectAttempt) {
+            reconnectAttemptAfterDisconnect = false
+        }
 
         val newInstanceClient = Client(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(newInstanceClient.kryo)
@@ -223,12 +248,20 @@ object MatchmakingClient {
 
                     is PacketGameReady -> {
                         gameReady = true
+                        reconnectAttemptAfterDisconnect = false
+                    }
+
+                    is PacketPlayerPresenceUpdate -> {
+                        GameSession.applyPlayerPresenceUpdate(message)
                     }
                 }
             }
 
             override fun disconnected(connection: Connection?) {
                 if (instanceClient !== newInstanceClient) return
+                if (tryReconnectAfterDisconnect()) {
+                    return
+                }
                 setError(Localization.get("network.error.disconnected"))
             }
         })
@@ -257,9 +290,25 @@ object MatchmakingClient {
                     )
                 )
             } catch (_: Exception) {
+                if (isReconnectAttempt) return@thread
                 setError(Localization.get("network.error.instanceConnectFailed", host, port))
             }
         }
+    }
+
+    private fun tryReconnectAfterDisconnect(): Boolean {
+        if (reconnectAttemptAfterDisconnect) return false
+        if (GameSession.myPlayerId <= 0) return false
+        val redirect = lastInstanceRedirect ?: return false
+
+        reconnectAttemptAfterDisconnect = true
+        setStatus(Localization.get("network.status.connecting"))
+
+        thread(name = "kryonet-instance-reconnect", isDaemon = true) {
+            Thread.sleep(RECONNECT_RETRY_DELAY_MS)
+            connectToInstance(redirect, isReconnectAttempt = true)
+        }
+        return true
     }
 
     private fun setStatus(text: String) {
@@ -289,6 +338,7 @@ object MatchmakingClient {
         if (clearState) {
             statusText = ""
             errorText = null
+            reconnectAttemptAfterDisconnect = false
         }
     }
 
@@ -302,6 +352,7 @@ object MatchmakingClient {
         if (NetworkDefaults.BUILD_HOST.isNotBlank()) return NetworkDefaults.BUILD_HOST
 
         return if (Gdx.app.type == Application.ApplicationType.Android) "10.0.2.2" else "127.0.0.1"
+
     }
 
     private fun resolvePort(): Int {
@@ -317,4 +368,5 @@ object MatchmakingClient {
     }
 
     private const val GAMEPLAY_TICK_SEND_INTERVAL_MS = 100L
+    private const val RECONNECT_RETRY_DELAY_MS = 1000L
 }

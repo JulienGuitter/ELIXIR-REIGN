@@ -41,6 +41,7 @@ import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.core.network.MatchmakingClient
 import com.mjm.elixir_reign.core.session.GameMode
 import com.mjm.elixir_reign.core.session.GameSession
@@ -86,6 +87,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var settingsMenuTable: Table
     private lateinit var connectionErrorTable: Table
     private lateinit var connectionErrorLabel: Label
+    private lateinit var playerNameTable: Table
+    private var playerStatusSignature: String = ""
     private var fogElapsedSeconds = 0f
     private var renderedMapRevision = -1
     private val entitiesByUnitId = mutableMapOf<Int, Entity>()
@@ -303,6 +306,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             syncNetworkUnits()
         }
         updateConnectionErrorOverlay()
+        refreshPlayerConnectionTable()
 
         batch.begin()
         terrainRenderer.render(batch)
@@ -385,7 +389,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             goldLabel = addResourceEntry(this, UiImage.ICON_GOLD)
             elixirLabel = addResourceEntry(this, UiImage.ICON_ELIXIR)
             darkElixirLabel = addResourceEntry(this, UiImage.ICON_DARK_ELIXIR)
-            addPlayerNamesRow(this)
         }
 
         val hudTopTable = Table().apply {
@@ -394,6 +397,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             padTop(16f)
             padRight(16f)
             add(resourceBarTable)
+            row()
+            playerNameTable = playerConnectionTable()
+            add(playerNameTable).right()
         }
 
         val hudTopLeftTable = Table().apply {
@@ -449,14 +455,44 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         return valueLabel
     }
 
-    private fun addPlayerNamesRow(row: Table) {
+    private fun playerConnectionTable() : Table {
+        val table = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.12f, 0.12f, 0.14f, 0.92f))
+            pad(6f, 12f, 6f, 12f)
+        }
+        rebuildPlayerConnectionTable(table)
+        return table
+    }
+
+    private fun refreshPlayerConnectionTable() {
+        if (!this::playerNameTable.isInitialized) return
+        val signature = GameSession.playerNames
+            .joinToString("|") { name -> "$name:${GameSession.getPlayerState(name).name}" }
+        if (signature == playerStatusSignature) return
+
+        playerStatusSignature = signature
+        rebuildPlayerConnectionTable(playerNameTable)
+    }
+
+    private fun rebuildPlayerConnectionTable(table: Table) {
+        table.clear()
         if (GameSession.playerNames.isEmpty()) return
 
-        row.row()
-        row.add(Label(GameSession.playerNames.joinToString("  |  "), UiAssets.skin).apply {
-            setFontScale(0.72f)
-            color = Color(1f, 1f, 1f, 0.82f)
-        }).colspan(6).padTop(6f).center()
+        GameSession.playerNames.forEach { playerName ->
+            val color = when (GameSession.getPlayerState(playerName)) {
+                PlayerConnectionState.CONNECTED -> Color.GREEN
+                PlayerConnectionState.WAITING_RECONNECTION -> Color.WHITE
+                PlayerConnectionState.DISCONNECTED -> Color.GRAY
+            }
+
+            table.add(Label(playerName, UiAssets.skin).apply {
+                setFontScale(0.72f)
+                this.color = color
+            }).padTop(6f).center()
+            table.row()
+        }
     }
 
     private fun spawnInitialUnits() {
@@ -841,6 +877,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             setWrap(true)
         }
 
+        val btnReconnect = TextButton(Localization.get("network.action.reconnect"), UiAssets.skin)
+        btnReconnect.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                if (!MatchmakingClient.reconnectToLastInstance()) {
+                    game.navigateTo(ScreenRoute.MENU)
+                    return
+                }
+                game.navigateTo(ScreenRoute.LOBBY_WAITING)
+            }
+        })
+
         val btnBack = TextButton(Localization.get("global.back"), UiAssets.skin)
         btnBack.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
@@ -855,6 +902,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             ).tint(Color(0.08f, 0.08f, 0.1f, 0.98f))
             pad(18f)
             add(connectionErrorLabel).width(420f).padBottom(16f).row()
+            add(btnReconnect).width(280f).height(72f).padBottom(10f).row()
             add(btnBack).width(280f).height(72f)
         }
 
