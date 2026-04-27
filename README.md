@@ -34,5 +34,40 @@ Useful Gradle tasks and flags:
 - `server:run`: runs the server application.
 - `test`: runs unit tests (if any).
 
+## Unified Build Script
+
+To build server + desktop (Linux/Windows) + Android APK in one command:
+
+1. Copy `.env.example` to `.env` and adjust values.
+2. Run:
+
+```bash
+./scripts/build-all.sh
+```
+
+By default it runs:
+
+- `:server:jar`
+- `:lwjgl3:jarLinux`
+- `:lwjgl3:jarWin`
+- `:android:assembleRelease` (or tasks set in `.env` with `ANDROID_BUILD_TASKS`)
+
+Artifacts are copied to `build/release-artifacts`.
+
+Default copied names:
+
+- `ELIXIR-REIGN-<version>-serv.jar`
+- `ELIXIR-REIGN-<version>-pc-linux.jar`
+- `ELIXIR-REIGN-<version>-pc-win.jar`
+- `ELIXIR-REIGN-<version>-android-debug.apk` (if built)
+- `ELIXIR-REIGN-<version>-android-release.apk` or `ELIXIR-REIGN-<version>-android-release-unsigned.apk`
+
+Optional checks:
+
+```bash
+./scripts/build-all.sh --dry-run
+./scripts/build-all.sh --env-file /path/to/.env
+```
+
 Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
 For example, `core:clean` removes `build` folder only from the `core` project.

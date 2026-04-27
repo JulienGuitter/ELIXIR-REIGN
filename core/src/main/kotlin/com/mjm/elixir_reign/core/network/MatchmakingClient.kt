@@ -297,6 +297,8 @@ object MatchmakingClient {
         val envHost = System.getenv("ELIXIR_SERVER_HOST")?.trim().orEmpty()
         if (envHost.isNotBlank()) return envHost
 
+        if (NetworkDefaults.BUILD_HOST.isNotBlank()) return NetworkDefaults.BUILD_HOST
+
         return if (Gdx.app.type == Application.ApplicationType.Android) "10.0.2.2" else "127.0.0.1"
     }
 
@@ -306,6 +308,8 @@ object MatchmakingClient {
 
         val envPort = System.getenv("ELIXIR_SERVER_PORT")?.toIntOrNull()
         if (envPort != null && envPort > 0) return envPort
+
+        if (NetworkDefaults.BUILD_PORT > 0) return NetworkDefaults.BUILD_PORT
 
         return Network.PORT
     }

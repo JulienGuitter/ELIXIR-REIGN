@@ -20,7 +20,7 @@ dependencies {
 }
 
 jar {
-  archiveBaseName.set(appName)
+  archiveFileName.set("${appName}-${projectVersion}-serv.jar")
 // the duplicatesStrategy matters starting in Gradle 7.0; this setting works.
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
   dependsOn configurations.runtimeClasspath
