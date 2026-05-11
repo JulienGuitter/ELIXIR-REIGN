@@ -7,4 +7,44 @@
     <string name="nav_nouvelle_mesure">Nouvelle Mesure</string>
     <string name="nav_profil">Profil</string>
     <string name="nav_elixir_reign">Elixir-Reign</string>
+
+    <string name="profile_welcome_title">Votre profil</string>
+    <string name="firstname_hint">Prénom</string>
+    <string name="calculate">Calculer</string>
+    <string name="profile_image_desc">Illustration</string>
+    <string name="profile_default_summary">Saisissez votre prénom pour commencer.</string>
+    <string name="profile_summary_no_bmi">Bonjour %1$s, aucune mesure enregistrée pour le moment.</string>
+    <string name="profile_summary_with_bmi">Bonjour %1$s, votre dernier IMC est %2$s.</string>
+
+    <string name="new_measure_title">Nouvelle mesure</string>
+    <string name="gender">Genre</string>
+    <string name="gender_male">Homme</string>
+    <string name="gender_female">Femme</string>
+    <string name="birthdate">Date de naissance</string>
+    <string name="birthdate_hint">JJ/MM/AAAA</string>
+    <string name="weight">Poids (kg)</string>
+    <string name="height">Taille</string>
+    <string name="unit_m">Mètre</string>
+    <string name="unit_cm">Centimètre</string>
+    <string name="display_details">Affichage</string>
+    <string name="result_default">Vous devez cliquer sur le bouton ‘Calculer’ pour obtenir un résultat</string>
+    <string name="result_simple">Votre IMC est de %1$s</string>
+    <string name="result_detailed_intro_m">Monsieur, votre IMC est de %1$s.</string>
+    <string name="result_detailed_intro_f">Madame, votre IMC est de %1$s.</string>
+    <string name="result_detailed_category">Pour votre catégorie d’âge (%1$d à %2$d ans), vous êtes dans la catégorie %3$s.</string>
+    <string name="raz">RAZ</string>
+    <string name="email_subject">IMC</string>
+    <string name="email_body">Mon IMC est de %1$s</string>
+    <string name="action_email">Email</string>
+    <string name="action_date">Date</string>
+
+    <string name="error_invalid_weight">Veuillez saisir un poids valide (&gt; 0).</string>
+    <string name="error_invalid_height">Veuillez saisir une taille valide (&gt; 0).</string>
+    <string name="error_invalid_birthdate">Veuillez saisir une date de naissance valide (JJ/MM/AAAA).</string>
+    <string name="error_no_email_app">Aucune application email trouvée.</string>
+
+    <string name="raz_dialog_title">Réinitialiser</string>
+    <string name="raz_dialog_message">Voulez-vous remettre tous les champs à zéro ?</string>
+    <string name="raz_dialog_yes">Oui</string>
+    <string name="raz_dialog_no">Non</string>
 </resources>
