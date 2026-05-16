@@ -22,8 +22,11 @@ class MovementSystem : IteratingSystem(
 
         // Ne bouger que si l'entité est en mouvement
         if (movement.isMoving) {
-            // Récupérer le vecteur pré-calculé pour la direction (zéro calcul!)
-            val (vx, vy) = DirectionVectors.getVector(movement.directionType)
+            val (vx, vy) = if (movement.velocityX != 0f || movement.velocityY != 0f) {
+                Pair(movement.velocityX, movement.velocityY)
+            } else {
+                DirectionVectors.getVector(movement.directionType)
+            }
 
             // Mettre à jour la position
             position.x += vx * movement.speed * deltaTime
@@ -31,4 +34,3 @@ class MovementSystem : IteratingSystem(
         }
     }
 }
-
