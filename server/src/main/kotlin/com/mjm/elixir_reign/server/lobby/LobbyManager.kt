@@ -9,7 +9,7 @@ import com.mjm.elixir_reign.shared.network.Network
 import com.mjm.elixir_reign.shared.network.PacketCreateInstance
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
 import com.mjm.elixir_reign.shared.network.PacketServerInfo
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -83,6 +83,9 @@ object LobbyManager {
         for(gameType in GameType.entries){
             var userNeeded = 0
             when(gameType){
+                GameType.SOLO -> {
+                    userNeeded = 1
+                }
                 GameType.G1V1 -> {
                     userNeeded = 2
                 }
@@ -104,7 +107,7 @@ object LobbyManager {
                     clientsInGame[clientId] = client
                 }
                 if(clientsInGame.size == userNeeded){
-                    println("Starting a new G1V3 game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
+                    println("Starting a new $gameType game with clients : ${clientsInGame.values.joinToString(", ") { it.pseudo }}")
                     createServerInstance(clientsInGame)
                 }
             }
@@ -221,8 +224,8 @@ object LobbyManager {
 
         // Ensure there is a queue for this game type and re-add clients to it.
         val queue = gameTypeClients.computeIfAbsent(gameType) { ConcurrentLinkedQueue() }
-        for (client in clientsInGame.values) {
-            queue.add(client)
+        for (clientId in clientsInGame.keys) {
+            queue.add(clientId)
         }
     }
     private fun sendClientsToInstance(clientsInGame: ConcurrentHashMap<Int, Client>, instanceUUID: String, instanceIP: String = "", instancePort: String = ""){
