@@ -61,7 +61,9 @@ object ProceduralTerrainGenerator {
             height = context.config.height,
             chunkSize = context.config.chunkSize
         ) { row, col ->
-            val material = context.grid[row, col] ?: return@build null
+            val material = requireNotNull(context.grid[row, col]) {
+                "Coordonnees worldgen invalides pendant la construction: row=$row, col=$col"
+            }
             material.toTerrainType(row = row, col = col, seed = context.seed)
         }
     }

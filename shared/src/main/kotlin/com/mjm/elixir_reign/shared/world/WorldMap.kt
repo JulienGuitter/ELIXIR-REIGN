@@ -47,7 +47,7 @@ class WorldMap private constructor(
             width: Int,
             height: Int,
             chunkSize: Int,
-            tileProvider: (row: Int, col: Int) -> TerrainType?
+            tileProvider: (row: Int, col: Int) -> TerrainType
         ): WorldMap {
             require(width > 0) { "La map doit avoir au moins une colonne." }
             require(height > 0) { "La map doit avoir au moins une ligne." }
