@@ -81,22 +81,12 @@ object LobbyManager {
         if(System.currentTimeMillis() < noServerCooldownUntil) return
 
         for(gameType in GameType.entries){
-            var userNeeded = 0
-            when(gameType){
-                GameType.SOLO -> {
-                    userNeeded = 1
-                }
-                GameType.G1V1 -> {
-                    userNeeded = 2
-                }
-                GameType.G2V2 -> {
-                    userNeeded = 4
-                }
-                GameType.G1V3 -> {
-                    userNeeded = 4
-                }
+            val userNeeded = when(gameType){
+                GameType.SOLO -> 1
+                GameType.G1V1 -> 2
+                GameType.G2V2 -> 4
+                GameType.G1V3 -> 4
             }
-
 
             // Get first clients in queue according to userNeeded
             if((gameTypeClients[gameType]?.size ?: 0) >= userNeeded){
