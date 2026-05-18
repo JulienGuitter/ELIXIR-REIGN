@@ -1,7 +1,7 @@
 package com.mjm.elixir_reign.server.instance
 
 import com.mjm.elixir_reign.shared.network.Client
-import type.GameType
+import com.mjm.elixir_reign.shared.type.GameType
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
