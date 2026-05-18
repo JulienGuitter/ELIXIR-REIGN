@@ -22,10 +22,16 @@ class MovementSystem : IteratingSystem(
 
         // Ne bouger que si l'entité est en mouvement
         if (movement.isMoving) {
-            val (vx, vy) = if (movement.velocityX != 0f || movement.velocityY != 0f) {
-                Pair(movement.velocityX, movement.velocityY)
+            val hasContinuousDirection = movement.directionX != 0f || movement.directionY != 0f
+            val vx: Float
+            val vy: Float
+            if (hasContinuousDirection) {
+                vx = movement.directionX
+                vy = movement.directionY
             } else {
-                DirectionVectors.getVector(movement.directionType)
+                val directionVector = DirectionVectors.getVector(movement.directionType)
+                vx = directionVector.first
+                vy = directionVector.second
             }
 
             // Mettre à jour la position
