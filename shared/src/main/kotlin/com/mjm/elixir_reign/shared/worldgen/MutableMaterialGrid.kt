@@ -5,12 +5,7 @@ class MutableMaterialGrid(
     val height: Int,
     initialMaterial: MaterialType = MaterialType.GRASS
 ) {
-    private val cells = IntArray(width * height) { initialMaterial.ordinal }
-
-    init {
-        require(width > 0) { "width doit etre strictement positif." }
-        require(height > 0) { "height doit etre strictement positif." }
-    }
+    private val cells = IntArray(checkedCellCount(width, height)) { initialMaterial.ordinal }
 
     operator fun get(row: Int, col: Int): MaterialType? {
         if (!inBounds(row, col)) {
@@ -55,5 +50,17 @@ class MutableMaterialGrid(
 
     private fun index(row: Int, col: Int): Int {
         return row * width + col
+    }
+
+    companion object {
+        private fun checkedCellCount(width: Int, height: Int): Int {
+            require(width > 0) { "width doit etre strictement positif." }
+            require(height > 0) { "height doit etre strictement positif." }
+
+            val cellCount = width.toLong() * height.toLong()
+            require(cellCount <= Int.MAX_VALUE) { "La grille est trop grande: width=$width, height=$height" }
+
+            return cellCount.toInt()
+        }
     }
 }

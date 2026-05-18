@@ -1,11 +1,10 @@
- package com.mjm.elixir_reign.shared.worldgen
+package com.mjm.elixir_reign.shared.worldgen
 
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.world.WorldMap
 import java.util.ArrayDeque
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -39,7 +38,6 @@ object ProceduralTerrainGenerator {
         markCornerSpawnZones(context)
         carveCentralRiverCross(context)
         carveRiverArms(context)
-        reapplyProtectedGrass(context)
         placeSandPatches(context)
         placeSymmetricResourcePatches(
             context = context,
@@ -55,7 +53,6 @@ object ProceduralTerrainGenerator {
             maxCoverage = ELEXIR_MAX_COVERAGE,
             minCoverage = ELEXIR_MIN_COVERAGE
         )
-        reapplyProtectedGrass(context)
     }
 
     private fun buildWorldMap(context: GenerationContext): WorldMap {
@@ -414,12 +411,6 @@ object ProceduralTerrainGenerator {
         }
     }
 
-    private fun reapplyProtectedGrass(context: GenerationContext) {
-        context.forEachProtected { row, col ->
-            context.grid[row, col] = MaterialType.GRASS
-        }
-    }
-
     private fun findLakeExit(context: GenerationContext, direction: Direction): GridCell? {
         var row = context.centerRow
         var col = context.centerCol
@@ -543,131 +534,6 @@ object ProceduralTerrainGenerator {
             return
         }
         context.grid[row, col] = MaterialType.WATER
-    }
-
-    private fun paintGrassCell(context: GenerationContext, row: Int, col: Int) {
-        if (!context.grid.inBounds(row, col) || context.isProtected(row, col)) {
-            return
-        }
-        context.grid[row, col] = MaterialType.GRASS
-    }
-
-    private fun fillPolygon(
-        context: GenerationContext,
-        polygon: List<FloatPoint>,
-        paint: (row: Int, col: Int) -> Unit
-    ) {
-        if (polygon.isEmpty()) {
-            return
-        }
-
-        val minRow = max(0, polygon.minOf { it.row }.toInt() - 1)
-        val maxRow = min(context.config.height - 1, polygon.maxOf { it.row }.toInt() + 1)
-        val minCol = max(0, polygon.minOf { it.col }.toInt() - 1)
-        val maxCol = min(context.config.width - 1, polygon.maxOf { it.col }.toInt() + 1)
-
-        for (row in minRow..maxRow) {
-            for (col in minCol..maxCol) {
-                val inside = pointInPolygon(
-                    row = row + 0.5f,
-                    col = col + 0.5f,
-                    polygon = polygon
-                )
-                if (inside) {
-                    paint(row, col)
-                }
-            }
-        }
-    }
-
-    private fun buildOrganicPolygon(
-        centerRow: Float,
-        centerCol: Float,
-        baseRadius: Float,
-        roughness: Float,
-        pointCount: Int,
-        random: Random,
-        scaleX: Float,
-        scaleY: Float,
-        smoothPasses: Int = 3,
-        harmonicStrength: Float = 0f,
-        featureCount: Int = 0,
-        featureStrength: Float = 0f
-    ): List<FloatPoint> {
-        val radii = FloatArray(pointCount) {
-            baseRadius * (1f + random.nextFloat(-roughness, roughness))
-        }
-
-        if (harmonicStrength > 0f) {
-            val phase2 = random.nextFloat(0f, (PI * 2f).toFloat())
-            val phase3 = random.nextFloat(0f, (PI * 2f).toFloat())
-            val phase5 = random.nextFloat(0f, (PI * 2f).toFloat())
-
-            radii.indices.forEach { index ->
-                val angle = index.toFloat() / pointCount.toFloat() * (PI * 2f).toFloat()
-                val harmonicOffset =
-                    sin(angle * 2f + phase2) * 0.55f +
-                        sin(angle * 3f + phase3) * 0.3f +
-                        sin(angle * 5f + phase5) * 0.15f
-                radii[index] += baseRadius * harmonicStrength * harmonicOffset
-            }
-        }
-
-        repeat(featureCount) {
-            val centerIndex = random.nextInt(pointCount)
-            val radiusInIndices = random.nextInt(max(2, pointCount / 14), max(3, pointCount / 6))
-            val amplitude = baseRadius * featureStrength * random.nextFloat(-1f, 1f)
-
-            radii.indices.forEach { index ->
-                val directDistance = kotlin.math.abs(index - centerIndex)
-                val circularDistance = min(directDistance, pointCount - directDistance)
-                if (circularDistance > radiusInIndices) {
-                    return@forEach
-                }
-
-                val influence = 1f - circularDistance.toFloat() / radiusInIndices.toFloat()
-                radii[index] += amplitude * influence * influence
-            }
-        }
-
-        radii.indices.forEach { index ->
-            radii[index] = radii[index].coerceAtLeast(baseRadius * 0.55f)
-        }
-
-        repeat(smoothPasses) {
-            val previous = radii.copyOf()
-            for (index in radii.indices) {
-                val left = previous[(index - 1 + pointCount) % pointCount]
-                val current = previous[index]
-                val right = previous[(index + 1) % pointCount]
-                radii[index] = (left + current * 2f + right) / 4f
-            }
-        }
-
-        return List(pointCount) { index ->
-            val angle = index.toFloat() / pointCount.toFloat() * (PI * 2f).toFloat()
-            val radius = radii[index]
-            FloatPoint(
-                row = centerRow + sin(angle) * radius * scaleY,
-                col = centerCol + cos(angle) * radius * scaleX
-            )
-        }
-    }
-
-    private fun pointInPolygon(row: Float, col: Float, polygon: List<FloatPoint>): Boolean {
-        var inside = false
-        var previous = polygon.last()
-
-        polygon.forEach { current ->
-            val intersects = ((current.row > row) != (previous.row > row)) &&
-                (col < (previous.col - current.col) * (row - current.row) / (previous.row - current.row + EPSILON) + current.col)
-            if (intersects) {
-                inside = !inside
-            }
-            previous = current
-        }
-
-        return inside
     }
 
     private fun computeCentralCrossWidth(
@@ -1125,11 +991,6 @@ object ProceduralTerrainGenerator {
         val col: Int
     )
 
-    private data class FloatPoint(
-        val row: Float,
-        val col: Float
-    )
-
     private enum class Direction(
         val rowDelta: Int,
         val colDelta: Int
@@ -1148,8 +1009,6 @@ object ProceduralTerrainGenerator {
     private const val RANDOM_CELL_ATTEMPTS = 160
     private const val RESOURCE_ATTEMPTS_LIMIT = 220
     private const val MIN_PLAYABLE_COMPONENT_SIZE = 12
-    private const val EPSILON = 0.0001f
-
     private val CARDINAL_STEPS = listOf(
         -1 to 0,
         1 to 0,
