@@ -207,36 +207,21 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 return true
             }
 
-            if (activeTouches.isNotEmpty()) {
-                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
-                disableSelectionMode()
-                beginPinch()
+            val worldCoords = camera.unproject(Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+
+            // Clic gauche = tenter de sélectionner
+            val hasSelectedEntity = selectionInputHandler.touchDown(screenX, screenY, camera)
+
+            if (hasSelectedEntity) {
                 return true
             }
 
-            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-            if (GameSession.mode == GameMode.MULTI) {
-                val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
-                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
-                MatchmakingClient.sendMoveUnitsRequest(
-                    unitIds = selectedUnitIds,
-                    targetRow = targetRow,
-                    targetCol = targetCol
-                )
-            }
-            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-            if (GameSession.mode == GameMode.MULTI) {
-                val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
-                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
-                applyPredictedMove(selectedUnitIds, targetRow, targetCol)
-            }
-            // Clic gauche = sélectionner. Sur Android, le bouton sélection force le mode drag.
-            selectionInputHandler.touchDown(screenX, screenY, camera)
-            if (isSelectionMode) {
-                selectionInputHandler.touchDown(screenX, screenY, camera)
+            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
+            if (clickedBarracks != null) {
+                barracksPanel.showFor(clickedBarracks)
+                return true
             }
 
-            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
             if (activeTouches.size >= 2) {
                 disableSelectionMode()
