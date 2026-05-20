@@ -4,7 +4,6 @@ import android.app.DatePickerDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -35,9 +34,6 @@ public class NewMeasureActivity extends BaseActivity {
 
     public static final String EXTRA_BMI = "extra_bmi";
 
-    private static final String PREFS_NAME = "imc_cret_prefs";
-    private static final String KEY_LAST_BMI = "last_bmi";
-
     private static final String DOB_PATTERN = "dd/MM/yyyy";
 
     private TextView tvResult;
@@ -49,6 +45,7 @@ public class NewMeasureActivity extends BaseActivity {
     private CheckBox cbDisplay;
 
     private float lastComputedBmi = -1f;
+    private Date lastDob;
 
     @Override
     protected int getLayoutId() {
@@ -64,12 +61,8 @@ public class NewMeasureActivity extends BaseActivity {
         toolbar.setNavigationOnClickListener(v -> navigateUpWithResult());
         toolbar.inflateMenu(R.menu.new_measure_menu);
         toolbar.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.action_email) {
-                launchEmail();
-                return true;
-            } else if (id == R.id.action_date) {
-                showDatePickerToday();
+            if (item.getItemId() == R.id.action_email) {
+                sendBmiByEmail();
                 return true;
             }
             return false;
@@ -84,6 +77,7 @@ public class NewMeasureActivity extends BaseActivity {
         findViewById(R.id.rb_meter);
         rbCentimeter = findViewById(R.id.rb_centimeter);
         cbDisplay = findViewById(R.id.cb_display);
+        android.widget.ImageButton btnCalendar = findViewById(R.id.btn_birthdate_calendar);
         MaterialButton btnCalc = findViewById(R.id.btn_calculate);
         MaterialButton btnRaz = findViewById(R.id.btn_raz);
 
@@ -116,7 +110,10 @@ public class NewMeasureActivity extends BaseActivity {
         etWeight.addTextChangedListener(invalidateWatcher);
         etHeight.addTextChangedListener(invalidateWatcher);
 
-        rgUnit.setOnCheckedChangeListener((group, checkedId) -> setDefaultResult());
+        rgUnit.setOnCheckedChangeListener((group, checkedId) -> {
+            convertHeightOnUnitChange(checkedId);
+            setDefaultResult();
+        });
         spGender.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view, int position, long id) {
@@ -133,6 +130,8 @@ public class NewMeasureActivity extends BaseActivity {
                 renderResult(lastComputedBmi);
             }
         });
+
+        btnCalendar.setOnClickListener(v -> showDatePickerToday());
 
         btnCalc.setOnClickListener(v -> onCalculateClicked());
 
@@ -154,11 +153,10 @@ public class NewMeasureActivity extends BaseActivity {
     private void attachBirthdateAutoFormat(@NonNull TextInputEditText editText) {
         editText.addTextChangedListener(new TextWatcher() {
             private boolean isEditing;
-            private String previous = "";
 
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                if (s != null) previous = s.toString();
+                // no-op
             }
 
             @Override
@@ -209,13 +207,16 @@ public class NewMeasureActivity extends BaseActivity {
 
     private void setDefaultResult() {
         lastComputedBmi = -1f;
+        lastDob = null;
         if (tvResult != null) {
             tvResult.setText(R.string.result_default);
         }
     }
 
     private void onCalculateClicked() {
-        if (parseDobOrToast() == null) return;
+        Date dob = parseDobOrToast();
+        if (dob == null) return;
+        lastDob = dob;
 
         Float weight = parsePositiveFloat(etWeight, R.string.error_invalid_weight);
         if (weight == null) return;
@@ -239,8 +240,8 @@ public class NewMeasureActivity extends BaseActivity {
         renderResult(bmi);
 
         // Persist BMI for the profile relaunch message
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        prefs.edit().putFloat(KEY_LAST_BMI, bmi).apply();
+        SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putFloat(AppPrefs.KEY_LAST_BMI, bmi).apply();
     }
 
     private void renderResult(float bmi) {
@@ -255,7 +256,7 @@ public class NewMeasureActivity extends BaseActivity {
         boolean male = spGender.getSelectedItemPosition() == 0;
         String intro = getString(male ? R.string.result_detailed_intro_m : R.string.result_detailed_intro_f, bmiStr);
 
-        Integer age = computeAgeYears();
+        Integer age = lastDob == null ? null : computeAgeYears(lastDob);
         if (age == null) {
             tvResult.setText(intro);
             return;
@@ -287,10 +288,7 @@ public class NewMeasureActivity extends BaseActivity {
         }
     }
 
-    @Nullable
-    private Integer computeAgeYears() {
-        Date dob = parseDobOrToast();
-        if (dob == null) return null;
+    private Integer computeAgeYears(@NonNull Date dob) {
         Calendar birth = Calendar.getInstance();
         birth.setTime(dob);
         Calendar now = Calendar.getInstance();
@@ -329,6 +327,10 @@ public class NewMeasureActivity extends BaseActivity {
     }
 
     private void resetForm() {
+        // Also clear persisted BMI so Profile page doesn't show an old value
+        SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().remove(AppPrefs.KEY_LAST_BMI).apply();
+
         spGender.setSelection(0);
         etBirthdate.setText("");
         etWeight.setText("");
@@ -336,6 +338,37 @@ public class NewMeasureActivity extends BaseActivity {
         rbCentimeter.setChecked(true);
         cbDisplay.setChecked(false);
         setDefaultResult();
+    }
+
+    private void convertHeightOnUnitChange(int checkedId) {
+        if (etHeight == null) return;
+
+        String raw = etHeight.getText() == null ? "" : etHeight.getText().toString().trim();
+        if (raw.isEmpty()) return;
+
+        // Accept both comma and dot
+        String normalized = raw.replace(',', '.');
+        float value;
+        try {
+            value = Float.parseFloat(normalized);
+        } catch (NumberFormatException e) {
+            return; // don't touch user input if it's not parseable
+        }
+
+        // Guard: ignore non-positive values
+        if (value <= 0f) return;
+
+        boolean toMeters = checkedId == R.id.rb_meter;
+        boolean toCentimeters = checkedId == R.id.rb_centimeter;
+        if (!toMeters && !toCentimeters) return;
+
+        float converted = toMeters ? (value / 100f) : (value * 100f);
+
+        // Format: meters with up to 2 decimals, centimeters without decimals when possible
+        DecimalFormat df = new DecimalFormat(toMeters ? "0.##" : "0.#");
+        String out = df.format(converted);
+        etHeight.setText(out);
+        etHeight.setSelection(out.length());
     }
 
     private void showDatePickerToday() {
@@ -352,26 +385,6 @@ public class NewMeasureActivity extends BaseActivity {
         dialog.show();
     }
 
-    private void launchEmail() {
-        if (lastComputedBmi <= 0f) {
-            Toast.makeText(this, R.string.result_default, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        DecimalFormat df = new DecimalFormat("0.0");
-        String bmiStr = df.format(lastComputedBmi);
-
-        Intent intent = new Intent(Intent.ACTION_SENDTO);
-        intent.setData(Uri.parse("mailto:"));
-        intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.email_subject));
-        intent.putExtra(Intent.EXTRA_TEXT, getString(R.string.email_body, bmiStr));
-
-        try {
-            startActivity(intent);
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, R.string.error_no_email_app, Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private void navigateUpWithResult() {
         Intent data = new Intent();
         if (lastComputedBmi > 0f) {
@@ -380,5 +393,35 @@ public class NewMeasureActivity extends BaseActivity {
         setResult(RESULT_OK, data);
         finish();
     }
-}
 
+    private void sendBmiByEmail() {
+        String subject = getString(R.string.email_subject_bmi);
+        String body;
+        if (lastComputedBmi > 0f) {
+            DecimalFormat df = new DecimalFormat("0.0");
+            String bmiStr = df.format(lastComputedBmi);
+            body = getString(R.string.email_body_bmi, bmiStr);
+        } else {
+            body = getString(R.string.email_body_no_result);
+        }
+
+        String encodedSubject = android.net.Uri.encode(subject);
+        String encodedBody = android.net.Uri.encode(body);
+        android.net.Uri mailUri = android.net.Uri.parse("mailto:?subject=" + encodedSubject + "&body=" + encodedBody);
+
+        Intent intent = new Intent(Intent.ACTION_SENDTO);
+        intent.setData(mailUri);
+
+        // Robustness: avoid crash if no email app
+        if (intent.resolveActivity(getPackageManager()) == null) {
+            Toast.makeText(this, R.string.error_no_email_app, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.error_no_email_app, Toast.LENGTH_SHORT).show();
+        }
+    }
+}

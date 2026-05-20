@@ -21,6 +21,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applySavedTheme();
         EdgeToEdge.enable(this);
         setContentView(getLayoutId());
 
@@ -42,15 +43,17 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     private void navigateTo(Class<?> activityClass) {
         if (getClass() == activityClass) {
-            // Déjà sur cette page
             return;
         }
         startActivity(new Intent(this, activityClass));
-        finish();
     }
 
     private void setupWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        View main = findViewById(R.id.main);
+        if (main == null) {
+            return;
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(main, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
@@ -67,5 +70,16 @@ public abstract class BaseActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.core_not_installed, Toast.LENGTH_LONG).show();
         }
     }
-}
 
+    private void applySavedTheme() {
+        android.content.SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS_NAME, MODE_PRIVATE);
+        if (!prefs.contains(AppPrefs.KEY_DARK_MODE)) {
+            return;
+        }
+        boolean night = prefs.getBoolean(AppPrefs.KEY_DARK_MODE, false);
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(
+                night ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+                        : androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+        );
+    }
+}

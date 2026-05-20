@@ -33,10 +33,12 @@
     <string name="result_detailed_intro_f">Madame, votre IMC est de %1$s.</string>
     <string name="result_detailed_category">Pour votre catégorie d’âge (%1$d à %2$d ans), vous êtes dans la catégorie %3$s.</string>
     <string name="raz">RAZ</string>
-    <string name="email_subject">IMC</string>
-    <string name="email_body">Mon IMC est de %1$s</string>
-    <string name="action_email">Email</string>
     <string name="action_date">Date</string>
+    <string name="action_email">Mail</string>
+
+    <string name="email_subject_bmi">Résultat IMC</string>
+    <string name="email_body_bmi">Bonjour, mon IMC est de %1$s.</string>
+    <string name="email_body_no_result">Bonjour, je n’ai pas encore calculé mon IMC.</string>
 
     <string name="error_invalid_weight">Veuillez saisir un poids valide (&gt; 0).</string>
     <string name="error_invalid_height">Veuillez saisir une taille valide (&gt; 0).</string>
@@ -47,4 +49,6 @@
     <string name="raz_dialog_message">Voulez-vous remettre tous les champs à zéro ?</string>
     <string name="raz_dialog_yes">Oui</string>
     <string name="raz_dialog_no">Non</string>
+    <string name="theme_toggle_dark">Mode sombre</string>
+    <string name="theme_toggle_light">Mode clair</string>
 </resources>

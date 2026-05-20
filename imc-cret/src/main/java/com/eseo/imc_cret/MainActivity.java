@@ -11,7 +11,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Lance directement vers la première page
         startActivity(new Intent(this, ProfileActivity.class));
         finish();
     }

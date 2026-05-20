@@ -3,6 +3,23 @@
     <style name="Base.Theme.IMCcret" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/peter_river</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/belize_hole</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
+
+        <item name="colorSecondary">@color/amethyst</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/wisteria</item>
+        <item name="colorOnSecondaryContainer">@color/white</item>
+
+        <item name="colorTertiary">@color/turquoise</item>
+        <item name="colorOnTertiary">@color/white</item>
+
+        <item name="android:colorBackground">@color/white</item>
+
+        <item name="android:statusBarColor">@color/belize_hole</item>
+        <item name="android:navigationBarColor">@color/white</item>
     </style>
 
     <style name="Theme.IMCcret" parent="Base.Theme.IMCcret" />
