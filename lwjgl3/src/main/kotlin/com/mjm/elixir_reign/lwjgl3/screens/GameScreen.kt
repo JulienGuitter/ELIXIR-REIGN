@@ -55,7 +55,6 @@ import com.mjm.elixir_reign.shared.events.EventBus
 import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
-import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.core.network.MatchmakingClient
 import com.mjm.elixir_reign.core.session.GameMode
@@ -121,6 +120,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private var localNextBuildingId = -1
     private var localProductionElapsed = 0f
     private var selectedBuildingEntity: Entity? = null
+    private var pendingPlacementRequestId = 0
     private val entitiesByUnitId = mutableMapOf<Int, Entity>()
     private val entitiesByBuildingId = mutableMapOf<Int, Entity>()
     private val localBuildings = mutableListOf<BuildingInstanceState>()
@@ -313,6 +313,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
 
             if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
+                if (buildPlacementHandler.isPlacementModeActive()) {
+                    buildPlacementHandler.cancelPlacement()
+                    Shop.hide()
+                    return true
+                }
+
                 when {
                     settingsMenuTable.isVisible -> openPauseMenu()
                     pauseMenuTable.isVisible -> closeOverlays()
@@ -624,13 +630,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         Shop.setOnBuildingSelected { selection: BuildingDefinition ->
             buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+            pendingPlacementRequestId = 0
             buildPlacementHandler.updateHover(camera, Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
         }
     }
 
     private fun requestBuildingPlacement(row: Int, col: Int, building: PlacementSystem.BuildingToPlace): Boolean {
         if (GameSession.mode == GameMode.MULTI) {
-            return MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col) > 0
+            if (pendingPlacementRequestId != 0) {
+                Gdx.app.log("GameScreen", "Placement deja en attente de validation serveur.")
+                return false
+            }
+            val requestId = MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col)
+            if (requestId <= 0) {
+                Gdx.app.log("GameScreen", "Impossible d'envoyer la demande de placement au serveur.")
+                return false
+            }
+            pendingPlacementRequestId = requestId
+            return false
         }
 
         if (!GameSession.spendResources(
@@ -639,6 +656,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 darkElixirCost = building.stats.costDarkElixir
             )
         ) {
+            Gdx.app.log("GameScreen", "Ressources insuffisantes pour placer ${building.entityType}.")
             return false
         }
 
@@ -668,12 +686,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
         if (!accepted) {
             GameSession.addResources(building.stats.costGold, building.stats.costElixir, building.stats.costDarkElixir)
+            Gdx.app.log("GameScreen", "Emplacement invalide pour ${building.entityType}.")
         }
         return accepted
     }
 
     private fun hasOwnedTroopNear(row: Int, col: Int): Boolean {
-        val maxDistanceSquared = PLACEMENT_TROOP_RADIUS_TILES * PLACEMENT_TROOP_RADIUS_TILES
+        val maxDistanceSquared = worldMap.chunkSize * worldMap.chunkSize
         val playerId = localPlayerId()
         return gameWorld.coreEngine.engine.entities.any { entity ->
             if (entity.getComponent(NetworkBuildingComponent::class.java) != null) return@any false
@@ -706,10 +725,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun spawnInitialUnits() {
         if (GameSession.mode != GameMode.MULTI) {
+            val spawn = worldRenderer.tileCenterPosition(worldMap.height / 2, worldMap.width / 2)
             SpriteEntityFactory.createUnit(
-                unitType = UnitType.BARBARIAN,
-                x = 0f,
-                y = 0f,
+                entityType = EntityType.BARBARIAN,
+                x = spawn.x,
+                y = spawn.y,
                 engine = gameWorld.coreEngine.engine
             )
             return
@@ -718,7 +738,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         GameSession.unitSnapshots().forEach { unit ->
             val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
             SpriteEntityFactory.createUnit(
-                unitType = unit.unitType,
+                entityType = unit.entityType,
                 x = position.x,
                 y = position.y,
                 engine = gameWorld.coreEngine.engine,
@@ -747,7 +767,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val existing = entitiesByUnitId[unit.id]
             if (existing == null) {
                 SpriteEntityFactory.createUnit(
-                    unitType = unit.unitType,
+                    entityType = unit.entityType,
                     x = position.x,
                     y = position.y,
                     engine = gameWorld.coreEngine.engine,
@@ -803,7 +823,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun consumeNetworkBuildingResults() {
         MatchmakingClient.consumePlacementResult()?.let { result ->
-            if (!result.accepted) {
+            if (result.requestId == pendingPlacementRequestId) {
+                pendingPlacementRequestId = 0
+            }
+            if (result.accepted) {
+                buildPlacementHandler.cancelPlacement()
+                Shop.hide()
+            } else {
                 Gdx.app.log("GameScreen", "Placement refuse: ${result.reason}")
             }
         }
@@ -1278,8 +1304,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val stats = buildingStats(type)
         val multiplier = level + 1
         buildingPanelTitle.setText(stats.name)
-        buildingPanelLevel.setText("Niveau $level - cout: ${stats.costGold * multiplier} or, ${stats.costElixir * multiplier} elixir")
+        buildingPanelLevel.setText("Niveau $level - cout: ${formatUpgradeCost(stats, multiplier)}")
         buildingPanelTable.isVisible = true
+    }
+
+    private fun formatUpgradeCost(stats: BuildingStats, multiplier: Int): String {
+        val costs = mutableListOf<String>()
+        val gold = stats.costGold * multiplier
+        val elixir = stats.costElixir * multiplier
+        val darkElixir = stats.costDarkElixir * multiplier
+        if (gold > 0) costs += "$gold or"
+        if (elixir > 0) costs += "$elixir elixir"
+        if (darkElixir > 0) costs += "$darkElixir elixir noir"
+        return if (costs.isEmpty()) "aucun cout" else costs.joinToString(", ")
     }
 
     private fun canInteractWithSelectedBuilding(entity: Entity): Boolean {
@@ -1298,7 +1335,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val DEBUG_LABEL_SCALE = 1.2f
         private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
-        private const val PLACEMENT_TROOP_RADIUS_TILES = 6
         private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)

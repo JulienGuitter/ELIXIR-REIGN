@@ -16,8 +16,10 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Group
+import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.badlogic.gdx.scenes.scene2d.ui.Image
@@ -26,6 +28,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Array
@@ -55,7 +58,6 @@ import com.mjm.elixir_reign.shared.events.EventBus
 import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
-import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.core.network.MatchmakingClient
 import com.mjm.elixir_reign.core.session.GameMode
@@ -95,8 +97,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var gridOccupancy: GridOccupancyData
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
+    private lateinit var btnSelectTroops: NineSliceImageButton
+    private lateinit var placementControlsTable: Table
+    private lateinit var btnConfirmPlacement: TextButton
+    private lateinit var btnCancelPlacement: TextButton
     private var uiDebugEnabled = false
     private var mapDebugEnabled = false
+    private var isSelectionMode = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
@@ -121,6 +128,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private var localNextBuildingId = -1
     private var localProductionElapsed = 0f
     private var selectedBuildingEntity: Entity? = null
+    private var placementDragPointer: Int? = null
+    private var pendingPlacementRequestId = 0
     private val entitiesByUnitId = mutableMapOf<Int, Entity>()
     private val entitiesByBuildingId = mutableMapOf<Int, Entity>()
     private val localBuildings = mutableListOf<BuildingInstanceState>()
@@ -176,12 +185,31 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             if (isPauseOverlayVisible()) return false
 
+            if (handlePlacementControlsTouch(screenX, screenY)) {
+                return true
+            }
+
             if (buildPlacementHandler.isPlacementModeActive()) {
-                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
-                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+                val screenXf = screenX.toFloat()
+                val screenYf = screenY.toFloat()
+                if (buildPlacementHandler.isTouchOnPreview(screenXf, screenYf, camera)) {
+                    placementDragPointer = pointer
+                    buildPlacementHandler.updateHover(camera, screenXf, screenYf)
+                    return true
+                }
+
+                activeTouches[pointer] = Vector2(screenXf, screenYf)
                 if (activeTouches.size >= 2) {
+                    disableSelectionMode()
                     beginPinch()
                 }
+                return true
+            }
+
+            if (activeTouches.isNotEmpty()) {
+                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+                disableSelectionMode()
+                beginPinch()
                 return true
             }
 
@@ -201,12 +229,16 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
                 applyPredictedMove(selectedUnitIds, targetRow, targetCol)
             }
-//             Clic gauche = sélectionner
+            // Clic gauche = sélectionner. Sur Android, le bouton sélection force le mode drag.
             selectionInputHandler.touchDown(screenX, screenY, camera)
+            if (isSelectionMode) {
+                selectionInputHandler.touchDown(screenX, screenY, camera)
+            }
 
             activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
             if (activeTouches.size >= 2) {
+                disableSelectionMode()
                 beginPinch()
             }
             return true
@@ -215,17 +247,26 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             if (isPauseOverlayVisible()) return false
 
-            // Si mode double-clic actif, faire le drag selection
-             if (!buildPlacementHandler.isPlacementModeActive() && selectionInputHandler.isDoubleClickModeActive()) {
-                 selectionInputHandler.touchDragged(screenX, screenY, camera)
-                 return true
-             }
+            if (placementDragPointer == pointer) {
+                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
+                return true
+            }
 
             val previousTouch = activeTouches[pointer] ?: return false
 
-            if (pinchState != null) {
+            if (pinchState != null || activeTouches.size >= 2) {
+                disableSelectionMode()
                 previousTouch.set(screenX.toFloat(), screenY.toFloat())
+                if (pinchState == null) {
+                    beginPinch()
+                }
                 updatePinchZoom()
+                return true
+            }
+
+            // Sur Android, la sélection rectangle ne s'active que via le bouton dédié.
+            if (!buildPlacementHandler.isPlacementModeActive() && isSelectionMode) {
+                selectionInputHandler.touchDragged(screenX, screenY, camera)
                 return true
             }
 
@@ -241,21 +282,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             clampCameraPosition()
             camera.update()
             previousTouch.set(screenX.toFloat(), screenY.toFloat())
-            if (buildPlacementHandler.isPlacementModeActive()) {
-                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
-            }
             return true
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             if (isPauseOverlayVisible()) return false
 
-            if (buildPlacementHandler.isPlacementModeActive()) {
-                if (buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)) {
-                    Shop.hide()
-                    buildPlacementHandler.cancelPlacement()
+            if (placementDragPointer == pointer) {
+                placementDragPointer = null
+                activeTouches.remove(pointer)
+                if (activeTouches.size >= 2) {
+                    beginPinch()
+                } else {
+                    endPinch()
                 }
+                return true
+            }
 
+            if (buildPlacementHandler.isPlacementModeActive()) {
                 activeTouches.remove(pointer)
                 if (activeTouches.size >= 2) {
                     beginPinch()
@@ -267,11 +311,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
             // Finaliser la sélection/drag selection
              selectionInputHandler.touchUp()
+            isSelectionMode = false
+            updateSelectionButtonState()
             updateSelectedBuildingPanel()
 
             activeTouches.remove(pointer)
 
             if (activeTouches.size >= 2) {
+                disableSelectionMode()
                 beginPinch()
             } else {
                 endPinch()
@@ -407,6 +454,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         if (buildPlacementHandler.isPlacementModeActive()) {
             buildPlacementHandler.renderPreview(delta, batch, shapeRenderer)
         }
+        updatePlacementControls()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
         if (selectionInputHandler.isDraggingNow() || uiDebugEnabled) {
@@ -475,6 +523,53 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
         }
 
+        val btnPauseMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_SETTING)).apply {
+            onClick { _, _ ->
+                openPauseMenu()
+            }
+        }
+
+        btnSelectTroops = NineSliceImageButton(
+            UiAssets.texture(UiImage.BUTTON_9PATCH),
+            UiAssets.texture(UiImage.ICON_SELECT),
+            toggleVisuals = true
+        ).apply {
+            onClick { _, _ ->
+                if (buildPlacementHandler.isPlacementModeActive()) {
+                    return@onClick
+                }
+                isSelectionMode = !isSelectionMode
+                updateSelectionButtonState()
+            }
+        }
+        updateSelectionButtonState()
+
+        btnConfirmPlacement = TextButton("Valider", UiAssets.skin).apply {
+            isDisabled = true
+            addListener(object : ClickListener() {
+                override fun clicked(event: InputEvent?, x: Float, y: Float) {
+                    if (!isDisabled && buildPlacementHandler.confirmPlacement()) {
+                        Shop.hide()
+                    }
+                }
+            })
+        }
+
+        btnCancelPlacement = TextButton("Annuler", UiAssets.skin).apply {
+            addListener(object : ClickListener() {
+                override fun clicked(event: InputEvent?, x: Float, y: Float) {
+                    buildPlacementHandler.cancelPlacement()
+                }
+            })
+        }
+
+        placementControlsTable = Table().apply {
+            isVisible = false
+            add(btnConfirmPlacement).width(180f).height(64f).padRight(8f)
+            add(btnCancelPlacement).width(180f).height(64f)
+            pack()
+        }
+
         val resourceBarTable = Table().apply {
             background = NinePatchDrawable(
                 NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
@@ -497,10 +592,24 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             add(playerNameTable).right()
         }
 
-        val hudTable = Table().apply {
+        val hudTopLeftTable = Table().apply {
+            setFillParent(true)
+            top().left()
+            padTop(16f)
+            padLeft(16f)
+            add(btnPauseMenu).size(96f).pad(24f)
+        }
+
+        val hudLeftTable = Table().apply {
             setFillParent(true)
             bottom().left()
             add(btnBuildMenu).size(96f).pad(24f)
+        }
+
+        val hudRightTable = Table().apply {
+            setFillParent(true)
+            bottom().right()
+            add(btnSelectTroops).size(96f).pad(24f)
         }
 
         pauseMenuTable = buildPauseMenuTable()
@@ -509,7 +618,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         buildingPanelTable = buildBuildingPanelTable()
 
         uiStage.addActor(hudTopTable)
-        uiStage.addActor(hudTable)
+        uiStage.addActor(hudTopLeftTable)
+        uiStage.addActor(hudLeftTable)
+        uiStage.addActor(hudRightTable)
+        uiStage.addActor(placementControlsTable)
         uiStage.addActor(buildingPanelTable)
         uiStage.addActor(pauseMenuTable)
         uiStage.addActor(settingsMenuTable)
@@ -624,13 +736,83 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         Shop.setOnBuildingSelected { selection: BuildingDefinition ->
             buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
-            buildPlacementHandler.updateHover(camera, Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
+            pendingPlacementRequestId = 0
+            centerPlacementPreviewOnScreen()
         }
+    }
+
+    private fun updatePlacementControls() {
+        if (!this::placementControlsTable.isInitialized || !buildPlacementHandler.isPlacementModeActive()) {
+            if (this::placementControlsTable.isInitialized) {
+                placementControlsTable.isVisible = false
+            }
+            return
+        }
+
+        val previewAnchor = buildPlacementHandler.getPreviewAnchorWorldPosition()
+        if (previewAnchor == null) {
+            placementControlsTable.isVisible = false
+            return
+        }
+
+        val screenAnchor = camera.project(Vector3(previewAnchor.x, previewAnchor.y, 0f))
+        val padding = 18f
+        val x = (screenAnchor.x - placementControlsTable.width / 2f)
+            .coerceIn(12f, Gdx.graphics.width - placementControlsTable.width - 12f)
+        val y = (screenAnchor.y + padding)
+            .coerceAtMost(Gdx.graphics.height - placementControlsTable.height - 12f)
+
+        placementControlsTable.setPosition(x, y)
+        placementControlsTable.isVisible = true
+        placementControlsTable.toFront()
+        btnConfirmPlacement.isDisabled = pendingPlacementRequestId != 0 || !buildPlacementHandler.canConfirmPlacement()
+    }
+
+    private fun handlePlacementControlsTouch(screenX: Int, screenY: Int): Boolean {
+        if (!this::placementControlsTable.isInitialized || !placementControlsTable.isVisible) {
+            return false
+        }
+
+        val stageCoords = uiStage.screenToStageCoordinates(Vector2(screenX.toFloat(), screenY.toFloat()))
+        val localCoords = placementControlsTable.stageToLocalCoordinates(stageCoords)
+        val hitActor = placementControlsTable.hit(localCoords.x, localCoords.y, true) ?: return false
+
+        if (hitActor.isDescendantOf(btnConfirmPlacement)) {
+            if (!btnConfirmPlacement.isDisabled && buildPlacementHandler.confirmPlacement()) {
+                Shop.hide()
+            }
+            return true
+        }
+
+        if (hitActor.isDescendantOf(btnCancelPlacement)) {
+            buildPlacementHandler.cancelPlacement()
+            return true
+        }
+
+        return false
+    }
+
+    private fun centerPlacementPreviewOnScreen() {
+        buildPlacementHandler.updateHover(
+            camera = camera,
+            screenX = Gdx.graphics.width / 2f,
+            screenY = Gdx.graphics.height / 2f
+        )
     }
 
     private fun requestBuildingPlacement(row: Int, col: Int, building: PlacementSystem.BuildingToPlace): Boolean {
         if (GameSession.mode == GameMode.MULTI) {
-            return MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col) > 0
+            if (pendingPlacementRequestId != 0) {
+                Gdx.app.log("GameScreen", "Placement deja en attente de validation serveur.")
+                return false
+            }
+            val requestId = MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col)
+            if (requestId <= 0) {
+                Gdx.app.log("GameScreen", "Impossible d'envoyer la demande de placement au serveur.")
+                return false
+            }
+            pendingPlacementRequestId = requestId
+            return false
         }
 
         if (!GameSession.spendResources(
@@ -639,6 +821,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 darkElixirCost = building.stats.costDarkElixir
             )
         ) {
+            Gdx.app.log("GameScreen", "Ressources insuffisantes pour placer ${building.entityType}.")
             return false
         }
 
@@ -668,12 +851,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
         if (!accepted) {
             GameSession.addResources(building.stats.costGold, building.stats.costElixir, building.stats.costDarkElixir)
+            Gdx.app.log("GameScreen", "Emplacement invalide pour ${building.entityType}.")
         }
         return accepted
     }
 
     private fun hasOwnedTroopNear(row: Int, col: Int): Boolean {
-        val maxDistanceSquared = PLACEMENT_TROOP_RADIUS_TILES * PLACEMENT_TROOP_RADIUS_TILES
+        val maxDistanceSquared = worldMap.chunkSize * worldMap.chunkSize
         val playerId = localPlayerId()
         return gameWorld.coreEngine.engine.entities.any { entity ->
             if (entity.getComponent(NetworkBuildingComponent::class.java) != null) return@any false
@@ -706,10 +890,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun spawnInitialUnits() {
         if (GameSession.mode != GameMode.MULTI) {
+            val spawn = worldRenderer.tileCenterPosition(worldMap.height / 2, worldMap.width / 2)
             SpriteEntityFactory.createUnit(
-                unitType = UnitType.BARBARIAN,
-                x = 0f,
-                y = 0f,
+                entityType = EntityType.BARBARIAN,
+                x = spawn.x,
+                y = spawn.y,
                 engine = gameWorld.coreEngine.engine
             )
             return
@@ -718,7 +903,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         GameSession.unitSnapshots().forEach { unit ->
             val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
             SpriteEntityFactory.createUnit(
-                unitType = unit.unitType,
+                entityType = unit.entityType,
                 x = position.x,
                 y = position.y,
                 engine = gameWorld.coreEngine.engine,
@@ -747,7 +932,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val existing = entitiesByUnitId[unit.id]
             if (existing == null) {
                 SpriteEntityFactory.createUnit(
-                    unitType = unit.unitType,
+                    entityType = unit.entityType,
                     x = position.x,
                     y = position.y,
                     engine = gameWorld.coreEngine.engine,
@@ -803,7 +988,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun consumeNetworkBuildingResults() {
         MatchmakingClient.consumePlacementResult()?.let { result ->
-            if (!result.accepted) {
+            if (result.requestId == pendingPlacementRequestId) {
+                pendingPlacementRequestId = 0
+            }
+            if (result.accepted) {
+                buildPlacementHandler.cancelPlacement()
+                Shop.hide()
+            } else {
                 Gdx.app.log("GameScreen", "Placement refuse: ${result.reason}")
             }
         }
@@ -968,6 +1159,22 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun formatResource(value: Int): String {
         return String.format(Locale.US, "%,d", value).replace(',', ' ')
+    }
+
+    private fun updateSelectionButtonState() {
+        if (!this::btnSelectTroops.isInitialized) {
+            return
+        }
+        btnSelectTroops.setHighlighted(isSelectionMode)
+    }
+
+    private fun disableSelectionMode() {
+        if (!isSelectionMode) {
+            return
+        }
+        isSelectionMode = false
+        selectionInputHandler.touchUp()
+        updateSelectionButtonState()
     }
 
     private fun toggleUiDebug() {
@@ -1249,6 +1456,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             setFillParent(true)
             bottom().right()
             pad(24f)
+            padBottom(128f)
             isVisible = false
             add(panel)
         }
@@ -1278,8 +1486,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val stats = buildingStats(type)
         val multiplier = level + 1
         buildingPanelTitle.setText(stats.name)
-        buildingPanelLevel.setText("Niveau $level - cout: ${stats.costGold * multiplier} or, ${stats.costElixir * multiplier} elixir")
+        buildingPanelLevel.setText("Niveau $level - cout: ${formatUpgradeCost(stats, multiplier)}")
         buildingPanelTable.isVisible = true
+    }
+
+    private fun formatUpgradeCost(stats: BuildingStats, multiplier: Int): String {
+        val costs = mutableListOf<String>()
+        val gold = stats.costGold * multiplier
+        val elixir = stats.costElixir * multiplier
+        val darkElixir = stats.costDarkElixir * multiplier
+        if (gold > 0) costs += "$gold or"
+        if (elixir > 0) costs += "$elixir elixir"
+        if (darkElixir > 0) costs += "$darkElixir elixir noir"
+        return if (costs.isEmpty()) "aucun cout" else costs.joinToString(", ")
     }
 
     private fun canInteractWithSelectedBuilding(entity: Entity): Boolean {
@@ -1298,7 +1517,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val DEBUG_LABEL_SCALE = 1.2f
         private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
-        private const val PLACEMENT_TROOP_RADIUS_TILES = 6
         private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)

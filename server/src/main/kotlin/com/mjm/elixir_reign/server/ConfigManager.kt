@@ -15,14 +15,7 @@ object ConfigManager {
     private fun loadConfig(): ServerConfig{
         if(!configFile.exists()){
             println("Generate config file")
-
-            val inputStream = object {}.javaClass
-                .getResourceAsStream("/config.yml")
-                ?: throw IllegalStateException("config.yml not found in resources")
-
-            configFile.outputStream().use { output ->
-                inputStream.copyTo(output)
-            }
+            writeDefaultConfig()
         }
 
         val mapper = ObjectMapper(YAMLFactory())
@@ -33,10 +26,36 @@ object ConfigManager {
         return config
     }
 
+    private fun writeDefaultConfig() {
+        val inputStream = object {}.javaClass.getResourceAsStream("/config.yml")
+        if (inputStream != null) {
+            inputStream.use { input ->
+                configFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            return
+        }
+
+        configFile.writeText(DEFAULT_CONFIG_YAML)
+    }
+
     fun getConfig(): ServerConfig {
         if(!::config.isInitialized){
             return loadConfig()
         }
         return config
     }
+
+    private const val DEFAULT_CONFIG_YAML = """port: 54555
+
+lobby: true
+instance: true
+maxInstances: 4
+
+serversIP:
+  - this
+
+logLevel: VERBOSE
+"""
 }

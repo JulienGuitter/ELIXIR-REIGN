@@ -180,7 +180,7 @@ object GameSession {
             networkUnits[packet.unitId] = UnitState(
                 id = packet.unitId,
                 ownerPlayerId = packet.ownerPlayerId,
-                unitType = packet.unitType,
+                entityType = packet.entityType,
                 row = packet.row,
                 col = packet.col,
                 targetRow = packet.targetRow,
@@ -267,7 +267,7 @@ object GameSession {
                 UnitState(
                     id = it.id,
                     ownerPlayerId = it.ownerPlayerId,
-                    unitType = it.unitType,
+                    entityType = it.entityType,
                     row = it.row,
                     col = it.col,
                     targetRow = it.targetRow,

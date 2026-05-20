@@ -5,7 +5,6 @@ import com.mjm.elixir_reign.shared.game.PlayerState
 import com.mjm.elixir_reign.shared.game.UnitState
 import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.logic.EntityType
-import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.type.GameType
 import java.util.ArrayList
@@ -23,7 +22,6 @@ object Network {
         kryo?.register(ArrayList::class.java)
         kryo?.register(IntArray::class.java)
         kryo?.register(GameType::class.java)
-        kryo?.register(UnitType::class.java)
         kryo?.register(EntityType::class.java)
         kryo?.register(TerrainType::class.java)
         kryo?.register(PlayerState::class.java)

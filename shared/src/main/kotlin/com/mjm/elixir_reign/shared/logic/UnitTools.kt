@@ -12,12 +12,6 @@ enum class EntityType {
     TOWN_HALL
 }
 
-enum class UnitType {
-    BARBARIAN,
-    ARCHER,
-    GIANT
-}
-
 enum class BuildingState {
     IDLE,
     TRAINING_UNIT,

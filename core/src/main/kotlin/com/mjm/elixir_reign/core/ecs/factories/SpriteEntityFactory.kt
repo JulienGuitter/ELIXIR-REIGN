@@ -27,7 +27,6 @@ import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.logic.BuildingState
-import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
  * Factory ECS pour créer des entités avec sprites
@@ -42,26 +41,6 @@ object SpriteEntityFactory {
     /**
      * Crée une unité avec tous les components (animation + rendu)
      */
-    fun createUnit(
-        unitType: UnitType,
-        x: Float,
-        y: Float,
-        engine: Engine,
-        networkUnitId: Int = 0,
-        ownerPlayerId: Int = 0,
-        selectable: Boolean = true
-    ) {
-        createUnit(
-            entityType = unitType.toEntityType(),
-            x = x,
-            y = y,
-            engine = engine,
-            networkUnitId = networkUnitId,
-            ownerPlayerId = ownerPlayerId,
-            selectable = selectable
-        )
-    }
-
     fun createUnit(
         entityType: EntityType,
         x: Float,
@@ -241,11 +220,4 @@ object SpriteEntityFactory {
         }
     }
 
-    private fun UnitType.toEntityType(): EntityType {
-        return when (this) {
-            UnitType.BARBARIAN -> EntityType.BARBARIAN
-            UnitType.ARCHER -> EntityType.ARCHER
-            UnitType.GIANT -> EntityType.GIANT
-        }
-    }
 }

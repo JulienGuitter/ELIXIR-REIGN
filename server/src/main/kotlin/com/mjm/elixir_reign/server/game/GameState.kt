@@ -5,7 +5,6 @@ import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.game.PlayerState
 import com.mjm.elixir_reign.shared.game.UnitState
 import com.mjm.elixir_reign.shared.logic.EntityType
-import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
 import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
 import com.mjm.elixir_reign.shared.network.PacketGameInit
@@ -438,7 +437,7 @@ class GameState(
     }
 
     private fun hasOwnedTroopNear(player: PlayerState, row: Int, col: Int): Boolean {
-        val maxDistanceSquared = PLACEMENT_TROOP_RADIUS_TILES * PLACEMENT_TROOP_RADIUS_TILES
+        val maxDistanceSquared = worldMap.chunkSize * worldMap.chunkSize
         return player.units.any { unit ->
             val dRow = floor(unit.row).toInt() - row
             val dCol = floor(unit.col).toInt() - col
@@ -486,7 +485,7 @@ class GameState(
         return UnitState(
             id = nextUnitId++,
             ownerPlayerId = player.id,
-            unitType = UnitType.BARBARIAN,
+            entityType = EntityType.BARBARIAN,
             row = spawn.first.toFloat(),
             col = spawn.second.toFloat(),
             targetRow = spawn.first.toFloat(),
@@ -559,7 +558,7 @@ class GameState(
         return PacketUnitSnapshot(
             unitId = id,
             ownerPlayerId = ownerPlayerId,
-            unitType = unitType,
+            entityType = entityType,
             row = row,
             col = col,
             targetRow = targetRow,
@@ -620,6 +619,5 @@ class GameState(
         private const val ARRIVAL_THRESHOLD_TILES = 0.05f
         private const val UNKNOWN_TILE = -1
         private const val RECONNECT_GRACE_PERIOD_MS = 3 * 60 * 1000L
-        private const val PLACEMENT_TROOP_RADIUS_TILES = 6
     }
 }

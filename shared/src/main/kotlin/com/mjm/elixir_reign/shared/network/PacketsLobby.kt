@@ -1,6 +1,5 @@
 package com.mjm.elixir_reign.shared.network
 
-import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.type.GameType
 
@@ -62,7 +61,7 @@ class PacketMapChunk(
 class PacketUnitSnapshot(
     var unitId: Int = 0,
     var ownerPlayerId: Int = 0,
-    var unitType: UnitType = UnitType.BARBARIAN,
+    var entityType: EntityType = EntityType.BARBARIAN,
     var row: Float = 0f,
     var col: Float = 0f,
     var targetRow: Float = 0f,
