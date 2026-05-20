@@ -42,6 +42,8 @@ class DestinationMovementSystem : IteratingSystem(
         // Si pas de destination active, arrêter le mouvement
         if (!destination.isActive) {
             movement.isMoving = false
+            movement.directionX = 0f
+            movement.directionY = 0f
             return
         }
 
@@ -54,6 +56,8 @@ class DestinationMovementSystem : IteratingSystem(
         if (distance < ARRIVAL_THRESHOLD) {
             destination.isActive = false
             movement.isMoving = false
+            movement.directionX = 0f
+            movement.directionY = 0f
             position.x = destination.targetX
             position.y = destination.targetY
             return
@@ -62,6 +66,8 @@ class DestinationMovementSystem : IteratingSystem(
         // Calcule l'angle vers la destination et convertit en DirectionType
         val angle = atan2(dy, dx)
         movement.directionType = angleToDirection(angle)
+        movement.directionX = dx / distance
+        movement.directionY = dy / distance
         movement.isMoving = true
     }
 
@@ -98,4 +104,3 @@ class DestinationMovementSystem : IteratingSystem(
         }
     }
 }
-
