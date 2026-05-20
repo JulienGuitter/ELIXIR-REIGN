@@ -30,7 +30,7 @@ class SelectionInputHandler(private val engine: Engine) {
 
     // ============ ÉVÉNEMENTS D'INPUT ============
 
-    fun touchDown(screenX: Int, screenY: Int, camera: Camera) {
+    fun touchDown(screenX: Int, screenY: Int, camera: Camera): Boolean {
         val worldCoords = camera.unproject(Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
 
         // Initialiser le drag
@@ -48,10 +48,35 @@ class SelectionInputHandler(private val engine: Engine) {
         // Si simple clic : sélectionner l'entité cliquée
         if (!isDoubleClickActive) {
             val clickedEntity = findEntityAt(worldCoords.x, worldCoords.y)
+
+            if (clickedEntity != null) {
+                // On a cliqué sur une unité. On désélectionne les autres (ou pas, selon logique)
+                // mais la sélection change.
+                selectedEntities.clear()
+                selectedEntities.add(clickedEntity)
+                updateSelection()
+                return true
+            } else {
+                // Si on a rien cliqué, on pourrait ordonner un mouvement, mais il faut
+                // le faire AVANT de clear la sélection.
+                // On délègue l'ordre de mouvement à l'appelant s'il le souhaite,
+                // mais l'appelant ne sait pas que selectedEntities = null !
+                // Faisons la logique : si on a cliqué dans le vide, on bouge d'abord, puis on désélectionne.
+                if (selectedEntities.isNotEmpty()) {
+                    moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+                    selectedEntities.clear()
+                    updateSelection()
+                    return false
+                }
+            }
+
             selectedEntities.clear()
-            if (clickedEntity != null) selectedEntities.add(clickedEntity)
             updateSelection()
+            return false
         }
+        // Si c'est un double-clic, on va potentiellement entamer un drag pour sélectionner.
+        // On retourne true pour éviter d'interagir avec les bâtiments en dessous.
+        return true
     }
 
     fun touchDragged(screenX: Int, screenY: Int, camera: Camera) {
@@ -91,6 +116,7 @@ class SelectionInputHandler(private val engine: Engine) {
     private fun findEntityAt(x: Float, y: Float): Entity? {
         for (entity in engine.entities) {
             if (entity.getComponent(SelectableComponent::class.java) != null) {
+                if (entity.getComponent(DestinationComponent::class.java) == null) continue
                 if (BoundingBoxUtils.pointInEntity(entity, x, y)) {
                     return entity
                 }
@@ -101,6 +127,7 @@ class SelectionInputHandler(private val engine: Engine) {
 
     private fun entityTouchesRectangle(entity: Entity, rect: Rectangle): Boolean {
         if (entity.getComponent(SelectableComponent::class.java) == null) return false
+        if (entity.getComponent(DestinationComponent::class.java) == null) return false
         return BoundingBoxUtils.entityTouchesRectangle(entity, rect)
     }
 

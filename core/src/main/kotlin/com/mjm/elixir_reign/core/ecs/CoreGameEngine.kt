@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.mjm.elixir_reign.core.ecs.systems.AnimationSystem
+import com.mjm.elixir_reign.core.ecs.systems.BarracksProductionSystem
 import com.mjm.elixir_reign.core.ecs.systems.RenderSystem
 import com.mjm.elixir_reign.core.ecs.systems.HealthSystem
 import com.mjm.elixir_reign.core.ecs.systems.HealthBarRenderSystem
@@ -26,6 +27,7 @@ class CoreGameEngine(
     init {
         engine.addSystem(AnimationSystem())
         engine.addSystem(HealthSystem())
+        engine.addSystem(BarracksProductionSystem(engine))
         // engine.addSystem(SelectionRenderSystem(batch, shapeRenderer, camera, selectionInputHandler))
         engine.addSystem(RenderSystem(batch))
         engine.addSystem(HealthBarRenderSystem(batch, shapeRenderer, camera))
