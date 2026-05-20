@@ -10,7 +10,7 @@ import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BarracksTrainingProgress
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.logic.EntityType
 
 class BarracksProductionSystem(
     private val gameEngine: Engine
@@ -46,11 +46,11 @@ class BarracksProductionSystem(
         }
     }
 
-    private fun spawnUnit(unitType: UnitType, barracks: BarracksComponent, position: PositionComponent) {
+    private fun spawnUnit(unitType: EntityType, barracks: BarracksComponent, position: PositionComponent) {
         val angle = MathUtils.random(0f, MathUtils.PI2)
         val radius = MathUtils.random(MIN_SPAWN_RADIUS, MAX_SPAWN_RADIUS)
         SpriteEntityFactory.createUnit(
-            unitType = unitType,
+            entityType = unitType,
             x = position.x + MathUtils.cos(angle) * radius,
             y = position.y + MathUtils.sin(angle) * radius,
             engine = gameEngine,

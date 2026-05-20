@@ -1,16 +1,21 @@
 package com.mjm.elixir_reign.shared.data
 
 data class UnitStats(
-    val name: String,
-    val maxHP: Float,
+    override var name: String,
+    override var maxHP: Float,
+    override var texturePath: String,
+    override var costGold: Int,
+    override var costElixir: Int,
+    override var costDarkElixir: Int,
+    override var spriteSheetJsonPath: String,
+    override var spriteBaseClipName: String,
     val damage: Float,
     val attackSpeed: Float,
     val range: Float,
     val speed: Float,
     val costs: List<ResourceCost>,
-    val trainingTimeSeconds: Float,
-    val texturePath: String
-) {
+    val trainingTimeSeconds: Float
+) : EntityStats(name, maxHP, texturePath, costGold, costElixir, costDarkElixir, spriteSheetJsonPath, spriteBaseClipName) {
     companion object {
         val BARBARIAN = UnitStats(
             name = "Barbarian",
@@ -21,7 +26,12 @@ data class UnitStats(
             speed = 60f,
             costs = listOf(ResourceCost(ResourceType.ELEXIR, 100)),
             trainingTimeSeconds = 4f,
-            texturePath = "barbarian.png"
+            costGold = 0,
+            costElixir = 100,
+            costDarkElixir = 0,
+            texturePath = "sprites/units/anim_pack_chr_barbarian.png",
+            spriteSheetJsonPath = "sprites/units/anim_pack_chr_barbarian.json",
+            spriteBaseClipName = "barbarian"
         )
 
         val ARCHER = UnitStats(
@@ -36,7 +46,12 @@ data class UnitStats(
                 ResourceCost(ResourceType.GOLD, 20)
             ),
             trainingTimeSeconds = 5f,
-            texturePath = "archer.png"
+            costGold = 20,
+            costElixir = 120,
+            costDarkElixir = 0,
+            texturePath = "sprites/units/anim_pack_chr_archer.png",
+            spriteSheetJsonPath = "sprites/units/anim_pack_chr_archer.json",
+            spriteBaseClipName = "archer"
         )
 
         val GIANT = UnitStats(
@@ -51,7 +66,12 @@ data class UnitStats(
                 ResourceCost(ResourceType.GOLD, 80)
             ),
             trainingTimeSeconds = 10f,
-            texturePath = "giant.png"
+            costGold = 80,
+            costElixir = 250,
+            costDarkElixir = 0,
+            texturePath = "sprites/units/anim_pack_chr_giant.png",
+            spriteSheetJsonPath = "sprites/units/anim_pack_chr_giant.json",
+            spriteBaseClipName = "giant"
         )
     }
 }

@@ -1,0 +1,55 @@
+{
+  "frame_count": 3,
+  "columns": 2,
+  "rows": 2,
+  "frames_per_row": 2,
+  "frames_per_column": 2,
+  "cell_width": 135,
+  "cell_height": 127,
+  "frame_width": 135,
+  "frame_height": 127,
+  "sheet_width": 270,
+  "sheet_height": 254,
+  "align_origins": false,
+  "name": "anim_pack_troops_factory",
+  "foot_x": 0.5,
+  "foot_y": 0.0,
+  "clips": [
+    {
+      "name": "troops_factory_building",
+      "start_frame": 0,
+      "frame_count": 1,
+      "end_frame": 0,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "troops_factory_destroyed",
+      "start_frame": 1,
+      "frame_count": 1,
+      "end_frame": 1,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "troops_factory_idle",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "troops_factory_lvl1",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    }
+  ]
+}

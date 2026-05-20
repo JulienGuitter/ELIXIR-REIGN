@@ -1,0 +1,89 @@
+{
+  "frame_count": 53,
+  "columns": 8,
+  "rows": 7,
+  "frames_per_row": 8,
+  "frames_per_column": 7,
+  "cell_width": 121,
+  "cell_height": 133,
+  "frame_width": 121,
+  "frame_height": 133,
+  "sheet_width": 968,
+  "sheet_height": 931,
+  "align_origins": true,
+  "name": "anim_pack_elixir",
+  "clip_count": 5,
+  "pack_frame_count": 53,
+  "visible_frame_count": 53,
+  "mask_mode": "clean",
+  "force_cell_size": false,
+  "requested_cell_width": null,
+  "requested_cell_height": null,
+  "collider_mode": "largest",
+  "foot_x": 0.5,
+  "foot_y": 0.0,
+  "foot_coord_space": "normalized_bottom_left",
+  "filter_query": "",
+  "clips": [
+    {
+      "name": "elixir_pump_building",
+      "anim_index": 1225,
+      "start_frame": 0,
+      "frame_count": 1,
+      "end_frame": 0,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "elixir_pump_destroyed",
+      "anim_index": 1221,
+      "start_frame": 1,
+      "frame_count": 1,
+      "end_frame": 1,
+      "timeline_frame_count": 1,
+      "visible_frame_count": 1,
+      "fps": 30
+    },
+    {
+      "name": "elixir_pump_idle",
+      "anim_index": 1226,
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 17,
+      "fps": 24
+    },
+    {
+      "name": "elixir_pump_lvl1",
+      "anim_index": 1226,
+      "start_frame": 2,
+      "frame_count": 17,
+      "end_frame": 18,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 17,
+      "fps": 24
+    },
+    {
+      "name": "elixir_pump_lvl2",
+      "anim_index": 1257,
+      "start_frame": 19,
+      "frame_count": 17,
+      "end_frame": 35,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 17,
+      "fps": 24
+    },
+    {
+      "name": "elixir_pump_lvl3",
+      "anim_index": 1227,
+      "start_frame": 36,
+      "frame_count": 17,
+      "end_frame": 52,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 17,
+      "fps": 24
+    }
+  ]
+}

@@ -21,14 +21,14 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.Scaling
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
-import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.UnitStats
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
 import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
 import com.mjm.elixir_reign.shared.logic.ActionType
 import com.mjm.elixir_reign.shared.logic.DirectionType
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.logic.EntityType
 import kotlin.math.roundToInt
 
 class BarracksPanel(
@@ -43,7 +43,7 @@ class BarracksPanel(
     private val activeTrainingTable = Table().apply { left() }
     private val formedUnitsTable = Table().apply { left() }
     private val statusLabel = Label("", UiAssets.skin)
-    private val trainButtons = mutableMapOf<UnitType, TextButton>()
+    private val trainButtons = mutableMapOf<EntityType, TextButton>()
     private val overlayTexture: Texture = UiAssets.createRoundedRectTexture(2, 2, 0, Color.WHITE)
     private val multiplierBackground = TextureRegionDrawable(TextureRegion(overlayTexture))
         .tint(Color(0f, 0f, 0f, 0.48f))
@@ -176,12 +176,12 @@ class BarracksPanel(
     private fun rebuildAvailableUnits() {
         availableUnitsTable.clearChildren()
         trainButtons.clear()
-        UnitType.entries.forEach { unitType ->
+        TRAINABLE_UNITS.forEach { unitType ->
             availableUnitsTable.add(createUnitCard(unitType)).width(260f).height(176f)
         }
     }
 
-    private fun createUnitCard(unitType: UnitType): Actor {
+    private fun createUnitCard(unitType: EntityType): Actor {
         val stats = SpriteEntityFactory.getUnitStats(unitType)
         val card = Table().apply {
             background = UiAssets.skin.getDrawable("shopCardBackground")
@@ -288,7 +288,8 @@ class BarracksPanel(
 
         formedUnitsTable.clearChildren()
         val formedByType = formedUnitEntitiesFor(barracks)
-            .mapNotNull { it.getComponent(UnitTypeComponent::class.java)?.unitType }
+            .mapNotNull { it.getComponent(EntityTypeComponent::class.java)?.entityType }
+            .filter { it in TRAINABLE_UNITS }
             .groupingBy { it }
             .eachCount()
         if (formedByType.isEmpty()) {
@@ -301,7 +302,7 @@ class BarracksPanel(
                     multiplier = count
                 ) {
                     formedUnitEntitiesFor(barracks)
-                        .firstOrNull { it.getComponent(UnitTypeComponent::class.java)?.unitType == unitType }
+                        .firstOrNull { it.getComponent(EntityTypeComponent::class.java)?.entityType == unitType }
                         ?.let(removeEntity)
                     refresh()
                 }).left().padRight(12f)
@@ -316,7 +317,8 @@ class BarracksPanel(
             if (trainedUnit.barracksId != barracks.barracksId || trainedUnit.teamId != barracks.teamId) {
                 continue
             }
-            if (entity.getComponent(UnitTypeComponent::class.java) != null) {
+            val entityType = entity.getComponent(EntityTypeComponent::class.java)?.entityType
+            if (entityType in TRAINABLE_UNITS) {
                 formedUnits.add(entity)
             }
         }
@@ -349,7 +351,7 @@ class BarracksPanel(
     }
 
     private fun deletableUnitSlot(
-        unitType: UnitType,
+        unitType: EntityType,
         progress: Float?,
         multiplier: Int?,
         onDelete: () -> Unit
@@ -407,7 +409,7 @@ class BarracksPanel(
         }
     }
 
-    private fun unitImage(unitType: UnitType): Image {
+    private fun unitImage(unitType: EntityType): Image {
         return Image(TextureRegionDrawable(unitTexture(unitType))).apply {
             setScaling(Scaling.fit)
         }
@@ -422,12 +424,21 @@ class BarracksPanel(
         return "$costs  ${stats.trainingTimeSeconds.roundToInt()}s"
     }
 
-    private fun unitTexture(unitType: UnitType): TextureRegion {
-        return SpriteAnimationManager.createAnimator(
-            unitType = unitType,
+    private fun unitTexture(unitType: EntityType): TextureRegion {
+        val stats = SpriteEntityFactory.getUnitStats(unitType)
+        return SpriteAnimationManager.createUnitAnimator(
+            stats = stats,
             actionType = ActionType.RUN,
             directionType = DirectionType.DOWN
         ).getCurrentTextureRegion() ?: TextureRegion()
+    }
+
+    companion object {
+        private val TRAINABLE_UNITS = listOf(
+            EntityType.BARBARIAN,
+            EntityType.ARCHER,
+            EntityType.GIANT
+        )
     }
 
     private class ProgressOverlay(

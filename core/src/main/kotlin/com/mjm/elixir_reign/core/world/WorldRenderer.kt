@@ -6,13 +6,16 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.Disposable
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.world.WorldMap
 
 class WorldRenderer(
     worldMap: WorldMap,
     scale: Float = 4f
 ) : Disposable {
+    private val geometry = IsometricGeometry(worldMap, scale)
     private val terrainRenderer = TerrainRenderer(
+        geometry = geometry,
         worldMap = worldMap,
         scale = scale
     )

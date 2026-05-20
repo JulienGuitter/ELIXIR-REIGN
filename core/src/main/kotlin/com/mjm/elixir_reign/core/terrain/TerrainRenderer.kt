@@ -5,28 +5,27 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.WorldMap
 
 class TerrainRenderer(
+    private val geometry: IsometricGeometry,
     private val worldMap: WorldMap,
     private val scale: Float = 4f
 ) : Disposable {
 
     private val tileset = GroundTileset()
-    private val tileWidth = GroundTileset.TOP_REGION_WIDTH * scale
-    private val tileHeight = GroundTileset.TOP_REGION_HEIGHT * scale
-    private val halfTileWidth = tileWidth / 2f
-    private val halfTileHeight = tileHeight / 2f
+    private val tileWidth = geometry.tileWidth
+    private val tileHeight = geometry.tileHeight
 
-    private val rawTiles: List<RawTile> = buildRawTiles()
-    private val renderOffset: RenderOffset = computeRenderOffset(rawTiles)
-    private val renderTiles: List<RenderTile> = buildRenderTiles()
-    private val terrainContourCommands: List<ContourPreviewCommand> = buildTerrainContourCommands()
-    private val grassBottomAngleCommands: List<ContourPreviewCommand> = buildGrassBottomAngleCommands()
-    private val chunkDebugOutlines: List<ChunkDebugOutline> = buildChunkDebugOutlines()
-    private val terrainBounds: Rectangle = buildTerrainBounds()
+    private val renderOffset: RenderOffset by lazy { computeRenderOffset() }
+    private val renderTiles: List<RenderTile> by lazy { buildRenderTiles() }
+    private val terrainContourCommands: List<ContourPreviewCommand> by lazy { buildTerrainContourCommands() }
+    private val grassBottomAngleCommands: List<ContourPreviewCommand> by lazy { buildGrassBottomAngleCommands() }
+    private val chunkDebugOutlines: List<ChunkDebugOutline> by lazy { buildChunkDebugOutlines() }
+    private val terrainBounds: Rectangle by lazy { buildTerrainBounds() }
 
     fun render(batch: SpriteBatch) {
         renderTiles.forEach { tile ->
@@ -77,63 +76,32 @@ class TerrainRenderer(
         tileset.dispose()
     }
 
-    private fun buildRawTiles(): List<RawTile> {
-        val rawTiles = mutableListOf<RawTile>()
-
-        worldMap.allChunks().forEach { chunk ->
-            chunk.ground.forEachIndexed { localRow, localCol, type ->
-                if (type == null) {
-                    return@forEachIndexed
-                }
-
-                val row = chunk.originRow + localRow
-                val col = chunk.originCol + localCol
-
-                rawTiles += RawTile(
-                    row = row,
-                    col = col,
-                    type = type,
-                    rawX = (col - row) * halfTileWidth,
-                    rawY = -(col + row) * halfTileHeight
-                )
-            }
-        }
-
-        return rawTiles
-    }
-
-    private fun computeRenderOffset(rawTiles: List<RawTile>): RenderOffset {
-        if (rawTiles.isEmpty()) {
-            return RenderOffset(x = 0f, y = 0f)
-        }
-
-        val minX = rawTiles.minOf { it.rawX }
-        val maxX = rawTiles.maxOf { it.rawX + tileWidth }
-        val minY = rawTiles.minOf { it.rawY }
-        val maxY = rawTiles.maxOf { it.rawY + tileHeight }
-
-        return RenderOffset(
-            x = -((minX + maxX) / 2f),
-            y = -((minY + maxY) / 2f)
-        )
+    private fun computeRenderOffset(): RenderOffset {
+        // Placeholder: in a real implementation, this would calculate the offset
+        // based on the position of the terrain in world space
+        return RenderOffset(x = 0f, y = 0f)
     }
 
     private fun buildRenderTiles(): List<RenderTile> {
-        if (rawTiles.isEmpty()) {
-            return emptyList()
-        }
+        val tiles = mutableListOf<RenderTile>()
 
-        return rawTiles
-            .sortedWith(compareBy<RawTile> { it.row + it.col }.thenBy { it.row }.thenBy { it.col })
-            .map { tile ->
-                RenderTile(
-                    row = tile.row,
-                    col = tile.col,
-                    type = tile.type,
-                    x = tile.rawX + renderOffset.x,
-                    y = tile.rawY + renderOffset.y
+        for (row in 0 until worldMap.height) {
+            for (col in 0 until worldMap.width) {
+                val terrainType = worldMap[row, col] ?: continue
+                val worldPos = geometry.gridToWorld(row, col)
+
+                tiles += RenderTile(
+                    row = row,
+                    col = col,
+                    type = terrainType,
+                    x = worldPos.x + renderOffset.x,
+                    y = worldPos.y + renderOffset.y
                 )
             }
+        }
+
+        return tiles
+            .sortedWith(compareBy<RenderTile> { it.row + it.col }.thenBy { it.row }.thenBy { it.col })
     }
 
     private fun buildTerrainContourCommands(): List<ContourPreviewCommand> {
@@ -255,14 +223,14 @@ class TerrainRenderer(
                 col = chunk.originCol
             )
 
-            val topX = topLeft.x + halfTileWidth
+            val topX = topLeft.x + geometry.halfTileWidth
             val topY = topLeft.y + tileHeight
             val rightX = topRight.x + tileWidth
-            val rightY = topRight.y + halfTileHeight
-            val bottomX = bottomRight.x + halfTileWidth
+            val rightY = topRight.y + geometry.halfTileHeight
+            val bottomX = bottomRight.x + geometry.halfTileWidth
             val bottomY = bottomRight.y
             val leftX = bottomLeft.x
-            val leftY = bottomLeft.y + halfTileHeight
+            val leftY = bottomLeft.y + geometry.halfTileHeight
 
             ChunkDebugOutline(
                 coord = chunk.coord,
@@ -348,8 +316,8 @@ class TerrainRenderer(
 
     private fun tileRenderPosition(row: Int, col: Int): Point {
         return Point(
-            x = (col - row) * halfTileWidth + renderOffset.x,
-            y = -(col + row) * halfTileHeight + renderOffset.y
+            x = (col - row) * geometry.halfTileWidth + renderOffset.x,
+            y = -(col + row) * geometry.halfTileHeight + renderOffset.y
         )
     }
 
@@ -363,13 +331,6 @@ class TerrainRenderer(
         val y: Float
     )
 
-    private data class RawTile(
-        val row: Int,
-        val col: Int,
-        val type: TerrainType,
-        val rawX: Float,
-        val rawY: Float
-    )
 
     private data class RenderTile(
         val row: Int,
