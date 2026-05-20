@@ -51,10 +51,10 @@ class BarracksPanel(
     private var selectedBarracks: Entity? = null
 
     init {
-        touchable = Touchable.enabled
         setFillParent(true)
         align(Align.bottom)
         isVisible = false
+        touchable = Touchable.disabled
 
         container.background = UiAssets.skin.getDrawable("shopBackground")
         container.pad(18f)
@@ -146,6 +146,7 @@ class BarracksPanel(
     fun showFor(barracks: Entity) {
         selectedBarracks = barracks
         isVisible = true
+        touchable = Touchable.enabled
         toFront()
         onBarracksFocused(barracks)
         rebuildAvailableUnits()
@@ -154,6 +155,7 @@ class BarracksPanel(
 
     fun hide() {
         isVisible = false
+        touchable = Touchable.disabled
         selectedBarracks = null
         stage?.setScrollFocus(null)
         stage?.setKeyboardFocus(null)
