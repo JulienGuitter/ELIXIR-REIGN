@@ -8,6 +8,7 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
@@ -19,16 +20,28 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
+import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.grid.IsometricCoordinateConverter
+import com.mjm.elixir_reign.core.grid.IsometricGridRenderer
+import com.mjm.elixir_reign.core.handler.BuildPlacementHandler
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
-import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.android.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.data.BuildingDefinition
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.ecs.systems.PlacementEventHandler
+import com.mjm.elixir_reign.shared.ecs.systems.PlacementSystem
+import com.mjm.elixir_reign.shared.events.EventBus
+import com.mjm.elixir_reign.shared.events.PlacementRequestEvent
+import com.mjm.elixir_reign.shared.logic.EntityType
+import com.mjm.elixir_reign.shared.logic.IsometricGeometry
+import com.mjm.elixir_reign.shared.world.GridOccupancyData
+import com.mjm.elixir_reign.shared.world.WorldMap
 
 /**
  * Écran de jeu principal.
@@ -42,18 +55,25 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var terrainRenderer: TerrainRenderer
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
     private lateinit var btnSelectTroops: NineSliceImageButton
-    private var uiDebugEnabled = false
-
+    private lateinit var worldRenderer: WorldRenderer
+    private lateinit var worldMap: WorldMap
     private var isSelectionMode = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
+    private var isConstructionGridVisible = false
     private var pinchState: PinchState? = null
+
+    private lateinit var buildPlacementHandler: BuildPlacementHandler
+    private lateinit var placementEventHandler: PlacementEventHandler
+    private lateinit var eventBus: EventBus
+    private lateinit var gridRenderer: IsometricGridRenderer
+    private lateinit var gridOccupancy: GridOccupancyData
+    private lateinit var coordinateConverter: IsometricCoordinateConverter
 
     private val input = object : InputAdapter() {
 
@@ -71,6 +91,16 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             if (activeTouches.size >= 2) {
                 beginPinch()
             }
+
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                val placed = buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)
+                if (placed) {
+                    Shop.hide()
+                    buildPlacementHandler.togglePlacementMode()
+                }
+                return true
+            }
+
             return true
         }
 
@@ -128,22 +158,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             applyZoom(camera.zoom * (1f + amountY * SCROLL_ZOOM_STEP))
             return true
         }
-
-        override fun keyDown(keycode: Int): Boolean {
-            if(GameConfiguration.DEBUG){
-                if ((keycode == Input.Keys.B && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
-                    (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.B))) {
-                    toggleUiDebug()
-                    return true
-                }
-            }
-
-            if (keycode == Input.Keys.BACK || keycode == Input.Keys.ESCAPE) {
-                game.platform.onBackPressed(game)
-                return true
-            }
-            return false
-        }
     }
 
     override fun show() {
@@ -155,22 +169,71 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
 
-        terrainRenderer = TerrainRenderer(TerrainPresets.map())
+        val worldMap = TerrainPresets.map()
+        worldRenderer = WorldRenderer(worldMap)
+        this.worldMap = worldMap
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = terrainRenderer.worldBounds()
+        terrainBounds = worldRenderer.worldBounds()
 
-        // Créer une entité barbare au centre de la scène
+        val isometricGeometry = IsometricGeometry(worldMap, scale = 4f)
+        val coordinateConverter = IsometricCoordinateConverter(isometricGeometry)
+        val gridRenderer = IsometricGridRenderer(isometricGeometry)
+        val gridOccupancy = GridOccupancyData(rows = worldMap.height, cols = worldMap.width)
+        this.gridOccupancy = gridOccupancy
+
+        val placementSystem = PlacementSystem(
+            worldMap = worldMap,
+            geometry = isometricGeometry,
+            occupancy = gridOccupancy,
+            spawnBuilding = { entityType, x, y ->
+                SpriteEntityFactory.createBuilding(
+                    entityType = entityType,
+                    x = x,
+                    y = y,
+                    engine = gameWorld.coreEngine.engine
+                )
+            }
+        )
+
+        eventBus = EventBus()
+        placementEventHandler = PlacementEventHandler(eventBus, placementSystem)
+
+        buildPlacementHandler = BuildPlacementHandler(
+            worldMap = worldMap,
+            coordinateConverter = coordinateConverter,
+            gridRenderer = gridRenderer,
+            placementSystem = placementSystem,
+            eventBus = eventBus
+        )
+
+        Shop.setOnBuildingSelected { selection: BuildingDefinition ->
+            buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+        }
+
+        this.gridRenderer = gridRenderer
+        this.coordinateConverter = coordinateConverter
+
         SpriteEntityFactory.createUnit(
-            unitType = UnitType.BARBARIAN,
+            entityType = EntityType.BARBARIAN,
             x = 0f,
             y = 0f,
             engine = gameWorld.coreEngine.engine
         )
+
+        val testPlacement = PlacementRequestEvent(
+            row = worldMap.height / 2,
+            col = worldMap.width / 2,
+            building = PlacementSystem.BuildingToPlace(
+                entityType = EntityType.DARCKELEXIR_PUMP,
+                stats = BuildingStats.DARCKELEXIR_PUMP
+            )
+        )
+        eventBus.publish(testPlacement)
 
         configureCamera(resetView = true)
 
@@ -187,20 +250,37 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
-        terrainRenderer.render(batch)
-        gameWorld.update(delta)
+        worldRenderer.renderGround(batch)
         batch.end()
 
-        // Dessiner le rectangle de drag selection si actif
+        if (isConstructionGridVisible) {
+            gridRenderer.render(shapeRenderer) { row, col ->
+                val terrain = worldMap[row, col] ?: return@render false
+                terrain.canBuildOn && !gridOccupancy.isOccupied(row, col)
+            }
+        }
+
+        batch.begin()
+        gameWorld.update(delta)
+        worldRenderer.renderOverlay(batch)
+        batch.end()
+
+        buildPlacementHandler.updateHover(camera)
+        if (buildPlacementHandler.isPlacementModeActive()) {
+            buildPlacementHandler.renderPreview(delta, batch, shapeRenderer)
+        }
+
         if (selectionInputHandler.isDraggingNow()) {
-            val dragRect = selectionInputHandler.getDragRectangle()
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
-            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+
+            if (selectionInputHandler.isDraggingNow()) {
+                val dragRect = selectionInputHandler.getDragRectangle()
+                shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)
+                shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            }
             shapeRenderer.end()
         }
 
-        // L'UI est dessinée en dernier pour rester au-dessus du terrain.
         uiStage.act(delta)
         uiStage.draw()
     }
@@ -219,14 +299,18 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         shapeRenderer.dispose()
         batch.dispose()
         gameWorld.dispose()
-        terrainRenderer.dispose()
         uiStage.dispose()
+        placementEventHandler.dispose()
+        worldRenderer.dispose()
     }
 
     private fun show_UI() {
         uiStage = Stage(ScreenViewport())
 
         uiStage.addActor(Shop)
+
+        Shop.setOnShopShown { isConstructionGridVisible = true }
+        Shop.setOnShopHidden { isConstructionGridVisible = false }
 
         val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
             onClick { _, _ ->
@@ -257,7 +341,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         uiStage.addActor(hudLeftTable)
         uiStage.addActor(hudRightTable)
-        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
     }
 
@@ -266,12 +349,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             return
         }
         btnSelectTroops.setHighlighted(isSelectionMode)
-    }
-
-    private fun toggleUiDebug() {
-        uiDebugEnabled = !uiDebugEnabled
-        applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
-        Gdx.app.log("GameScreen", "UI debug: ${if (uiDebugEnabled) "ON" else "OFF"}")
     }
 
     private fun applyUiDebugRecursively(actor: Actor, enabled: Boolean) {
