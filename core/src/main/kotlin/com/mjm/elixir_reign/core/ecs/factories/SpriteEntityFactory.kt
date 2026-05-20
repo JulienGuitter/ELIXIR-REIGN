@@ -188,12 +188,13 @@ object SpriteEntityFactory {
      */
     private fun getBuildingStats(entityType: EntityType): BuildingStats {
         return when (entityType) {
-//            EntityType.BARRACKS -> BuildingStats.BARRACKS
-//            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
+            EntityType.BARRACKS -> BuildingStats.BARRACKS
+            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
             EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL
             else -> throw IllegalArgumentException("$entityType n'est pas un bâtiment")
         }
     }
 }
-
-

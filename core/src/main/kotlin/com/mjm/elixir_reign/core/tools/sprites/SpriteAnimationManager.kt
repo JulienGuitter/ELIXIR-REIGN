@@ -79,6 +79,9 @@ object SpriteAnimationManager {
             EntityType.BARRACKS -> BuildingStats.BARRACKS.spriteBaseClipName
             EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP.spriteBaseClipName
             EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP.spriteBaseClipName
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE.spriteBaseClipName
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER.spriteBaseClipName
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL.spriteBaseClipName
         }
     }
 
@@ -114,7 +117,14 @@ object SpriteAnimationManager {
         }
 
         // Preload buildings
-        listOf(BuildingStats.BARRACKS, BuildingStats.ELEXIR_PUMP, BuildingStats.DARCKELEXIR_PUMP).forEach { stats ->
+        listOf(
+            BuildingStats.BARRACKS,
+            BuildingStats.ELEXIR_PUMP,
+            BuildingStats.DARCKELEXIR_PUMP,
+            BuildingStats.GOLD_MINE,
+            BuildingStats.ARCHER_TOWER,
+            BuildingStats.TOWN_HALL
+        ).forEach { stats ->
             if (stats.spriteSheetJsonPath.isNotEmpty()) {
                 loadSpriteSheet(parser, stats.name, stats.spriteSheetJsonPath, buildingSpriteSheetCache)
             }
@@ -150,4 +160,3 @@ object SpriteAnimationManager {
         isReady = false
     }
 }
-

@@ -12,8 +12,6 @@
   "sheet_height": 1312,
   "align_origins": true,
   "name": "dark_elixir_pack",
-  "source_file": "buildings.sc",
-  "export_mode": "animation_pack",
   "clip_count": 5,
   "pack_frame_count": 71,
   "visible_frame_count": 71,
@@ -29,10 +27,6 @@
     {
       "name": "darkelixir_pump_building",
       "anim_index": 675,
-      "selection": "frame=1",
-      "source_frame_indices": [
-        0
-      ],
       "start_frame": 0,
       "frame_count": 1,
       "end_frame": 0,
@@ -43,7 +37,6 @@
     {
       "name": "darkelixir_pump_destroyed",
       "anim_index": 1221,
-      "selection": "frame=1",
       "start_frame": 1,
       "frame_count": 1,
       "end_frame": 1,
@@ -52,9 +45,18 @@
       "fps": 30
     },
     {
+      "name": "darkelixir_pump_idle",
+      "anim_index": 676,
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 450,
+      "visible_frame_count": 23,
+      "fps": 24
+    },
+    {
       "name": "darkelixir_pump_lvl1",
       "anim_index": 676,
-      "selection": "1-450/s20",
       "start_frame": 2,
       "frame_count": 23,
       "end_frame": 24,
@@ -63,9 +65,8 @@
       "fps": 24
     },
     {
-      "name": "darkelixir_pump_lvl3",
+      "name": "darkelixir_pump_lvl2",
       "anim_index": 682,
-      "selection": "1-450/s20",
       "start_frame": 25,
       "frame_count": 23,
       "end_frame": 47,
@@ -74,9 +75,8 @@
       "fps": 24
     },
     {
-      "name": "darkelixir_pump_lvl9",
+      "name": "darkelixir_pump_lvl3",
       "anim_index": 692,
-      "selection": "1-450/s20",
       "start_frame": 48,
       "frame_count": 23,
       "end_frame": 70,

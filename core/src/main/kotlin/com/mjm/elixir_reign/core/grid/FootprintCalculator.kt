@@ -49,6 +49,9 @@ object FootprintCalculator {
             EntityType.BARRACKS -> BuildingStats.BARRACKS.footprintSizeTiles
             EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP.footprintSizeTiles
             EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP.footprintSizeTiles
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE.footprintSizeTiles
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER.footprintSizeTiles
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL.footprintSizeTiles
             // Units: 1x1
             EntityType.BARBARIAN, EntityType.ARCHER, EntityType.GIANT -> 1
             else -> 1
@@ -75,9 +78,11 @@ object FootprintCalculator {
         return when (entityType) {
             EntityType.BARRACKS,
             EntityType.ELEXIR_PUMP,
-            EntityType.DARCKELEXIR_PUMP -> true
+            EntityType.DARCKELEXIR_PUMP,
+            EntityType.GOLD_MINE,
+            EntityType.ARCHER_TOWER,
+            EntityType.TOWN_HALL -> true
             else -> false
         }
     }
 }
-

@@ -12,7 +12,12 @@ object TextureManager {
         "sprites/units/anim_pack_chr_barbarian.png",
         "sprites/units/anim_pack_chr_giant.png",
         // Buildings
-        "sprites/buildings/dark_elixir_pack.png"
+        "sprites/buildings/dark_elixir_pack.png",
+        "sprites/buildings/anim_pack_elixir.png",
+        "sprites/buildings/anim_pack_mine.png",
+        "sprites/buildings/tileset_archer_tower.png",
+        "sprites/buildings/tileset_hdv.png",
+        "sprites/buildings/tileset_troops_factory.png"
     )
 
     // AssetManager injecté depuis Main une fois le chargement terminé
@@ -69,4 +74,3 @@ object TextureManager {
 
     fun getCacheSize(): Int = fallbackCache.size
 }
-

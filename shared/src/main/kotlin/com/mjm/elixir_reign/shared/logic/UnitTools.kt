@@ -6,7 +6,10 @@ enum class EntityType {
     GIANT,
     BARRACKS,
     ELEXIR_PUMP,
-    DARCKELEXIR_PUMP
+    DARCKELEXIR_PUMP,
+    GOLD_MINE,
+    ARCHER_TOWER,
+    TOWN_HALL
 }
 
 enum class BuildingState {

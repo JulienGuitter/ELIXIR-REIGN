@@ -9,7 +9,7 @@ import com.mjm.elixir_reign.shared.logic.BuildingState
 class StateMapper {
     fun getStateInfo(buildingState: BuildingState): String {
         return when (buildingState) {
-            BuildingState.IDLE -> "_building"
+            BuildingState.IDLE -> "_idle"
             BuildingState.TRAINING_UNIT -> "_training"
             BuildingState.MINING -> "_lvl1"
             BuildingState.DESTROYED -> "_destroyed"

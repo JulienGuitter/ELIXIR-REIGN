@@ -25,12 +25,12 @@ class BuildPlacementHandler(
     private val gridRenderer: IsometricGridRenderer,
     private val placementSystem: PlacementSystem,
     private val eventBus: EventBus,
-    private val placementBuildingType: EntityType = EntityType.DARCKELEXIR_PUMP,
-    private val placementBuildingStats: BuildingStats = BuildingStats.DARCKELEXIR_PUMP
+    private var placementBuildingType: EntityType = EntityType.DARCKELEXIR_PUMP,
+    private var placementBuildingStats: BuildingStats = BuildingStats.DARCKELEXIR_PUMP
 ) {
-    private val placementAnimator: SpriteAnimator = SpriteAnimationManager.createBuildingAnimator(
+    private var placementAnimator: SpriteAnimator = SpriteAnimationManager.createBuildingAnimator(
         stats = placementBuildingStats,
-        buildingState = BuildingState.IDLE
+        buildingState = PREVIEW_STATE
     )
 
     private var isPlacementMode = false
@@ -43,6 +43,19 @@ class BuildPlacementHandler(
         isPlacementMode = !isPlacementMode
         if (!isPlacementMode) {
             clearPreviewState()
+        }
+    }
+
+    fun selectBuilding(entityType: EntityType, stats: BuildingStats, activatePlacement: Boolean = true) {
+        placementBuildingType = entityType
+        placementBuildingStats = stats
+        placementAnimator = SpriteAnimationManager.createBuildingAnimator(
+            stats = placementBuildingStats,
+            buildingState = PREVIEW_STATE
+        )
+        clearPreviewState()
+        if (activatePlacement) {
+            isPlacementMode = true
         }
     }
 
@@ -204,5 +217,6 @@ class BuildPlacementHandler(
         private val INVALID_PREVIEW_COLOR = Color(1f, 0.45f, 0.45f, 0.7f)
         private val VALID_GRID_HIGHLIGHT = Color(0.2f, 1f, 0.2f, 0.95f)
         private val INVALID_GRID_HIGHLIGHT = Color(1f, 0.2f, 0.2f, 0.95f)
+        private val PREVIEW_STATE = BuildingState.MINING
     }
 }

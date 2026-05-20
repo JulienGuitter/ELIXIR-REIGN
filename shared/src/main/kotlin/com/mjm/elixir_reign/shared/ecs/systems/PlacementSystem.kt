@@ -4,6 +4,7 @@ import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
+import com.mjm.elixir_reign.shared.terrain.TerrainMaterial
 import com.mjm.elixir_reign.shared.world.GridOccupancyData
 import com.mjm.elixir_reign.shared.world.WorldMap
 
@@ -31,15 +32,31 @@ class PlacementSystem(
 			return false
 		}
 
+		val requiredResource = when (building.entityType) {
+			EntityType.GOLD_MINE -> TerrainMaterial.GOLD
+			EntityType.ELEXIR_PUMP -> TerrainMaterial.ELEXIR
+			EntityType.DARCKELEXIR_PUMP -> TerrainMaterial.DARK_ELEXIR
+			else -> null
+		}
+		var hasRequiredResource = false
+
 		for ((r, c) in cells) {
 			if (!occupancy.isInBounds(r, c)) {
 				return false
 			}
 
 			val terrain = worldMap[r, c] ?: return false
-			if (!terrain.canBuildOn) {
+			val isResourceTile = requiredResource != null && terrain.material == requiredResource
+			if (!isResourceTile && !terrain.canBuildOn) {
 				return false
 			}
+			if (isResourceTile) {
+				hasRequiredResource = true
+			}
+		}
+
+		if (requiredResource != null && !hasRequiredResource) {
+			return false
 		}
 
 		return occupancy.canOccupy(cells)
@@ -81,5 +98,4 @@ class PlacementSystem(
 		return cells
 	}
 }
-
 

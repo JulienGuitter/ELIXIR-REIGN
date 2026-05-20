@@ -34,6 +34,7 @@ import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.core.world.WorldRenderer
+import com.mjm.elixir_reign.shared.data.BuildingDefinition
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.ecs.systems.PlacementEventHandler
 import com.mjm.elixir_reign.shared.ecs.systems.PlacementSystem
@@ -90,7 +91,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
             // Essayer de placer un bâtiment si le mode placement est actif
             if (buildPlacementHandler.isPlacementModeActive()) {
-                buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)
+                val placed = buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)
+                if (placed) {
+                    Shop.hide()
+                    buildPlacementHandler.togglePlacementMode()
+                }
                 return true
             }
 
@@ -181,11 +186,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 return true
             }
             if (keycode == Input.Keys.B) {
-                isConstructionGridVisible = !isConstructionGridVisible
-                return true
-            }
-            if (keycode == Input.Keys.P) {
-                buildPlacementHandler.togglePlacementMode()
                 return true
             }
             return false
@@ -248,6 +248,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
              eventBus = eventBus
          )
 
+         Shop.setOnBuildingSelected { selection: BuildingDefinition ->
+             buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+         }
+
          // Stocker la référence au gridRenderer pour l'accès ultérieur
          this.gridRenderer = gridRenderer
          this.coordinateConverter = coordinateConverter
@@ -290,8 +294,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
         batch.begin()
         worldRenderer.renderGround(batch)
-        gameWorld.update(delta)
-        worldRenderer.renderOverlay(batch)
         batch.end()
 
         // Afficher la grille de construction si activée (touche B)
@@ -303,7 +305,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
         }
 
-        // Mettre à jour et afficher le preview de placement (mode P)
+        // Mise à jour + rendu des entités ECS (SpriteBatch géré par RenderSystem)
+        batch.begin()
+        gameWorld.update(delta)
+        worldRenderer.renderOverlay(batch)
+        batch.end()
+
+        // Mettre à jour et afficher le preview de placement
         buildPlacementHandler.updateHover(camera)
         if (buildPlacementHandler.isPlacementModeActive()) {
             buildPlacementHandler.renderPreview(delta, batch, shapeRenderer)
@@ -368,6 +376,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         uiStage = Stage(ScreenViewport())
 
         uiStage.addActor(Shop)
+
+        Shop.setOnShopShown { isConstructionGridVisible = true }
+        Shop.setOnShopHidden { isConstructionGridVisible = false }
 
         val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
             onClick { _, _ ->
