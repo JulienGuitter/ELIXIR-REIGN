@@ -91,6 +91,7 @@ class SelectionInputHandler(private val engine: Engine) {
     private fun findEntityAt(x: Float, y: Float): Entity? {
         for (entity in engine.entities) {
             if (entity.getComponent(SelectableComponent::class.java) != null) {
+                if (entity.getComponent(DestinationComponent::class.java) == null) continue
                 if (BoundingBoxUtils.pointInEntity(entity, x, y)) {
                     return entity
                 }
@@ -101,6 +102,7 @@ class SelectionInputHandler(private val engine: Engine) {
 
     private fun entityTouchesRectangle(entity: Entity, rect: Rectangle): Boolean {
         if (entity.getComponent(SelectableComponent::class.java) == null) return false
+        if (entity.getComponent(DestinationComponent::class.java) == null) return false
         return BoundingBoxUtils.entityTouchesRectangle(entity, rect)
     }
 

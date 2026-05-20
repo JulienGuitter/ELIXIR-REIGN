@@ -8,7 +8,8 @@ data class BuildingStats(
     val cost: Int,
     val buildTime: Float,
     val texturePath: String,
-    val productionRate: Float = 0f
+    val productionRate: Float = 0f,
+    val maxFormedTroops: Int = 0
 ) {
     companion object {
         val BARRACKS = BuildingStats(
@@ -19,7 +20,8 @@ data class BuildingStats(
             cost = 300,
             buildTime = 5f,
             texturePath = "barracks.png",
-            productionRate = 1f
+            productionRate = 1f,
+            maxFormedTroops = 6
         )
 
         val TOWER = BuildingStats(

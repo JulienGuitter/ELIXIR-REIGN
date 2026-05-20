@@ -7,7 +7,8 @@ data class UnitStats(
     val attackSpeed: Float,
     val range: Float,
     val speed: Float,
-    val cost: Int,
+    val costs: List<ResourceCost>,
+    val trainingTimeSeconds: Float,
     val texturePath: String
 ) {
     companion object {
@@ -18,7 +19,8 @@ data class UnitStats(
             attackSpeed = 1.2f,
             range = 30f,
             speed = 60f,
-            cost = 100,
+            costs = listOf(ResourceCost(ResourceType.ELEXIR, 100)),
+            trainingTimeSeconds = 4f,
             texturePath = "barbarian.png"
         )
 
@@ -29,7 +31,11 @@ data class UnitStats(
             attackSpeed = 1.5f,
             range = 100f,
             speed = 70f,
-            cost = 150,
+            costs = listOf(
+                ResourceCost(ResourceType.ELEXIR, 120),
+                ResourceCost(ResourceType.GOLD, 20)
+            ),
+            trainingTimeSeconds = 5f,
             texturePath = "archer.png"
         )
 
@@ -40,7 +46,11 @@ data class UnitStats(
             attackSpeed = 0.5f,
             range = 30f,
             speed = 20f,
-            cost = 150,
+            costs = listOf(
+                ResourceCost(ResourceType.ELEXIR, 250),
+                ResourceCost(ResourceType.GOLD, 80)
+            ),
+            trainingTimeSeconds = 10f,
             texturePath = "giant.png"
         )
     }

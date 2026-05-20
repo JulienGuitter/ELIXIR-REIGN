@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
+import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
@@ -23,11 +24,15 @@ import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
+import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
+import com.mjm.elixir_reign.core.ui.BarracksPanel
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.android.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
+import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
@@ -48,6 +53,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
     private lateinit var btnSelectTroops: NineSliceImageButton
+    private lateinit var barracksPanel: BarracksPanel
     private var uiDebugEnabled = false
 
     private var isSelectionMode = false
@@ -59,6 +65,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+
+            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
+            if (clickedBarracks != null) {
+                barracksPanel.showFor(clickedBarracks)
+                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+                return true
+            }
+
             selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
             // emulate double click
             selectionInputHandler.touchDown(screenX, screenY, camera)
@@ -169,6 +183,20 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             unitType = UnitType.BARBARIAN,
             x = 0f,
             y = 0f,
+            engine = gameWorld.coreEngine.engine,
+            currentHP = 55f
+        )
+
+        SpriteEntityFactory.createBarracks(
+            x = -220f,
+            y = -80f,
+            barracksId = 1,
+            engine = gameWorld.coreEngine.engine
+        )
+        SpriteEntityFactory.createBarracks(
+            x = 180f,
+            y = 130f,
+            barracksId = 2,
             engine = gameWorld.coreEngine.engine
         )
 
@@ -227,6 +255,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         uiStage = Stage(ScreenViewport())
 
         uiStage.addActor(Shop)
+        barracksPanel = BarracksPanel(
+            barracksProvider = { barracksEntities() },
+            allEntitiesProvider = { gameWorld.coreEngine.engine.entities },
+            removeEntity = { gameWorld.coreEngine.engine.removeEntity(it) },
+            onBarracksFocused = { focusCameraOnBarracks(it) }
+        )
+        uiStage.addActor(barracksPanel)
 
         val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
             onClick { _, _ ->
@@ -281,6 +316,25 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 applyUiDebugRecursively(actor.children[i], enabled)
             }
         }
+    }
+
+    private fun barracksEntities(): List<Entity> {
+        return gameWorld.coreEngine.engine.entities
+            .filter { it.getComponent(BarracksComponent::class.java) != null }
+            .sortedBy { it.getComponent(BarracksComponent::class.java).barracksId }
+    }
+
+    private fun findBarracksAt(worldX: Float, worldY: Float): Entity? {
+        return barracksEntities().firstOrNull { barracks ->
+            BoundingBoxUtils.pointInEntity(barracks, worldX, worldY)
+        }
+    }
+
+    private fun focusCameraOnBarracks(barracks: Entity) {
+        val position = barracks.getComponent(PositionComponent::class.java) ?: return
+        camera.position.set(position.x, position.y, 0f)
+        clampCameraPosition()
+        camera.update()
     }
 
     private fun beginPinch() {

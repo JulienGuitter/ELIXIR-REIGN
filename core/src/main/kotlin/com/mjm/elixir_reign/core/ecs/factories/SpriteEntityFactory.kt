@@ -20,6 +20,13 @@ import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
+import com.mjm.elixir_reign.core.tools.sprites.BuildingTextureManager
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
+import com.mjm.elixir_reign.shared.logic.BuildingType
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 
 /**
  * Factory ECS-pur pour créer des entités avec sprites
@@ -34,8 +41,11 @@ object SpriteEntityFactory {
         unitType: UnitType,
         x: Float,
         y: Float,
-        engine: Engine
-    ) {
+        engine: Engine,
+        barracksId: Int? = null,
+        teamId: Int = 0,
+        currentHP: Float? = null
+    ): Entity {
         val stats = getUnitStats(unitType)
 
         val entity = Entity()
@@ -48,7 +58,7 @@ object SpriteEntityFactory {
             isMoving = false
         ))
         entity.add(HealthComponent(
-            currentHP = stats.maxHP - 45, // For test
+            currentHP = currentHP ?: stats.maxHP,
             maxHP = stats.maxHP
         ))
 
@@ -99,14 +109,56 @@ object SpriteEntityFactory {
         // Component de couche (layer 1 = entités principales)
         entity.add(LayerComponent(layer = 1))
 
+        if (barracksId != null) {
+            entity.add(TrainedUnitComponent(barracksId = barracksId, teamId = teamId))
+        }
+
         // Ajouter l'entité à l'engine
         engine.addEntity(entity)
+        return entity
+    }
+
+    fun createBarracks(
+        x: Float,
+        y: Float,
+        barracksId: Int,
+        engine: Engine,
+        teamId: Int = 0
+    ): Entity {
+        val stats = BuildingStats.BARRACKS
+        val entity = Entity()
+
+        entity.add(PositionComponent(x, y))
+        entity.add(HealthComponent(currentHP = stats.maxHP, maxHP = stats.maxHP))
+        entity.add(SelectableComponent(isSelected = false))
+        entity.add(BuildingTypeComponent(BuildingType.BARRACKS))
+        entity.add(BarracksComponent(
+            barracksId = barracksId,
+            teamId = teamId,
+            maxFormedUnits = stats.maxFormedTroops
+        ))
+        entity.add(SpriteComponent(
+            texturePath = stats.texturePath,
+            width = stats.width,
+            height = stats.height,
+            scaleX = 1.8f,
+            scaleY = 1.8f,
+            offsetX = -0.5f,
+            offsetY = -0.35f
+        ))
+        entity.add(TextureRegionComponent(TextureRegion(BuildingTextureManager.getBarracksTexture())))
+        entity.add(HealthBarComponent(barHeight = 5f))
+        entity.add(DepthComponent())
+        entity.add(LayerComponent(layer = 1))
+
+        engine.addEntity(entity)
+        return entity
     }
 
     /**
      * Récupère les stats d'une unité
      */
-    private fun getUnitStats(unitType: UnitType): UnitStats {
+    fun getUnitStats(unitType: UnitType): UnitStats {
         return when (unitType) {
             UnitType.BARBARIAN -> UnitStats.BARBARIAN
             UnitType.ARCHER -> UnitStats.ARCHER
@@ -114,5 +166,4 @@ object SpriteEntityFactory {
         }
     }
 }
-
 
