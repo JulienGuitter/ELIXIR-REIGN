@@ -74,6 +74,7 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var isConstructionGridVisible = false
     private var pinchState: PinchState? = null
+    private var cameraFocusAnimation: CameraFocusAnimation? = null
     private var placementDragPointer: Int? = null
 
     private lateinit var buildPlacementHandler: BuildPlacementHandler
@@ -89,6 +90,7 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
             if (handlePlacementControlsTouch(screenX, screenY)) {
                 return true
             }
+            cameraFocusAnimation = null
 
             if (buildPlacementHandler.isPlacementModeActive()) {
                 val screenXf = screenX.toFloat()
@@ -107,9 +109,20 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
             }
 
             val worldCoords = camera.unproject(Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+
+            if (activeTouches.size >= 2) {
+                beginPinch()
+                return true
+            }
 
             // Clic gauche = tenter de sélectionner
             val hasSelectedEntity = selectionInputHandler.touchDown(screenX, screenY, camera)
+
+            if (isSelectionMode) {
+                selectionInputHandler.touchDown(screenX, screenY, camera)
+                return true
+            }
 
             if (hasSelectedEntity) {
                 return true
@@ -121,11 +134,6 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
                 return true
             }
 
-
-            if (activeTouches.size >= 2) {
-                beginPinch()
-            }
-
             return true
         }
 
@@ -135,19 +143,19 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
 				return true
 			}
 
+            val previousTouch = activeTouches[pointer] ?: return false
+
+            if (pinchState != null) {
+                previousTouch.set(screenX.toFloat(), screenY.toFloat())
+                updatePinchZoom()
+                return true
+            }
+
             // Si mode double-clic actif, faire le drag selection
              if (isSelectionMode) {
                  selectionInputHandler.touchDragged(screenX, screenY, camera)
                  return true
              }
-
-            val previousTouch = activeTouches[pointer] ?: return false
-
-            if (pinchState != null && !isSelectionMode) {
-                previousTouch.set(screenX.toFloat(), screenY.toFloat())
-                updatePinchZoom()
-                return true
-            }
 
             if (activeTouches.size != 1) {
                 return false
@@ -275,6 +283,7 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
     override fun render(delta: Float) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+        updateCameraFocusAnimation(delta)
 
         // IMPORTANT : la caméra bouge => il faut réassigner camera.combined à chaque frame
         shapeRenderer.projectionMatrix = camera.combined
@@ -498,9 +507,47 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
 
     private fun focusCameraOnBarracks(barracks: Entity) {
         val position = barracks.getComponent(PositionComponent::class.java) ?: return
-        camera.position.set(position.x, position.y, 0f)
+        startCameraFocusAnimation(position.x, position.y)
+    }
+
+    private fun startCameraFocusAnimation(targetX: Float, targetY: Float) {
+        val startX = camera.position.x
+        val startY = camera.position.y
+
+        camera.position.set(targetX, targetY, 0f)
+        clampCameraPosition()
+        val clampedTargetX = camera.position.x
+        val clampedTargetY = camera.position.y
+
+        camera.position.set(startX, startY, 0f)
+        camera.update()
+
+        cameraFocusAnimation = CameraFocusAnimation(
+            startX = startX,
+            startY = startY,
+            targetX = clampedTargetX,
+            targetY = clampedTargetY
+        )
+    }
+
+    private fun updateCameraFocusAnimation(delta: Float) {
+        val animation = cameraFocusAnimation ?: return
+        animation.elapsed += delta
+
+        val progress = (animation.elapsed / CAMERA_FOCUS_DURATION_SECONDS).coerceIn(0f, 1f)
+        val easedProgress = progress * progress * (3f - 2f * progress)
+
+        camera.position.set(
+            animation.startX + (animation.targetX - animation.startX) * easedProgress,
+            animation.startY + (animation.targetY - animation.startY) * easedProgress,
+            0f
+        )
         clampCameraPosition()
         camera.update()
+
+        if (progress >= 1f) {
+            cameraFocusAnimation = null
+        }
     }
 
     private fun beginPinch() {
@@ -591,10 +638,19 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
+        private const val CAMERA_FOCUS_DURATION_SECONDS = 0.35f
     }
 
     private data class PinchState(
         val initialDistance: Float,
         val initialZoom: Float
+    )
+
+    private data class CameraFocusAnimation(
+        val startX: Float,
+        val startY: Float,
+        val targetX: Float,
+        val targetY: Float,
+        var elapsed: Float = 0f
     )
 }

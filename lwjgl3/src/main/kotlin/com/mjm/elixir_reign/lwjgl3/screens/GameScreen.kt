@@ -85,11 +85,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private val touchStartTouches = mutableMapOf<Int, Vector2>()
     private val draggedPointers = mutableSetOf<Int>()
     private var pinchState: PinchState? = null
+    private var cameraFocusAnimation: CameraFocusAnimation? = null
     private var isConstructionGridVisible = false
 
     private val input = object : InputAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+            cameraFocusAnimation = null
             activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
             touchStartTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
@@ -352,6 +354,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     override fun render(delta: Float) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+        updateCameraFocusAnimation(delta)
 
         // IMPORTANT : la caméra bouge => il faut réassigner camera.combined à chaque frame
         shapeRenderer.projectionMatrix = camera.combined
@@ -503,9 +506,47 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun focusCameraOnBarracks(barracks: Entity) {
         val position = barracks.getComponent(PositionComponent::class.java) ?: return
-        camera.position.set(position.x, position.y, 0f)
+        startCameraFocusAnimation(position.x, position.y)
+    }
+
+    private fun startCameraFocusAnimation(targetX: Float, targetY: Float) {
+        val startX = camera.position.x
+        val startY = camera.position.y
+
+        camera.position.set(targetX, targetY, 0f)
+        clampCameraPosition()
+        val clampedTargetX = camera.position.x
+        val clampedTargetY = camera.position.y
+
+        camera.position.set(startX, startY, 0f)
+        camera.update()
+
+        cameraFocusAnimation = CameraFocusAnimation(
+            startX = startX,
+            startY = startY,
+            targetX = clampedTargetX,
+            targetY = clampedTargetY
+        )
+    }
+
+    private fun updateCameraFocusAnimation(delta: Float) {
+        val animation = cameraFocusAnimation ?: return
+        animation.elapsed += delta
+
+        val progress = (animation.elapsed / CAMERA_FOCUS_DURATION_SECONDS).coerceIn(0f, 1f)
+        val easedProgress = progress * progress * (3f - 2f * progress)
+
+        camera.position.set(
+            animation.startX + (animation.targetX - animation.startX) * easedProgress,
+            animation.startY + (animation.targetY - animation.startY) * easedProgress,
+            0f
+        )
         clampCameraPosition()
         camera.update()
+
+        if (progress >= 1f) {
+            cameraFocusAnimation = null
+        }
     }
 
     private fun centerPlacementPreviewOnScreen() {
@@ -605,6 +646,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
         private const val CLICK_DRAG_THRESHOLD_PX = 8f
+        private const val CAMERA_FOCUS_DURATION_SECONDS = 0.35f
         private const val DEBUG_LABEL_SCALE = 1.2f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
@@ -613,5 +655,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private data class PinchState(
         val initialDistance: Float,
         val initialZoom: Float
+    )
+
+    private data class CameraFocusAnimation(
+        val startX: Float,
+        val startY: Float,
+        val targetX: Float,
+        val targetY: Float,
+        var elapsed: Float = 0f
     )
 }
