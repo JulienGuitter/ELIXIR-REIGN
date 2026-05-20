@@ -385,10 +385,56 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
         terrainBounds = worldRenderer.worldBounds()
-        setupPlacement(worldMap)
 
-        // Créer une entité barbare au centre de la scène
-        spawnInitialUnits()
+        val isometricGeometry = IsometricGeometry(worldMap, scale = 4f)
+        val coordinateConverter = IsometricCoordinateConverter(isometricGeometry)
+        val gridRenderer = IsometricGridRenderer(isometricGeometry)
+        val gridOccupancy = GridOccupancyData(rows = worldMap.height, cols = worldMap.width)
+        this.gridOccupancy = gridOccupancy
+
+        val placementSystem = PlacementSystem(
+            worldMap = worldMap,
+            geometry = isometricGeometry,
+            occupancy = gridOccupancy,
+            spawnBuilding = { entityType, x, y, row, col, footprintSize ->
+                SpriteEntityFactory.createBuilding(
+                    entityType = entityType,
+                    x = x,
+                    y = y,
+                    engine = gameWorld.coreEngine.engine,
+                    gridRow = row,
+                    gridCol = col,
+                    footprintSizeTiles = footprintSize
+                )
+            }
+        )
+
+        eventBus = EventBus()
+        placementEventHandler = PlacementEventHandler(eventBus, placementSystem)
+
+        buildPlacementHandler = BuildPlacementHandler(
+            worldMap = worldMap,
+            coordinateConverter = coordinateConverter,
+            gridRenderer = gridRenderer,
+            placementSystem = placementSystem,
+            eventBus = eventBus
+        )
+
+        Shop.setOnBuildingSelected { selection: BuildingDefinition ->
+            buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+            centerPlacementPreviewOnScreen()
+        }
+
+        this.gridRenderer = gridRenderer
+        this.coordinateConverter = coordinateConverter
+
+        SpriteEntityFactory.createUnit(
+            entityType = EntityType.BARBARIAN,
+            x = 0f,
+            y = 0f,
+            engine = gameWorld.coreEngine.engine,
+            currentHP = 55f
+        )
 
         configureCamera(resetView = true)
 

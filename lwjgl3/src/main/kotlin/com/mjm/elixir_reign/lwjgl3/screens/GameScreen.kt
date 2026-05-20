@@ -357,10 +357,56 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
         gameWorld = GameWorld(batch, camera)
 
-        // Récupérer le selectionInputHandler depuis le CoreGameEngine
-        selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = worldRenderer.worldBounds()
-        setupPlacement(worldMap)
+         // Récupérer le selectionInputHandler depuis le CoreGameEngine
+         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
+         terrainBounds = worldRenderer.worldBounds()
+
+         // Créer les objets isométriques nécessaires
+         val isometricGeometry = IsometricGeometry(worldMap, scale = 4f)
+         val coordinateConverter = IsometricCoordinateConverter(isometricGeometry)
+         val gridRenderer = IsometricGridRenderer(isometricGeometry)
+         val gridOccupancy = GridOccupancyData(rows = worldMap.height, cols = worldMap.width)
+         this.gridOccupancy = gridOccupancy
+
+         val placementSystem = PlacementSystem(
+             worldMap = worldMap,
+             geometry = isometricGeometry,
+             occupancy = gridOccupancy,
+             spawnBuilding = { entityType, x, y, row, col, footprintSize ->
+                 SpriteEntityFactory.createBuilding(
+                     entityType = entityType,
+                     x = x,
+                     y = y,
+                     engine = gameWorld.coreEngine.engine,
+                     gridRow = row,
+                     gridCol = col,
+                     footprintSizeTiles = footprintSize
+                 )
+             }
+         )
+
+        eventBus = EventBus()
+        placementEventHandler = PlacementEventHandler(eventBus, placementSystem)
+
+        buildPlacementHandler = BuildPlacementHandler(
+             worldMap = worldMap,
+             coordinateConverter = coordinateConverter,
+             gridRenderer = gridRenderer,
+             placementSystem = placementSystem,
+             eventBus = eventBus
+         )
+
+         Shop.setOnBuildingSelected { selection: BuildingDefinition ->
+             buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+             centerPlacementPreviewOnScreen()
+         }
+
+         // Stocker la référence au gridRenderer pour l'accès ultérieur
+         this.gridRenderer = gridRenderer
+         this.coordinateConverter = coordinateConverter
+
+        // Initialiser le debug renderer
+        debugRenderer = GameScreenDebugRenderer(gameWorld.coreEngine, isometricGeometry)
 
         // Créer une entité barbare au centre de la scène
         spawnInitialUnits()

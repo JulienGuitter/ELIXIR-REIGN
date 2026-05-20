@@ -18,7 +18,7 @@ class PlacementSystem(
 	private val worldMap: WorldMap,
 	private val geometry: IsometricGeometry,
 	private val occupancy: GridOccupancyData,
-	private val spawnBuilding: (EntityType, Float, Float) -> Unit
+	private val spawnBuilding: (EntityType, Float, Float, Int, Int, Int) -> Unit
 ) {
 
 	data class BuildingToPlace(
@@ -71,7 +71,14 @@ class PlacementSystem(
 		val world = computePlacementWorldPosition(row, col)
 
 		return try {
-			spawnBuilding(building.entityType, world.x, world.y)
+			spawnBuilding(
+				building.entityType,
+				world.x,
+				world.y,
+				row,
+				col,
+				building.stats.footprintSizeTiles
+			)
 			occupancy.occupy(cells)
 		} catch (_: Exception) {
 			false

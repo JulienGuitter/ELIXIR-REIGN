@@ -11,6 +11,7 @@ import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
+import com.mjm.elixir_reign.shared.ecs.components.GridPlacementComponent
 import java.util.Comparator
 
 /**
@@ -35,6 +36,11 @@ class RenderSystem(private val batch: SpriteBatch) : SortedIteratingSystem(
     ).get(),
     DepthComparator()
 ) {
+
+    override fun update(deltaTime: Float) {
+        forceSort()
+        super.update(deltaTime)
+    }
 
     override fun processEntity(entity: Entity, deltaTime: Float) {
         val position = entity.getComponent(PositionComponent::class.java)
@@ -79,17 +85,29 @@ class RenderSystem(private val batch: SpriteBatch) : SortedIteratingSystem(
             // Comparaison des layers d'abord (plus élevé = au-dessus)
             val layer1 = e1.getComponent(LayerComponent::class.java)?.layer ?: 0
             val layer2 = e2.getComponent(LayerComponent::class.java)?.layer ?: 0
-            val layerComparison = layer2.compareTo(layer1)  // Inversé : plus grand = premier
+            val layerComparison = layer1.compareTo(layer2)
             if (layerComparison != 0) return layerComparison
 
-            // Même layer → comparer par profondeur/Y-position
+            // Même layer -> comparer par profondeur isometrique.
             val pos1 = e1.getComponent(PositionComponent::class.java)
             val pos2 = e2.getComponent(PositionComponent::class.java)
+            val grid1 = e1.getComponent(GridPlacementComponent::class.java)
+            val grid2 = e2.getComponent(GridPlacementComponent::class.java)
 
-            val depth1 = e1.getComponent(DepthComponent::class.java)?.getDepth(pos1.y) ?: pos1.y
-            val depth2 = e2.getComponent(DepthComponent::class.java)?.getDepth(pos2.y) ?: pos2.y
+            val depth1 = e1.getComponent(DepthComponent::class.java)?.zOrder ?: grid1?.frontDepth?.toFloat() ?: -pos1.y
+            val depth2 = e2.getComponent(DepthComponent::class.java)?.zOrder ?: grid2?.frontDepth?.toFloat() ?: -pos2.y
+            val depthComparison = depth1.compareTo(depth2)
+            if (depthComparison != 0) return depthComparison
 
-            return depth1.compareTo(depth2)
+            if (grid1 != null && grid2 != null) {
+                val rowComparison = grid1.row.compareTo(grid2.row)
+                if (rowComparison != 0) return rowComparison
+
+                val colComparison = grid1.col.compareTo(grid2.col)
+                if (colComparison != 0) return colComparison
+            }
+
+            return pos1.x.compareTo(pos2.x)
         }
     }
 }

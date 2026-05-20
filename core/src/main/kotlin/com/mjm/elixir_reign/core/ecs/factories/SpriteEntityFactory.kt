@@ -12,21 +12,23 @@ import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.data.UnitStats
-import com.mjm.elixir_reign.shared.logic.EntityType
-import com.mjm.elixir_reign.shared.logic.DirectionType
-import com.mjm.elixir_reign.shared.logic.ActionType
-import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
+import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.GridPlacementComponent
+import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
-import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
-import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
-import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
+import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.shared.logic.ActionType
 import com.mjm.elixir_reign.shared.logic.BuildingState
+import com.mjm.elixir_reign.shared.logic.DirectionType
+import com.mjm.elixir_reign.shared.logic.EntityType
 
 /**
  * Factory ECS pour créer des entités avec sprites
@@ -37,6 +39,8 @@ import com.mjm.elixir_reign.shared.logic.BuildingState
  * - Des bâtiments (statiques, placés sur la grille)
  */
 object SpriteEntityFactory {
+    private var nextBarracksId = 1
+
 
     /**
      * Crée une unité avec tous les components (animation + rendu)
@@ -130,8 +134,11 @@ object SpriteEntityFactory {
         ownerPlayerId: Int = 0,
         level: Int = 1,
         selectable: Boolean = true
-    ) {
-        // Récupérer les stats du bâtiment
+        ,
+        gridRow: Int? = null,
+        gridCol: Int? = null,
+        footprintSizeTiles: Int? = null
+    ): Entity {
         val stats = getBuildingStats(entityType)
 
         val entity = Entity()
@@ -149,6 +156,21 @@ object SpriteEntityFactory {
         entity.add(BuildingLevelComponent(level))
         entity.add(OwnerComponent(ownerPlayerId))
         entity.add(NetworkBuildingComponent(networkBuildingId))
+        if (gridRow != null && gridCol != null) {
+            entity.add(GridPlacementComponent(
+                row = gridRow,
+                col = gridCol,
+                footprintSizeTiles = footprintSizeTiles ?: stats.footprintSizeTiles
+            ))
+        }
+
+        if (entityType == EntityType.BARRACKS) {
+            entity.add(BarracksComponent(
+                barracksId = nextBarracksId++,
+                teamId = 0,
+                maxFormedUnits = stats.maxFormedTroops
+            ))
+        }
 
         // Créer l'animator (UNE FOIS) - peut être null si pas d'animation JSON
         val animator = SpriteAnimationManager.createBuildingAnimator(
@@ -178,9 +200,7 @@ object SpriteEntityFactory {
 
         // Barre de vie : position et largeur calculées dynamiquement depuis le collider
         entity.add(HealthBarComponent(barHeight = 5f))
-
-        // Couche de rendu (bâtiments au-dessus du terrain)
-        entity.add(LayerComponent(layer = 3))
+        entity.add(LayerComponent(layer = 1))
         entity.add(DepthComponent())
 
         // Sélectionnable (utile pour interactions)
@@ -190,6 +210,7 @@ object SpriteEntityFactory {
 
         // Ajouter l'entité à l'engine
         engine.addEntity(entity)
+        return entity
     }
 
     /**
