@@ -1,14 +1,15 @@
 package com.mjm.elixir_reign.android.screens
 
+import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
-import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.NinePatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
@@ -32,14 +33,28 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.grid.IsometricCoordinateConverter
+import com.mjm.elixir_reign.core.grid.IsometricGridRenderer
+import com.mjm.elixir_reign.core.handler.BuildPlacementHandler
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
-import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.android.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
+import com.mjm.elixir_reign.core.world.WorldRenderer
+import com.mjm.elixir_reign.shared.data.BuildingDefinition
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
+import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
+import com.mjm.elixir_reign.shared.ecs.systems.PlacementEventHandler
+import com.mjm.elixir_reign.shared.ecs.systems.PlacementSystem
+import com.mjm.elixir_reign.shared.events.EventBus
+import com.mjm.elixir_reign.shared.game.BuildingInstanceState
+import com.mjm.elixir_reign.shared.logic.EntityType
+import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.network.PlayerConnectionState
 import com.mjm.elixir_reign.core.network.MatchmakingClient
@@ -51,6 +66,8 @@ import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
+import com.mjm.elixir_reign.shared.world.GridOccupancyData
+import com.mjm.elixir_reign.shared.world.WorldMap
 import java.util.Locale
 import kotlin.math.sqrt
 
@@ -66,15 +83,20 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var shapeRenderer: ShapeRenderer
     private lateinit var camera: OrthographicCamera
     private lateinit var batch: SpriteBatch
-    private lateinit var terrainRenderer: TerrainRenderer
+    private lateinit var debugFont: BitmapFont
+    private lateinit var worldRenderer: WorldRenderer
+    private lateinit var worldMap: WorldMap
     private lateinit var gameWorld: GameWorld
     private lateinit var selectionInputHandler: SelectionInputHandler
+    private lateinit var buildPlacementHandler: BuildPlacementHandler
+    private lateinit var placementEventHandler: PlacementEventHandler
+    private lateinit var eventBus: EventBus
+    private lateinit var gridRenderer: IsometricGridRenderer
+    private lateinit var gridOccupancy: GridOccupancyData
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
-    private lateinit var btnSelectTroops: NineSliceImageButton
     private var uiDebugEnabled = false
-
-    private var isSelectionMode = false
+    private var mapDebugEnabled = false
 
     private val activeTouches = mutableMapOf<Int, Vector2>()
     private var pinchState: PinchState? = null
@@ -87,11 +109,21 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var settingsMenuTable: Table
     private lateinit var connectionErrorTable: Table
     private lateinit var connectionErrorLabel: Label
+    private lateinit var buildingPanelTable: Table
+    private lateinit var buildingPanelTitle: Label
+    private lateinit var buildingPanelLevel: Label
+    private lateinit var buildingPanelAction: TextButton
     private lateinit var playerNameTable: Table
     private var playerStatusSignature: String = ""
     private var fogElapsedSeconds = 0f
     private var renderedMapRevision = -1
+    private var constructionGridVisible = false
+    private var localNextBuildingId = -1
+    private var localProductionElapsed = 0f
+    private var selectedBuildingEntity: Entity? = null
     private val entitiesByUnitId = mutableMapOf<Int, Entity>()
+    private val entitiesByBuildingId = mutableMapOf<Int, Entity>()
+    private val localBuildings = mutableListOf<BuildingInstanceState>()
 
     private fun leaveGameToMainMenu() {
         if (GameSession.mode == GameMode.MULTI) {
@@ -144,10 +176,19 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             if (isPauseOverlayVisible()) return false
 
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
+                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+                if (activeTouches.size >= 2) {
+                    beginPinch()
+                }
+                return true
+            }
+
             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
             if (GameSession.mode == GameMode.MULTI) {
                 val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
-                val (targetRow, targetCol) = terrainRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
+                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
                 MatchmakingClient.sendMoveUnitsRequest(
                     unitIds = selectedUnitIds,
                     targetRow = targetRow,
@@ -157,14 +198,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
             if (GameSession.mode == GameMode.MULTI) {
                 val selectedUnitIds = selectionInputHandler.selectedNetworkUnitIds()
-                val (targetRow, targetCol) = terrainRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
+                val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldCoords.x, worldCoords.y)
                 applyPredictedMove(selectedUnitIds, targetRow, targetCol)
             }
-            // emulate double click
+//             Clic gauche = sélectionner
             selectionInputHandler.touchDown(screenX, screenY, camera)
-            if(isSelectionMode) {
-                selectionInputHandler.touchDown(screenX, screenY, camera)
-            }
 
             activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
@@ -178,14 +216,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             if (isPauseOverlayVisible()) return false
 
             // Si mode double-clic actif, faire le drag selection
-             if (isSelectionMode) {
+             if (!buildPlacementHandler.isPlacementModeActive() && selectionInputHandler.isDoubleClickModeActive()) {
                  selectionInputHandler.touchDragged(screenX, screenY, camera)
                  return true
              }
 
             val previousTouch = activeTouches[pointer] ?: return false
 
-            if (pinchState != null && !isSelectionMode) {
+            if (pinchState != null) {
                 previousTouch.set(screenX.toFloat(), screenY.toFloat())
                 updatePinchZoom()
                 return true
@@ -203,16 +241,33 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             clampCameraPosition()
             camera.update()
             previousTouch.set(screenX.toFloat(), screenY.toFloat())
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
+            }
             return true
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             if (isPauseOverlayVisible()) return false
 
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                if (buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)) {
+                    Shop.hide()
+                    buildPlacementHandler.cancelPlacement()
+                }
+
+                activeTouches.remove(pointer)
+                if (activeTouches.size >= 2) {
+                    beginPinch()
+                } else {
+                    endPinch()
+                }
+                return true
+            }
+
             // Finaliser la sélection/drag selection
-            selectionInputHandler.touchUp()
-            isSelectionMode = false
-            updateSelectionButtonState()
+             selectionInputHandler.touchUp()
+            updateSelectedBuildingPanel()
 
             activeTouches.remove(pointer)
 
@@ -221,6 +276,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             } else {
                 endPinch()
             }
+            return true
+        }
+
+        override fun mouseMoved(screenX: Int, screenY: Int): Boolean {
+            if (!this@GameScreen::buildPlacementHandler.isInitialized || !buildPlacementHandler.isPlacementModeActive()) {
+                return false
+            }
+            buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
             return true
         }
 
@@ -240,6 +303,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 if ((keycode == Input.Keys.B && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
                     (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.B))) {
                     toggleUiDebug()
+                    return true
+                }
+                if ((keycode == Input.Keys.G && Gdx.input.isKeyPressed(Input.Keys.F3)) ||
+                    (keycode == Input.Keys.F3 && Gdx.input.isKeyPressed(Input.Keys.G))) {
+                    toggleMapDebug()
                     return true
                 }
             }
@@ -264,13 +332,18 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         shapeRenderer = ShapeRenderer()
         batch = SpriteBatch()
+        debugFont = BitmapFont().apply {
+            data.setScale(DEBUG_LABEL_SCALE)
+            color = DEBUG_LABEL_COLOR
+        }
 
         val worldMap = if (GameSession.mode == GameMode.MULTI) {
             GameSession.multiplayerWorldMap() ?: TerrainPresets.map()
         } else {
             TerrainPresets.map()
         }
-        terrainRenderer = TerrainRenderer(worldMap)
+        this.worldMap = worldMap
+        worldRenderer = WorldRenderer(worldMap)
         renderedMapRevision = GameSession.mapRevision
 
         // Initialiser le monde du jeu (encapsule CoreGameEngine)
@@ -278,7 +351,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         // Récupérer le selectionInputHandler depuis le CoreGameEngine
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
-        terrainBounds = terrainRenderer.worldBounds()
+        terrainBounds = worldRenderer.worldBounds()
+        setupPlacement(worldMap)
 
         // Créer une entité barbare au centre de la scène
         spawnInitialUnits()
@@ -289,7 +363,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
-        refreshTerrainRendererIfNeeded()
+        refreshWorldRendererIfNeeded()
 
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -304,34 +378,62 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         if (GameSession.mode == GameMode.MULTI) {
             MatchmakingClient.sendGameplayTick(delta)
             syncNetworkUnits()
+            syncNetworkBuildings()
+            consumeNetworkBuildingResults()
+        } else if (!soloPausedByMenu) {
+            updateSoloBuildingProduction(delta)
         }
         updateConnectionErrorOverlay()
         refreshPlayerConnectionTable()
 
         batch.begin()
-        terrainRenderer.render(batch)
+        worldRenderer.renderGround(batch)
         if (!soloPausedByMenu) {
             gameWorld.update(delta)
         }
+        worldRenderer.renderOverlay(batch)
         if (GameSession.mode == GameMode.MULTI) {
-            terrainRenderer.renderFog(batch, GameSession.fogSnapshot(), fogElapsedSeconds)
+            worldRenderer.renderFog(batch, GameSession.fogSnapshot(), fogElapsedSeconds)
         }
         batch.end()
 
-        // Dessiner le rectangle de drag selection si actif
-        if (selectionInputHandler.isDraggingNow()) {
-            val dragRect = selectionInputHandler.getDragRectangle()
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-            shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)  // Vert semi-transparent
-            shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
-            shapeRenderer.end()
+        if (constructionGridVisible) {
+            gridRenderer.render(shapeRenderer) { row, col ->
+                val terrain = worldMap[row, col] ?: return@render false
+                terrain.canBuildOn && !gridOccupancy.isOccupied(row, col)
+            }
         }
 
+        if (buildPlacementHandler.isPlacementModeActive()) {
+            buildPlacementHandler.renderPreview(delta, batch, shapeRenderer)
+        }
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
+        if (selectionInputHandler.isDraggingNow() || uiDebugEnabled) {
+            if (selectionInputHandler.isDraggingNow()) {
+                val dragRect = selectionInputHandler.getDragRectangle()
+                shapeRenderer.color.set(0.5f, 1f, 0.5f, 0.8f)
+                shapeRenderer.rect(dragRect.x, dragRect.y, dragRect.width, dragRect.height)
+            }
+        }
+        if (mapDebugEnabled) {
+            shapeRenderer.color.set(DEBUG_CHUNK_COLOR)
+            worldRenderer.renderChunkDebug(shapeRenderer)
+        }
+        shapeRenderer.end()
+
         updateResourceLabels()
+        updateSelectedBuildingPanel()
 
         // L'UI est dessinée en dernier pour rester au-dessus du terrain.
         uiStage.act(delta)
         uiStage.draw()
+        if (mapDebugEnabled) {
+            batch.begin()
+            debugFont.color.set(DEBUG_LABEL_COLOR)
+            worldRenderer.renderChunkDebugLabels(batch, debugFont)
+            batch.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -351,8 +453,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         shapeRenderer.dispose()
         batch.dispose()
+        debugFont.dispose()
+        if (this::placementEventHandler.isInitialized) {
+            placementEventHandler.dispose()
+        }
         gameWorld.dispose()
-        terrainRenderer.dispose()
+        worldRenderer.dispose()
         uiStage.dispose()
     }
 
@@ -360,26 +466,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         uiStage = Stage(ScreenViewport())
 
         uiStage.addActor(Shop)
+        Shop.setOnShopShown { constructionGridVisible = true }
+        Shop.setOnShopHidden { constructionGridVisible = false }
 
         val btnBuildMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_HAMMER)).apply {
             onClick { _, _ ->
                 Shop.show()
             }
         }
-
-        val btnPauseMenu = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_SETTING)).apply {
-            onClick { _, _ ->
-                openPauseMenu()
-            }
-        }
-
-        btnSelectTroops = NineSliceImageButton(UiAssets.texture(UiImage.BUTTON_9PATCH), UiAssets.texture(UiImage.ICON_SELECT), toggleVisuals = true).apply {
-            onClick { _, _ ->
-                isSelectionMode = !isSelectionMode
-                updateSelectionButtonState()
-            }
-        }
-        updateSelectionButtonState()
 
         val resourceBarTable = Table().apply {
             background = NinePatchDrawable(
@@ -391,6 +485,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             darkElixirLabel = addResourceEntry(this, UiImage.ICON_DARK_ELIXIR)
         }
 
+        // vertical align elements
         val hudTopTable = Table().apply {
             setFillParent(true)
             top().right()
@@ -402,34 +497,20 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             add(playerNameTable).right()
         }
 
-        val hudTopLeftTable = Table().apply {
-            setFillParent(true)
-            top().left()
-            padTop(16f)
-            padLeft(16f)
-            add(btnPauseMenu).size(96f).pad(24f)
-        }
-
-        val hudLeftTable = Table().apply {
+        val hudTable = Table().apply {
             setFillParent(true)
             bottom().left()
             add(btnBuildMenu).size(96f).pad(24f)
         }
 
-        val hudRightTable = Table().apply{
-            setFillParent(true)
-            bottom().right()
-            add(btnSelectTroops).size(96f).pad(24f)
-        }
-
         pauseMenuTable = buildPauseMenuTable()
         settingsMenuTable = buildSettingsMenuTable()
         connectionErrorTable = buildConnectionErrorTable()
+        buildingPanelTable = buildBuildingPanelTable()
 
         uiStage.addActor(hudTopTable)
-        uiStage.addActor(hudTopLeftTable)
-        uiStage.addActor(hudLeftTable)
-        uiStage.addActor(hudRightTable)
+        uiStage.addActor(hudTable)
+        uiStage.addActor(buildingPanelTable)
         uiStage.addActor(pauseMenuTable)
         uiStage.addActor(settingsMenuTable)
         uiStage.addActor(connectionErrorTable)
@@ -456,14 +537,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     private fun playerConnectionTable() : Table {
-        val table = Table().apply {
+        val playerNameTable = Table().apply {
             background = NinePatchDrawable(
                 NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
             ).tint(Color(0.12f, 0.12f, 0.14f, 0.92f))
             pad(6f, 12f, 6f, 12f)
         }
-        rebuildPlayerConnectionTable(table)
-        return table
+        rebuildPlayerConnectionTable(playerNameTable)
+        return playerNameTable
     }
 
     private fun refreshPlayerConnectionTable() {
@@ -495,6 +576,134 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun setupPlacement(worldMap: WorldMap) {
+        val geometry = worldRenderer.geometry()
+        val coordinateConverter = IsometricCoordinateConverter(geometry)
+        gridRenderer = IsometricGridRenderer(geometry)
+        gridOccupancy = GridOccupancyData(rows = worldMap.height, cols = worldMap.width)
+        eventBus = EventBus()
+
+        val placementSystem = PlacementSystem(
+            worldMap = worldMap,
+            geometry = geometry,
+            occupancy = gridOccupancy,
+            spawnBuilding = { entityType, x, y ->
+                val localId = localNextBuildingId--
+                SpriteEntityFactory.createBuilding(
+                    entityType = entityType,
+                    x = x,
+                    y = y,
+                    engine = gameWorld.coreEngine.engine,
+                    networkBuildingId = localId,
+                    ownerPlayerId = localPlayerId(),
+                    selectable = true
+                )
+                localBuildings += BuildingInstanceState(
+                    id = localId,
+                    ownerPlayerId = localPlayerId(),
+                    entityType = entityType,
+                    row = 0,
+                    col = 0,
+                    level = 1
+                )
+            }
+        )
+        placementEventHandler = PlacementEventHandler(eventBus, placementSystem)
+
+        buildPlacementHandler = BuildPlacementHandler(
+            worldMap = worldMap,
+            coordinateConverter = coordinateConverter,
+            gridRenderer = gridRenderer,
+            placementSystem = placementSystem,
+            eventBus = eventBus,
+            extraCanPlaceValidator = { row, col, _ -> hasOwnedTroopNear(row, col) },
+            placementRequestHandler = { row, col, building ->
+                requestBuildingPlacement(row, col, building)
+            }
+        )
+
+        Shop.setOnBuildingSelected { selection: BuildingDefinition ->
+            buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+            buildPlacementHandler.updateHover(camera, Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
+        }
+    }
+
+    private fun requestBuildingPlacement(row: Int, col: Int, building: PlacementSystem.BuildingToPlace): Boolean {
+        if (GameSession.mode == GameMode.MULTI) {
+            return MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col) > 0
+        }
+
+        if (!GameSession.spendResources(
+                goldCost = building.stats.costGold,
+                elixirCost = building.stats.costElixir,
+                darkElixirCost = building.stats.costDarkElixir
+            )
+        ) {
+            return false
+        }
+
+        val cells = footprint(row, col, building.stats.footprintSizeTiles)
+        val accepted = gridOccupancy.canOccupy(cells)
+        if (accepted) {
+            val world = buildingWorldPosition(row, col)
+            val localId = localNextBuildingId--
+            SpriteEntityFactory.createBuilding(
+                entityType = building.entityType,
+                x = world.x,
+                y = world.y,
+                engine = gameWorld.coreEngine.engine,
+                networkBuildingId = localId,
+                ownerPlayerId = localPlayerId(),
+                selectable = true
+            )
+            gridOccupancy.occupy(cells)
+            localBuildings += BuildingInstanceState(
+                id = localId,
+                ownerPlayerId = localPlayerId(),
+                entityType = building.entityType,
+                row = row,
+                col = col,
+                level = 1
+            )
+        }
+        if (!accepted) {
+            GameSession.addResources(building.stats.costGold, building.stats.costElixir, building.stats.costDarkElixir)
+        }
+        return accepted
+    }
+
+    private fun hasOwnedTroopNear(row: Int, col: Int): Boolean {
+        val maxDistanceSquared = PLACEMENT_TROOP_RADIUS_TILES * PLACEMENT_TROOP_RADIUS_TILES
+        val playerId = localPlayerId()
+        return gameWorld.coreEngine.engine.entities.any { entity ->
+            if (entity.getComponent(NetworkBuildingComponent::class.java) != null) return@any false
+            val owner = entity.getComponent(OwnerComponent::class.java)
+            if (GameSession.mode == GameMode.MULTI && owner?.playerId != playerId) return@any false
+            val position = entity.getComponent(PositionComponent::class.java) ?: return@any false
+            val (unitRow, unitCol) = worldRenderer.tileAtWorldPosition(position.x, position.y)
+            val dRow = unitRow - row
+            val dCol = unitCol - col
+            dRow * dRow + dCol * dCol <= maxDistanceSquared
+        }
+    }
+
+    private fun localPlayerId(): Int {
+        return if (GameSession.mode == GameMode.MULTI) GameSession.myPlayerId else 0
+    }
+
+    private fun footprint(centerRow: Int, centerCol: Int, size: Int): List<Pair<Int, Int>> {
+        val normalizedSize = size.coerceAtLeast(1)
+        val startRow = centerRow - normalizedSize / 2
+        val startCol = centerCol - normalizedSize / 2
+        return buildList {
+            for (row in startRow until startRow + normalizedSize) {
+                for (col in startCol until startCol + normalizedSize) {
+                    add(row to col)
+                }
+            }
+        }
+    }
+
     private fun spawnInitialUnits() {
         if (GameSession.mode != GameMode.MULTI) {
             SpriteEntityFactory.createUnit(
@@ -507,7 +716,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
 
         GameSession.unitSnapshots().forEach { unit ->
-            val position = terrainRenderer.tileCenterPosition(unit.row, unit.col)
+            val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
             SpriteEntityFactory.createUnit(
                 unitType = unit.unitType,
                 x = position.x,
@@ -534,7 +743,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         entitiesByUnitId.keys.removeAll { it !in visibleIds }
 
         snapshots.forEach { unit ->
-            val position = terrainRenderer.tileCenterPosition(unit.row, unit.col)
+            val position = worldRenderer.tileCenterPosition(unit.row, unit.col)
             val existing = entitiesByUnitId[unit.id]
             if (existing == null) {
                 SpriteEntityFactory.createUnit(
@@ -559,11 +768,94 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun syncNetworkBuildings() {
+        val snapshots = GameSession.buildingSnapshots()
+        val visibleIds = snapshots.mapTo(mutableSetOf()) { it.id }
+
+        entitiesByBuildingId
+            .filterKeys { it !in visibleIds }
+            .values
+            .forEach { gameWorld.coreEngine.engine.removeEntity(it) }
+        entitiesByBuildingId.keys.removeAll { it !in visibleIds }
+
+        snapshots.forEach { building ->
+            if (entitiesByBuildingId.containsKey(building.id)) return@forEach
+            val position = buildingWorldPosition(building.row, building.col)
+            SpriteEntityFactory.createBuilding(
+                entityType = building.entityType,
+                x = position.x,
+                y = position.y,
+                engine = gameWorld.coreEngine.engine,
+                networkBuildingId = building.id,
+                ownerPlayerId = building.ownerPlayerId,
+                level = building.level,
+                selectable = building.ownerPlayerId == GameSession.myPlayerId
+            )
+            gridOccupancy.occupy(footprint(building.row, building.col, buildingStats(building.entityType).footprintSizeTiles))
+            val created = gameWorld.coreEngine.engine.entities.firstOrNull {
+                it.getComponent(NetworkBuildingComponent::class.java)?.buildingId == building.id
+            }
+            if (created != null) {
+                entitiesByBuildingId[building.id] = created
+            }
+        }
+    }
+
+    private fun consumeNetworkBuildingResults() {
+        MatchmakingClient.consumePlacementResult()?.let { result ->
+            if (!result.accepted) {
+                Gdx.app.log("GameScreen", "Placement refuse: ${result.reason}")
+            }
+        }
+        MatchmakingClient.consumeUpgradeResult()?.let { result ->
+            if (!result.accepted) {
+                Gdx.app.log("GameScreen", "Amelioration refusee: ${result.reason}")
+            }
+        }
+    }
+
+    private fun updateSoloBuildingProduction(delta: Float) {
+        localProductionElapsed += delta
+        if (localProductionElapsed < SOLO_PRODUCTION_INTERVAL_SECONDS) return
+        val elapsed = localProductionElapsed
+        localProductionElapsed = 0f
+
+        localBuildings.forEach { building ->
+            val stats = buildingStats(building.entityType)
+            val produced = (stats.productionRate * building.level * elapsed).toInt()
+            if (produced <= 0) return@forEach
+            when (building.entityType) {
+                EntityType.GOLD_MINE -> GameSession.addResources(goldAmount = produced)
+                EntityType.ELEXIR_PUMP -> GameSession.addResources(elixirAmount = produced)
+                EntityType.DARCKELEXIR_PUMP -> GameSession.addResources(darkElixirAmount = produced)
+                else -> Unit
+            }
+        }
+    }
+
+    private fun buildingStats(entityType: EntityType): BuildingStats {
+        return when (entityType) {
+            EntityType.BARRACKS -> BuildingStats.BARRACKS
+            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
+            EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL
+            else -> BuildingStats.BARRACKS
+        }
+    }
+
+    private fun buildingWorldPosition(row: Int, col: Int): Vector2 {
+        val geometry = worldRenderer.geometry()
+        val center = geometry.gridToWorld(row, col + 1)
+        return Vector2(center.x, center.y - geometry.halfTileHeight)
+    }
+
     private fun applyPredictedMove(unitIds: IntArray, targetRow: Int, targetCol: Int) {
         unitIds.forEach { unitId ->
             val entity = entitiesByUnitId[unitId] ?: return@forEach
             val position = entity.getComponent(PositionComponent::class.java) ?: return@forEach
-            val sourceTile = terrainRenderer.tileAtWorldPosition(position.x, position.y)
+            val sourceTile = worldRenderer.tileAtWorldPosition(position.x, position.y)
             applyDestinationForTiles(
                 entity = entity,
                 sourceRow = sourceTile.first.toFloat(),
@@ -583,7 +875,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         targetCol: Float,
         moving: Boolean
     ) {
-        val serverPosition = terrainRenderer.tileCenterPosition(row, col)
+        val serverPosition = worldRenderer.tileCenterPosition(row, col)
         val position = entity.getComponent(PositionComponent::class.java)
         if (position != null) {
             val dx = serverPosition.x - position.x
@@ -612,7 +904,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             return
         }
 
-        val target = terrainRenderer.tileCenterPosition(targetRow, targetCol)
+        val target = worldRenderer.tileCenterPosition(targetRow, targetCol)
         destination.targetX = target.x
         destination.targetY = target.y
         destination.isActive = true
@@ -634,21 +926,23 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val tileDistance = sqrt((targetRow - sourceRow) * (targetRow - sourceRow) + (targetCol - sourceCol) * (targetCol - sourceCol))
         if (tileDistance <= 0.0001f) return 0f
 
-        val source = terrainRenderer.tileCenterPosition(sourceRow, sourceCol)
-        val target = terrainRenderer.tileCenterPosition(targetRow, targetCol)
+        val source = worldRenderer.tileCenterPosition(sourceRow, sourceCol)
+        val target = worldRenderer.tileCenterPosition(targetRow, targetCol)
         val worldDistance = source.dst(target)
         return worldDistance / tileDistance * SERVER_UNIT_SPEED_TILES_PER_SECOND
     }
 
-    private fun refreshTerrainRendererIfNeeded() {
+    private fun refreshWorldRendererIfNeeded() {
         if (GameSession.mode != GameMode.MULTI || renderedMapRevision == GameSession.mapRevision) {
             return
         }
 
         val worldMap = GameSession.multiplayerWorldMap() ?: return
-        terrainRenderer.dispose()
-        terrainRenderer = TerrainRenderer(worldMap)
-        terrainBounds = terrainRenderer.worldBounds()
+        worldRenderer.dispose()
+        worldRenderer = WorldRenderer(worldMap)
+        this.worldMap = worldMap
+        terrainBounds = worldRenderer.worldBounds()
+        setupPlacement(worldMap)
         renderedMapRevision = GameSession.mapRevision
     }
 
@@ -676,17 +970,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         return String.format(Locale.US, "%,d", value).replace(',', ' ')
     }
 
-    private fun updateSelectionButtonState() {
-        if (!this::btnSelectTroops.isInitialized) {
-            return
-        }
-        btnSelectTroops.setHighlighted(isSelectionMode)
-    }
-
     private fun toggleUiDebug() {
         uiDebugEnabled = !uiDebugEnabled
         applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.app.log("GameScreen", "UI debug: ${if (uiDebugEnabled) "ON" else "OFF"}")
+    }
+
+    private fun toggleMapDebug() {
+        mapDebugEnabled = !mapDebugEnabled
+        Gdx.app.log("GameScreen", "Map debug: ${if (mapDebugEnabled) "ON" else "OFF"}")
     }
 
     private fun applyUiDebugRecursively(actor: Actor, enabled: Boolean) {
@@ -915,6 +1207,87 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun buildBuildingPanelTable(): Table {
+        buildingPanelTitle = Label("", UiAssets.skin).apply { setFontScale(0.9f) }
+        buildingPanelLevel = Label("", UiAssets.skin).apply { setFontScale(0.75f) }
+        buildingPanelAction = TextButton("Ameliorer", UiAssets.skin)
+        buildingPanelAction.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                val entity = selectedBuildingEntity ?: return
+                val buildingId = entity.getComponent(NetworkBuildingComponent::class.java)?.buildingId ?: return
+                if (GameSession.mode == GameMode.MULTI) {
+                    MatchmakingClient.sendUpgradeBuildingRequest(buildingId)
+                    return
+                }
+
+                val type = entity.getComponent(EntityTypeComponent::class.java)?.entityType ?: return
+                val building = localBuildings.firstOrNull { it.id == buildingId } ?: return
+                val stats = buildingStats(type)
+                val multiplier = building.level + 1
+                if (GameSession.spendResources(
+                        goldCost = stats.costGold * multiplier,
+                        elixirCost = stats.costElixir * multiplier,
+                        darkElixirCost = stats.costDarkElixir * multiplier
+                    )
+                ) {
+                    building.level += 1
+                }
+            }
+        })
+
+        val panel = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.08f, 0.08f, 0.1f, 0.96f))
+            pad(12f)
+            add(buildingPanelTitle).width(260f).left().row()
+            add(buildingPanelLevel).width(260f).left().padTop(4f).row()
+            add(buildingPanelAction).width(220f).height(58f).padTop(10f)
+        }
+
+        return Table().apply {
+            setFillParent(true)
+            bottom().right()
+            pad(24f)
+            isVisible = false
+            add(panel)
+        }
+    }
+
+    private fun updateSelectedBuildingPanel() {
+        if (!this::buildingPanelTable.isInitialized) return
+        val selected = selectionInputHandler.selectedEntitiesSnapshot().firstOrNull { entity ->
+            entity.getComponent(NetworkBuildingComponent::class.java) != null &&
+                entity.getComponent(EntityTypeComponent::class.java) != null &&
+                canInteractWithSelectedBuilding(entity)
+        }
+
+        selectedBuildingEntity = selected
+        if (selected == null) {
+            buildingPanelTable.isVisible = false
+            return
+        }
+
+        val type = selected.getComponent(EntityTypeComponent::class.java).entityType
+        val buildingId = selected.getComponent(NetworkBuildingComponent::class.java).buildingId
+        val level = if (GameSession.mode == GameMode.MULTI) {
+            GameSession.buildingSnapshots().firstOrNull { it.id == buildingId }?.level ?: 1
+        } else {
+            localBuildings.firstOrNull { it.id == buildingId }?.level ?: 1
+        }
+        val stats = buildingStats(type)
+        val multiplier = level + 1
+        buildingPanelTitle.setText(stats.name)
+        buildingPanelLevel.setText("Niveau $level - cout: ${stats.costGold * multiplier} or, ${stats.costElixir * multiplier} elixir")
+        buildingPanelTable.isVisible = true
+    }
+
+    private fun canInteractWithSelectedBuilding(entity: Entity): Boolean {
+        if (GameSession.mode != GameMode.MULTI) return true
+        val owner = entity.getComponent(OwnerComponent::class.java) ?: return false
+        return owner.playerId == GameSession.myPlayerId
+    }
+
     companion object {
         private const val MAX_ZOOM_IN = 0.6f
         private const val SCROLL_ZOOM_STEP = 0.1f
@@ -922,8 +1295,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
+        private const val DEBUG_LABEL_SCALE = 1.2f
         private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
+        private const val PLACEMENT_TROOP_RADIUS_TILES = 6
+        private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
+        private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
+        private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
     }
 
     private data class PinchState(

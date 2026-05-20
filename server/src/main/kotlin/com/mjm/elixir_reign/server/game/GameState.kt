@@ -1,14 +1,22 @@
 package com.mjm.elixir_reign.server.game
 
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.game.PlayerState
 import com.mjm.elixir_reign.shared.game.UnitState
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
+import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketGameReady
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
+import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingResult
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
+import com.mjm.elixir_reign.shared.network.PacketPlayerResources
 import com.mjm.elixir_reign.shared.network.PacketPlayerStatus
 import com.mjm.elixir_reign.shared.network.PacketPlayerSummary
+import com.mjm.elixir_reign.shared.network.PacketUpgradeBuildingResult
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
 import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
@@ -28,12 +36,14 @@ class GameState(
     private val players = linkedMapOf<Int, PlayerState>()
     private val sentChunksByPlayer = mutableMapOf<Int, MutableSet<ChunkCoord>>()
     private val visibleUnitsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
+    private val visibleBuildingsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val visibleTilesByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val lastPresenceSentByPlayer = mutableMapOf<Int, Map<Int, PlayerConnectionState>>()
     private val lastMovingStateSentByPlayer = mutableMapOf<Int, MutableMap<Int, Boolean>>()
     private val reconnectDeadlineByPlayer = mutableMapOf<Int, Long>()
     private val connectionStateByPlayer = mutableMapOf<Int, PlayerConnectionState>()
     private var nextUnitId = 1
+    private var nextBuildingId = 1
     private var started = false
 
     fun addPlayer(playerId: Int, name: String) {
@@ -47,6 +57,7 @@ class GameState(
         reconnectDeadlineByPlayer.remove(playerId)
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
+        visibleBuildingsByPlayer[playerId] = mutableSetOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
     }
 
@@ -56,6 +67,7 @@ class GameState(
         reconnectDeadlineByPlayer.remove(playerId)
         sentChunksByPlayer.remove(playerId)
         visibleUnitsByPlayer.remove(playerId)
+        visibleBuildingsByPlayer.remove(playerId)
         visibleTilesByPlayer.remove(playerId)
         lastPresenceSentByPlayer.remove(playerId)
         lastMovingStateSentByPlayer.remove(playerId)
@@ -94,6 +106,7 @@ class GameState(
     fun resetSyncStateForPlayer(playerId: Int) {
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
+        visibleBuildingsByPlayer[playerId] = mutableSetOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
         lastPresenceSentByPlayer.remove(playerId)
         lastMovingStateSentByPlayer.remove(playerId)
@@ -130,6 +143,59 @@ class GameState(
             }
     }
 
+    fun handlePlaceBuildingRequest(playerId: Int, requestId: Int, entityType: EntityType, row: Int, col: Int): List<Any> {
+        val player = players[playerId] ?: return listOf(PacketPlaceBuildingResult(requestId, false, "Joueur introuvable."))
+        val stats = buildingStats(entityType)
+            ?: return listOf(PacketPlaceBuildingResult(requestId, false, "Type de batiment invalide."))
+
+        val validationError = validateBuildingPlacement(player, entityType, stats, row, col)
+        if (validationError != null) {
+            return listOf(PacketPlaceBuildingResult(requestId, false, validationError))
+        }
+
+        if (!spend(player, stats.costGold, stats.costElixir, stats.costDarkElixir)) {
+            return listOf(PacketPlaceBuildingResult(requestId, false, "Ressources insuffisantes."))
+        }
+
+        val building = BuildingInstanceState(
+            id = nextBuildingId++,
+            ownerPlayerId = player.id,
+            entityType = entityType,
+            row = row,
+            col = col,
+            level = 1
+        )
+        player.buildings += building
+
+        return listOf(
+            PacketPlaceBuildingResult(requestId, true, "", building.id),
+            player.resourcesPacket(),
+            building.toPacket()
+        )
+    }
+
+    fun handleUpgradeBuildingRequest(playerId: Int, requestId: Int, buildingId: Int): List<Any> {
+        val player = players[playerId] ?: return listOf(PacketUpgradeBuildingResult(requestId, false, "Joueur introuvable.", buildingId))
+        val building = player.buildings.firstOrNull { it.id == buildingId }
+            ?: return listOf(PacketUpgradeBuildingResult(requestId, false, "Batiment introuvable.", buildingId))
+        val stats = buildingStats(building.entityType)
+            ?: return listOf(PacketUpgradeBuildingResult(requestId, false, "Type de batiment invalide.", buildingId))
+        val multiplier = building.level + 1
+        val goldCost = stats.costGold * multiplier
+        val elixirCost = stats.costElixir * multiplier
+        val darkElixirCost = stats.costDarkElixir * multiplier
+        if (!spend(player, goldCost, elixirCost, darkElixirCost)) {
+            return listOf(PacketUpgradeBuildingResult(requestId, false, "Ressources insuffisantes.", buildingId, building.level))
+        }
+
+        building.level += 1
+        return listOf(
+            PacketUpgradeBuildingResult(requestId, true, "", buildingId, building.level),
+            player.resourcesPacket(),
+            building.toPacket()
+        )
+    }
+
     fun update(deltaSeconds: Float) {
         expireReconnectWindows(System.currentTimeMillis())
         if (!started || deltaSeconds <= 0f) return
@@ -137,6 +203,8 @@ class GameState(
         players.values
             .flatMap { it.units }
             .forEach { updateUnitMovement(it, deltaSeconds) }
+
+        players.values.forEach { updateResourceProduction(it, deltaSeconds) }
     }
 
     fun initialPacketsFor(playerId: Int): List<Any> {
@@ -223,6 +291,8 @@ class GameState(
             lastPresenceSentByPlayer[playerId] = presenceSnapshot
         }
 
+        packets += player.resourcesPacket()
+
         val currentlyVisibleUnits = players.values
             .flatMap { it.units }
             .filter { unit ->
@@ -252,8 +322,27 @@ class GameState(
 
         movingStateByUnit.keys.removeAll { it !in currentlyVisibleUnits }
 
+        val currentlyVisibleBuildings = players.values
+            .flatMap { it.buildings }
+            .filter { building -> building.tileIndex() in visibleTiles }
+            .map { it.id }
+            .toMutableSet()
+
+        val previouslyVisibleBuildings = visibleBuildingsByPlayer.getOrPut(playerId) { mutableSetOf() }
+        previouslyVisibleBuildings
+            .filter { it !in currentlyVisibleBuildings }
+            .forEach { packets += PacketBuildingRemove(it) }
+
+        players.values
+            .flatMap { it.buildings }
+            .filter { it.id in currentlyVisibleBuildings }
+            .filter { it.id !in previouslyVisibleBuildings }
+            .forEach { building -> packets += building.toPacket() }
+
         previouslyVisibleUnits.clear()
         previouslyVisibleUnits += currentlyVisibleUnits
+        previouslyVisibleBuildings.clear()
+        previouslyVisibleBuildings += currentlyVisibleBuildings
         previouslyVisibleTiles.clear()
         previouslyVisibleTiles += visibleTiles
 
@@ -277,6 +366,119 @@ class GameState(
 
         unit.row += dRow / distance * step
         unit.col += dCol / distance * step
+    }
+
+    private fun updateResourceProduction(player: PlayerState, deltaSeconds: Float) {
+        player.buildings.forEach { building ->
+            val stats = buildingStats(building.entityType) ?: return@forEach
+            if (stats.productionRate <= 0f) return@forEach
+
+            building.productionAccumulator += stats.productionRate * building.level * deltaSeconds
+            val produced = floor(building.productionAccumulator).toInt()
+            if (produced <= 0) return@forEach
+
+            building.productionAccumulator -= produced
+            when (building.entityType) {
+                EntityType.GOLD_MINE -> player.gold += produced
+                EntityType.ELEXIR_PUMP -> player.elixir += produced
+                EntityType.DARCKELEXIR_PUMP -> player.darkElixir += produced
+                else -> Unit
+            }
+        }
+    }
+
+    private fun validateBuildingPlacement(
+        player: PlayerState,
+        entityType: EntityType,
+        stats: BuildingStats,
+        row: Int,
+        col: Int
+    ): String? {
+        val cells = footprint(row, col, stats.footprintSizeTiles)
+        if (cells.isEmpty()) return "Position invalide."
+
+        val requiredMaterial = when (entityType) {
+            EntityType.GOLD_MINE -> com.mjm.elixir_reign.shared.terrain.TerrainMaterial.GOLD
+            EntityType.ELEXIR_PUMP -> com.mjm.elixir_reign.shared.terrain.TerrainMaterial.ELEXIR
+            EntityType.DARCKELEXIR_PUMP -> com.mjm.elixir_reign.shared.terrain.TerrainMaterial.DARK_ELEXIR
+            else -> null
+        }
+        var hasRequiredResource = false
+
+        for ((cellRow, cellCol) in cells) {
+            if (cellRow !in 0 until worldMap.height || cellCol !in 0 until worldMap.width) {
+                return "Position hors limites."
+            }
+            val terrain = worldMap[cellRow, cellCol] ?: return "Terrain inconnu."
+            val isResourceTile = requiredMaterial != null && terrain.material == requiredMaterial
+            if (!isResourceTile && !terrain.canBuildOn) {
+                return "Terrain non constructible."
+            }
+            if (isResourceTile) {
+                hasRequiredResource = true
+            }
+        }
+        if (requiredMaterial != null && !hasRequiredResource) {
+            return "Ce batiment doit etre place sur sa ressource."
+        }
+
+        val occupiedByBuilding = players.values
+            .flatMap { it.buildings }
+            .flatMap { footprint(it.row, it.col, buildingStats(it.entityType)?.footprintSizeTiles ?: 1) }
+            .toSet()
+        if (cells.any { it in occupiedByBuilding }) {
+            return "Emplacement deja occupe."
+        }
+
+        if (!hasOwnedTroopNear(player, row, col)) {
+            return "Une troupe alliee doit etre proche."
+        }
+
+        return null
+    }
+
+    private fun hasOwnedTroopNear(player: PlayerState, row: Int, col: Int): Boolean {
+        val maxDistanceSquared = PLACEMENT_TROOP_RADIUS_TILES * PLACEMENT_TROOP_RADIUS_TILES
+        return player.units.any { unit ->
+            val dRow = floor(unit.row).toInt() - row
+            val dCol = floor(unit.col).toInt() - col
+            dRow * dRow + dCol * dCol <= maxDistanceSquared
+        }
+    }
+
+    private fun spend(player: PlayerState, goldCost: Int, elixirCost: Int, darkElixirCost: Int): Boolean {
+        if (player.gold < goldCost || player.elixir < elixirCost || player.darkElixir < darkElixirCost) {
+            return false
+        }
+        player.gold -= goldCost
+        player.elixir -= elixirCost
+        player.darkElixir -= darkElixirCost
+        return true
+    }
+
+    private fun footprint(centerRow: Int, centerCol: Int, size: Int): List<Pair<Int, Int>> {
+        val normalizedSize = size.coerceAtLeast(1)
+        val startRow = centerRow - normalizedSize / 2
+        val startCol = centerCol - normalizedSize / 2
+        val cells = ArrayList<Pair<Int, Int>>(normalizedSize * normalizedSize)
+        for (row in startRow until startRow + normalizedSize) {
+            for (col in startCol until startCol + normalizedSize) {
+                cells += row to col
+            }
+        }
+        return cells
+    }
+
+    private fun buildingStats(entityType: EntityType): BuildingStats? {
+        return when (entityType) {
+            EntityType.BARRACKS -> BuildingStats.BARRACKS
+            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
+            EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL
+            else -> null
+        }
     }
 
     private fun createStartingUnit(player: PlayerState, offset: Int): UnitState {
@@ -366,9 +568,34 @@ class GameState(
         )
     }
 
+    private fun BuildingInstanceState.toPacket(): PacketBuildingSnapshot {
+        return PacketBuildingSnapshot(
+            buildingId = id,
+            ownerPlayerId = ownerPlayerId,
+            entityType = entityType,
+            row = row,
+            col = col,
+            level = level
+        )
+    }
+
+    private fun PlayerState.resourcesPacket(): PacketPlayerResources {
+        return PacketPlayerResources(
+            gold = gold,
+            elixir = elixir,
+            darkElixir = darkElixir
+        )
+    }
+
     private fun UnitState.tileIndex(): Int {
         val clampedRow = floor(row).toInt().coerceIn(0, worldMap.height - 1)
         val clampedCol = floor(col).toInt().coerceIn(0, worldMap.width - 1)
+        return clampedRow * worldMap.width + clampedCol
+    }
+
+    private fun BuildingInstanceState.tileIndex(): Int {
+        val clampedRow = row.coerceIn(0, worldMap.height - 1)
+        val clampedCol = col.coerceIn(0, worldMap.width - 1)
         return clampedRow * worldMap.width + clampedCol
     }
 
@@ -393,5 +620,6 @@ class GameState(
         private const val ARRIVAL_THRESHOLD_TILES = 0.05f
         private const val UNKNOWN_TILE = -1
         private const val RECONNECT_GRACE_PERIOD_MS = 3 * 60 * 1000L
+        private const val PLACEMENT_TROOP_RADIUS_TILES = 6
     }
 }

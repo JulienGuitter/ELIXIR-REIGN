@@ -9,6 +9,8 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.utils.SettingsManager
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.shared.network.Network
+import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
+import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
 import com.mjm.elixir_reign.shared.network.PacketConnectToInstance
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketGameReady
@@ -18,12 +20,18 @@ import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
 import com.mjm.elixir_reign.shared.network.PacketMoveUnitsRequest
+import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingRequest
+import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingResult
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
+import com.mjm.elixir_reign.shared.network.PacketPlayerResources
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
+import com.mjm.elixir_reign.shared.network.PacketUpgradeBuildingRequest
+import com.mjm.elixir_reign.shared.network.PacketUpgradeBuildingResult
 import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
 import com.mjm.elixir_reign.core.session.GameSession
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.type.GameType
 import kotlin.concurrent.thread
 
@@ -59,6 +67,15 @@ object MatchmakingClient {
 
     @Volatile
     private var reconnectAttemptAfterDisconnect: Boolean = false
+
+    @Volatile
+    private var nextRequestId: Int = 1
+
+    @Volatile
+    private var lastPlacementResult: PacketPlaceBuildingResult? = null
+
+    @Volatile
+    private var lastUpgradeResult: PacketUpgradeBuildingResult? = null
 
     fun startMatchmaking(gameType: GameType) {
         synchronized(lock) {
@@ -196,6 +213,51 @@ object MatchmakingClient {
         }
     }
 
+    fun sendPlaceBuildingRequest(entityType: EntityType, row: Int, col: Int): Int {
+        val client = instanceClient ?: return 0
+        val requestId = nextRequestId++
+
+        try {
+            client.sendTCP(
+                PacketPlaceBuildingRequest(
+                    requestId = requestId,
+                    entityType = entityType,
+                    row = row,
+                    col = col
+                )
+            )
+        } catch (_: Exception) {
+            setError(Localization.get("network.error.disconnected"))
+            return 0
+        }
+        return requestId
+    }
+
+    fun consumePlacementResult(): PacketPlaceBuildingResult? {
+        val result = lastPlacementResult
+        lastPlacementResult = null
+        return result
+    }
+
+    fun sendUpgradeBuildingRequest(buildingId: Int): Int {
+        val client = instanceClient ?: return 0
+        val requestId = nextRequestId++
+
+        try {
+            client.sendTCP(PacketUpgradeBuildingRequest(requestId = requestId, buildingId = buildingId))
+        } catch (_: Exception) {
+            setError(Localization.get("network.error.disconnected"))
+            return 0
+        }
+        return requestId
+    }
+
+    fun consumeUpgradeResult(): PacketUpgradeBuildingResult? {
+        val result = lastUpgradeResult
+        lastUpgradeResult = null
+        return result
+    }
+
     private fun connectToInstance(redirect: PacketRedirectToInstance, isReconnectAttempt: Boolean = false) {
         val host = if (redirect.ip == "this" || redirect.ip.isBlank()) resolveHost() else redirect.ip
         val port = if (redirect.port > 0) redirect.port else resolvePort()
@@ -244,6 +306,26 @@ object MatchmakingClient {
 
                     is PacketUnitRemove -> {
                         GameSession.applyUnitRemove(message)
+                    }
+
+                    is PacketBuildingSnapshot -> {
+                        GameSession.applyBuildingSnapshot(message)
+                    }
+
+                    is PacketBuildingRemove -> {
+                        GameSession.applyBuildingRemove(message)
+                    }
+
+                    is PacketPlayerResources -> {
+                        GameSession.applyPlayerResources(message)
+                    }
+
+                    is PacketPlaceBuildingResult -> {
+                        lastPlacementResult = message
+                    }
+
+                    is PacketUpgradeBuildingResult -> {
+                        lastUpgradeResult = message
                     }
 
                     is PacketGameReady -> {

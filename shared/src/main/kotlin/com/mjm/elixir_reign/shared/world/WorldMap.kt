@@ -57,18 +57,15 @@ class WorldMap private constructor(
             )
         }
 
-        fun fromGroundRows(
-            rows: List<List<TerrainType>>,
-            chunkSize: Int
+        fun build(
+            width: Int,
+            height: Int,
+            chunkSize: Int,
+            tileProvider: (row: Int, col: Int) -> TerrainType
         ): WorldMap {
-            require(rows.isNotEmpty()) { "La map ne peut pas etre vide." }
-            require(chunkSize > 0) { "La taille d'un chunk doit etre strictement positive." }
-
-            val height = rows.size
-            val width = rows.firstOrNull()?.size ?: 0
-
             require(width > 0) { "La map doit avoir au moins une colonne." }
-            require(rows.all { it.size == width }) { "Toutes les lignes doivent avoir la meme largeur." }
+            require(height > 0) { "La map doit avoir au moins une ligne." }
+            require(chunkSize > 0) { "La taille d'un chunk doit etre strictement positive." }
 
             val chunkWidth = (width + chunkSize - 1) / chunkSize
             val chunkHeight = (height + chunkSize - 1) / chunkSize
@@ -84,7 +81,7 @@ class WorldMap private constructor(
                             val worldCol = chunkX * chunkSize + localCol
 
                             val tile = if (worldRow in 0 until height && worldCol in 0 until width) {
-                                rows[worldRow][worldCol]
+                                tileProvider(worldRow, worldCol)
                             } else {
                                 null
                             }
@@ -107,6 +104,27 @@ class WorldMap private constructor(
                 height = height,
                 chunks = chunks
             )
+        }
+
+        fun fromGroundRows(
+            rows: List<List<TerrainType>>,
+            chunkSize: Int
+        ): WorldMap {
+            require(rows.isNotEmpty()) { "La map ne peut pas etre vide." }
+            require(chunkSize > 0) { "La taille d'un chunk doit etre strictement positive." }
+
+            val height = rows.size
+            val width = rows.firstOrNull()?.size ?: 0
+
+            require(width > 0) { "La map doit avoir au moins une colonne." }
+            require(rows.all { it.size == width }) { "Toutes les lignes doivent avoir la meme largeur." }
+            return build(
+                width = width,
+                height = height,
+                chunkSize = chunkSize
+            ) { row, col ->
+                rows[row][col]
+            }
         }
     }
 }

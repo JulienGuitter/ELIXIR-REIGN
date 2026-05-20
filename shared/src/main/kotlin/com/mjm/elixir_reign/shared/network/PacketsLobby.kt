@@ -1,6 +1,7 @@
 package com.mjm.elixir_reign.shared.network
 
 import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.type.GameType
 
 // Lobby/Login packets
@@ -82,6 +83,50 @@ class PacketMoveUnitsRequest(
     var unitIds: IntArray = intArrayOf(),
     var targetRow: Int = 0,
     var targetCol: Int = 0
+)
+
+class PacketPlaceBuildingRequest(
+    var requestId: Int = 0,
+    var entityType: EntityType = EntityType.GOLD_MINE,
+    var row: Int = 0,
+    var col: Int = 0
+)
+
+class PacketPlaceBuildingResult(
+    var requestId: Int = 0,
+    var accepted: Boolean = false,
+    var reason: String = "",
+    var buildingId: Int = 0
+)
+
+class PacketBuildingSnapshot(
+    var buildingId: Int = 0,
+    var ownerPlayerId: Int = 0,
+    var entityType: EntityType = EntityType.GOLD_MINE,
+    var row: Int = 0,
+    var col: Int = 0,
+    var level: Int = 1
+)
+
+class PacketBuildingRemove(var buildingId: Int = 0)
+
+class PacketPlayerResources(
+    var gold: Int = 0,
+    var elixir: Int = 0,
+    var darkElixir: Int = 0
+)
+
+class PacketUpgradeBuildingRequest(
+    var requestId: Int = 0,
+    var buildingId: Int = 0
+)
+
+class PacketUpgradeBuildingResult(
+    var requestId: Int = 0,
+    var accepted: Boolean = false,
+    var reason: String = "",
+    var buildingId: Int = 0,
+    var level: Int = 1
 )
 
 class PacketGameReady

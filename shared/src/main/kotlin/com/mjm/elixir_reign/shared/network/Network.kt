@@ -3,6 +3,8 @@ package com.mjm.elixir_reign.shared.network
 import com.esotericsoftware.kryo.Kryo
 import com.mjm.elixir_reign.shared.game.PlayerState
 import com.mjm.elixir_reign.shared.game.UnitState
+import com.mjm.elixir_reign.shared.game.BuildingInstanceState
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.UnitType
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.type.GameType
@@ -22,9 +24,11 @@ object Network {
         kryo?.register(IntArray::class.java)
         kryo?.register(GameType::class.java)
         kryo?.register(UnitType::class.java)
+        kryo?.register(EntityType::class.java)
         kryo?.register(TerrainType::class.java)
         kryo?.register(PlayerState::class.java)
         kryo?.register(UnitState::class.java)
+        kryo?.register(BuildingInstanceState::class.java)
 
         // Lobby/Login packets register
         kryo?.register(PacketLogin::class.java)
@@ -45,6 +49,13 @@ object Network {
         kryo?.register(PacketVisibilityUpdate::class.java)
         kryo?.register(PacketUnitRemove::class.java)
         kryo?.register(PacketMoveUnitsRequest::class.java)
+        kryo?.register(PacketPlaceBuildingRequest::class.java)
+        kryo?.register(PacketPlaceBuildingResult::class.java)
+        kryo?.register(PacketBuildingSnapshot::class.java)
+        kryo?.register(PacketBuildingRemove::class.java)
+        kryo?.register(PacketPlayerResources::class.java)
+        kryo?.register(PacketUpgradeBuildingRequest::class.java)
+        kryo?.register(PacketUpgradeBuildingResult::class.java)
         kryo?.register(PacketGameReady::class.java)
     }
 }

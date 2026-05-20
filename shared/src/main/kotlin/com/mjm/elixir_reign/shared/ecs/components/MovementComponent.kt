@@ -5,12 +5,13 @@ import com.mjm.elixir_reign.shared.logic.DirectionType
 
 /**
  * Component de mouvement
- * Utilise une Direction discrète (8 directions) pour optimisation
- * plutôt que des vecteurs continus
+ * Garde une direction discrète pour l'animation et un vecteur continu normalisé
+ * optionnel pour les déplacements vers une destination précise.
  */
 class MovementComponent(
     var directionType: DirectionType = DirectionType.DOWN,
     var speed: Float = 100f,
-    var isMoving: Boolean = false
+    var isMoving: Boolean = false,
+    var directionX: Float = 0f,
+    var directionY: Float = 0f
 ) : Component
-

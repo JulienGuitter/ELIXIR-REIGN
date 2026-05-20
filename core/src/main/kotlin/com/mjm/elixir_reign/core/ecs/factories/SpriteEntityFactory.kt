@@ -2,30 +2,40 @@ package com.mjm.elixir_reign.core.ecs.factories
 
 import com.badlogic.ashley.core.Engine
 import com.badlogic.ashley.core.Entity
-import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
+import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
+import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
+import com.mjm.elixir_reign.core.ecs.components.DepthComponent
+import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
+import com.mjm.elixir_reign.core.ecs.components.LayerComponent
+import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
-import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
+import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.data.UnitStats
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.logic.DirectionType
 import com.mjm.elixir_reign.shared.logic.ActionType
-import com.mjm.elixir_reign.shared.data.UnitStats
-import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
-import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
-import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
-import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
-import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
-import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
-import com.mjm.elixir_reign.core.ecs.components.DepthComponent
-import com.mjm.elixir_reign.core.ecs.components.LayerComponent
-import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
+import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
+import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
+import com.mjm.elixir_reign.shared.logic.BuildingState
+import com.mjm.elixir_reign.shared.logic.UnitType
 
 /**
- * Factory ECS-pur pour créer des entités avec sprites
- * Gère toute la création des components d'animation et rendu
+ * Factory ECS pour créer des entités avec sprites
+ * Gère la création des components d'animation et rendu
+ *
+ * Crée aussi bien :
+ * - Des unités (avec animation, vie, etc.)
+ * - Des bâtiments (statiques, placés sur la grille)
  */
 object SpriteEntityFactory {
 
@@ -41,7 +51,27 @@ object SpriteEntityFactory {
         ownerPlayerId: Int = 0,
         selectable: Boolean = true
     ) {
-        val stats = getUnitStats(unitType)
+        createUnit(
+            entityType = unitType.toEntityType(),
+            x = x,
+            y = y,
+            engine = engine,
+            networkUnitId = networkUnitId,
+            ownerPlayerId = ownerPlayerId,
+            selectable = selectable
+        )
+    }
+
+    fun createUnit(
+        entityType: EntityType,
+        x: Float,
+        y: Float,
+        engine: Engine,
+        networkUnitId: Int = 0,
+        ownerPlayerId: Int = 0,
+        selectable: Boolean = true
+    ) {
+        val stats = getUnitStats(entityType)
 
         val entity = Entity()
 
@@ -60,7 +90,7 @@ object SpriteEntityFactory {
         entity.add(NetworkUnitComponent(networkUnitId))
 
         // Components client (core) - Animation
-        entity.add(UnitTypeComponent(unitType))
+        entity.add(EntityTypeComponent(entityType))
         entity.add(AnimationComponent(
             currentActionType = ActionType.RUN,
             currentDirectionType = DirectionType.DOWN,
@@ -68,8 +98,8 @@ object SpriteEntityFactory {
         ))
 
         // Créer l'animator (UNE FOIS)
-        val animator = SpriteAnimationManager.createAnimator(
-            unitType = unitType,
+        val animator = SpriteAnimationManager.createUnitAnimator(
+            stats = stats,
             actionType = ActionType.RUN,
             directionType = DirectionType.DOWN
         )
@@ -78,7 +108,7 @@ object SpriteEntityFactory {
         // Créer le SpriteComponent avec dimensions et offsets depuis l'animator
         val spriteSheet = animator.spriteSheet
         entity.add(SpriteComponent(
-            texturePath = SpriteAnimationManager.getTexturePath(unitType),
+            texturePath = stats.texturePath,
             width = spriteSheet.cellWidth,
             height = spriteSheet.cellHeight,
             scaleX = 3f,
@@ -90,7 +120,7 @@ object SpriteEntityFactory {
 
         // Créer la TextureRegion (UNE FOIS) et la stocker dans le component
         val textureRegion = animator.getCurrentTextureRegion()
-            ?: throw RuntimeException("Failed to create TextureRegion for $unitType")
+            ?: throw RuntimeException("Failed to create TextureRegion for $entityType")
         entity.add(TextureRegionComponent(textureRegion))
 
         // Components de sélection
@@ -112,14 +142,110 @@ object SpriteEntityFactory {
         engine.addEntity(entity)
     }
 
+    fun createBuilding(
+        entityType: EntityType,
+        x: Float,
+        y: Float,
+        engine: Engine,
+        networkBuildingId: Int = 0,
+        ownerPlayerId: Int = 0,
+        level: Int = 1,
+        selectable: Boolean = true
+    ) {
+        // Récupérer les stats du bâtiment
+        val stats = getBuildingStats(entityType)
+
+        val entity = Entity()
+
+        // Position dans le monde
+        entity.add(PositionComponent(x, y))
+        entity.add(HealthComponent(
+            currentHP = stats.maxHP - 45, // For test
+            maxHP = stats.maxHP
+        ))
+
+        // Component du type de bâtiment
+        entity.add(EntityTypeComponent(entityType))
+        entity.add(BuildingStateComponent(BuildingState.MINING))
+        entity.add(BuildingLevelComponent(level))
+        entity.add(OwnerComponent(ownerPlayerId))
+        entity.add(NetworkBuildingComponent(networkBuildingId))
+
+        // Créer l'animator (UNE FOIS) - peut être null si pas d'animation JSON
+        val animator = SpriteAnimationManager.createBuildingAnimator(
+            stats = stats,
+            buildingState = BuildingState.MINING
+        )
+        entity.add(SpriteAnimatorComponent(animator))
+
+        val spriteSheet = animator.spriteSheet
+        // Créer le SpriteComponent avec dimensions depuis les stats
+        entity.add(SpriteComponent(
+            texturePath = stats.texturePath,
+            width = spriteSheet.cellWidth,
+            height = spriteSheet.cellHeight,
+            scaleX = 2.5f,
+            scaleY = 2.5f,
+            offsetX = -spriteSheet.footX,
+            offsetY = -spriteSheet.footY,
+            collider = animator.getCurrentCollider()
+        ))
+
+        // Créer la TextureRegion (UNE FOIS) et la stocker dans le component (si animator exists)
+        val textureRegion = animator.getCurrentTextureRegion()
+            ?: throw RuntimeException("Failed to create TextureRegion: currentClip is null for $entityType")
+        entity.add(TextureRegionComponent(textureRegion))
+
+        // Barre de vie : position et largeur calculées dynamiquement depuis le collider
+        entity.add(HealthBarComponent(barHeight = 5f))
+
+        // Couche de rendu (bâtiments au-dessus du terrain)
+        entity.add(LayerComponent(layer = 3))
+        entity.add(DepthComponent())
+
+        // Sélectionnable (utile pour interactions)
+        if (selectable) {
+            entity.add(SelectableComponent(isSelected = false))
+        }
+
+        // Ajouter l'entité à l'engine
+        engine.addEntity(entity)
+    }
+
     /**
      * Récupère les stats d'une unité
+     * Type-safe: retourne directement UnitStats
      */
-    private fun getUnitStats(unitType: UnitType): UnitStats {
-        return when (unitType) {
-            UnitType.BARBARIAN -> UnitStats.BARBARIAN
-            UnitType.ARCHER -> UnitStats.ARCHER
-            UnitType.GIANT -> UnitStats.GIANT
+    private fun getUnitStats(entityType: EntityType): UnitStats {
+        return when (entityType) {
+            EntityType.BARBARIAN -> UnitStats.BARBARIAN
+            EntityType.ARCHER -> UnitStats.ARCHER
+            EntityType.GIANT -> UnitStats.GIANT
+            else -> throw IllegalArgumentException("$entityType n'est pas une unité")
+        }
+    }
+
+    /**
+     * Récupère les stats d'un bâtiment
+     * Type-safe: retourne directement BuildingStats
+     */
+    private fun getBuildingStats(entityType: EntityType): BuildingStats {
+        return when (entityType) {
+            EntityType.BARRACKS -> BuildingStats.BARRACKS
+            EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
+            EntityType.DARCKELEXIR_PUMP -> BuildingStats.DARCKELEXIR_PUMP
+            EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE
+            EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER
+            EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL
+            else -> throw IllegalArgumentException("$entityType n'est pas un bâtiment")
+        }
+    }
+
+    private fun UnitType.toEntityType(): EntityType {
+        return when (this) {
+            UnitType.BARBARIAN -> EntityType.BARBARIAN
+            UnitType.ARCHER -> EntityType.ARCHER
+            UnitType.GIANT -> EntityType.GIANT
         }
     }
 }

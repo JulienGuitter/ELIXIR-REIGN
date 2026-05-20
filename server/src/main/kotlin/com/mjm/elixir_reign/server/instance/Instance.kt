@@ -3,6 +3,7 @@ package com.mjm.elixir_reign.server.instance
 import com.mjm.elixir_reign.server.game.GameState
 import com.mjm.elixir_reign.server.logging.ServerLog
 import com.mjm.elixir_reign.shared.network.Client
+import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.type.GameType
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -101,6 +102,22 @@ class Instance(
 
     fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
         gameState?.handleMoveRequest(playerId, unitIds, targetRow, targetCol)
+    }
+
+    fun handlePlaceBuildingRequest(connectionId: Int, playerId: Int, requestId: Int, entityType: EntityType, row: Int, col: Int) {
+        val connection = players[playerId]?.connection ?: return
+        gameState
+            ?.handlePlaceBuildingRequest(playerId, requestId, entityType, row, col)
+            ?.forEach { packet -> ServerLog.sendTcp(connection, packet) }
+        lastSyncAtMs = 0L
+    }
+
+    fun handleUpgradeBuildingRequest(connectionId: Int, playerId: Int, requestId: Int, buildingId: Int) {
+        val connection = players[playerId]?.connection ?: return
+        gameState
+            ?.handleUpgradeBuildingRequest(playerId, requestId, buildingId)
+            ?.forEach { packet -> ServerLog.sendTcp(connection, packet) }
+        lastSyncAtMs = 0L
     }
 
     fun update(deltaSeconds: Float) {

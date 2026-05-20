@@ -135,6 +135,28 @@ class ServerLauncher {
                             )
                         }
                     }
+
+                    is PacketPlaceBuildingRequest -> {
+                        if(config.instance && InstanceManager.isInit){
+                            InstanceManager.handlePlaceBuildingRequest(
+                                connectionId = connection.id,
+                                requestId = message.requestId,
+                                entityType = message.entityType,
+                                row = message.row,
+                                col = message.col
+                            )
+                        }
+                    }
+
+                    is PacketUpgradeBuildingRequest -> {
+                        if(config.instance && InstanceManager.isInit){
+                            InstanceManager.handleUpgradeBuildingRequest(
+                                connectionId = connection.id,
+                                requestId = message.requestId,
+                                buildingId = message.buildingId
+                            )
+                        }
+                    }
                 }
             }
 

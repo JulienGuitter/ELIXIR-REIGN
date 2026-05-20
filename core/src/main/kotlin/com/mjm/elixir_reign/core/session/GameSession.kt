@@ -1,9 +1,13 @@
 package com.mjm.elixir_reign.core.session
 
+import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.game.UnitState
+import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
+import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
+import com.mjm.elixir_reign.shared.network.PacketPlayerResources
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
 import com.mjm.elixir_reign.shared.network.PacketVisibilityUpdate
@@ -24,6 +28,7 @@ object GameSession {
     @Volatile
     private var currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
     private val networkUnits = linkedMapOf<Int, UnitState>()
+    private val networkBuildings = linkedMapOf<Int, BuildingInstanceState>()
     private val playerNameById = linkedMapOf<Int, String>()
     private val playerStateById = linkedMapOf<Int, PlayerConnectionState>()
 
@@ -111,6 +116,7 @@ object GameSession {
             }
             currentFogSnapshot = FogSnapshot(width = mapWidth, height = mapHeight, alphaByTile = FloatArray(mapWidth * mapHeight) { 1f })
             networkUnits.clear()
+            networkBuildings.clear()
         }
     }
 
@@ -190,6 +196,31 @@ object GameSession {
         }
     }
 
+    fun applyBuildingSnapshot(packet: PacketBuildingSnapshot) {
+        synchronized(networkStateLock) {
+            networkBuildings[packet.buildingId] = BuildingInstanceState(
+                id = packet.buildingId,
+                ownerPlayerId = packet.ownerPlayerId,
+                entityType = packet.entityType,
+                row = packet.row,
+                col = packet.col,
+                level = packet.level
+            )
+        }
+    }
+
+    fun applyBuildingRemove(packet: PacketBuildingRemove) {
+        synchronized(networkStateLock) {
+            networkBuildings.remove(packet.buildingId)
+        }
+    }
+
+    fun applyPlayerResources(packet: PacketPlayerResources) {
+        gold = packet.gold
+        elixir = packet.elixir
+        darkElixir = packet.darkElixir
+    }
+
     fun applyPlayerPresenceUpdate(packet: PacketPlayerPresenceUpdate) {
         synchronized(networkStateLock) {
             packet.players.forEach { status ->
@@ -247,6 +278,41 @@ object GameSession {
         }
     }
 
+    fun buildingSnapshots(): List<BuildingInstanceState> {
+        synchronized(networkStateLock) {
+            return networkBuildings.values.map {
+                BuildingInstanceState(
+                    id = it.id,
+                    ownerPlayerId = it.ownerPlayerId,
+                    entityType = it.entityType,
+                    row = it.row,
+                    col = it.col,
+                    level = it.level
+                )
+            }
+        }
+    }
+
+    fun spendResources(goldCost: Int, elixirCost: Int, darkElixirCost: Int): Boolean {
+        synchronized(networkStateLock) {
+            if (gold < goldCost || elixir < elixirCost || darkElixir < darkElixirCost) {
+                return false
+            }
+            gold -= goldCost
+            elixir -= elixirCost
+            darkElixir -= darkElixirCost
+            return true
+        }
+    }
+
+    fun addResources(goldAmount: Int = 0, elixirAmount: Int = 0, darkElixirAmount: Int = 0) {
+        synchronized(networkStateLock) {
+            gold += goldAmount
+            elixir += elixirAmount
+            darkElixir += darkElixirAmount
+        }
+    }
+
     private fun resetResources() {
         gold = DEFAULT_GOLD
         elixir = DEFAULT_ELIXIR
@@ -269,6 +335,7 @@ object GameSession {
             visibilityMask = BooleanArray(0)
             currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
             networkUnits.clear()
+            networkBuildings.clear()
         }
     }
 

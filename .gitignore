@@ -30,6 +30,7 @@ hs_err_pid*
 /android/out/
 local.properties
 com_crashlytics_export_strings.xml
+imc-cret/build/
 
 ## Robovm:
 /ios/robovm-build/

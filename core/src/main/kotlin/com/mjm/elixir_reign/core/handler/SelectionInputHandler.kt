@@ -141,6 +141,7 @@ class SelectionInputHandler(private val engine: Engine) {
     fun isDoubleClickModeActive(): Boolean = isDoubleClickActive
     fun getEntityBoundingBox(entity: Entity): Rectangle? = BoundingBoxUtils.getBoundingBox(entity)
     fun isEntitySelected(entity: Entity): Boolean = entity in selectedEntities
+    fun selectedEntitiesSnapshot(): List<Entity> = selectedEntities.toList()
     fun selectedNetworkUnitIds(): IntArray {
         return selectedEntities
             .mapNotNull { it.getComponent(NetworkUnitComponent::class.java)?.unitId }

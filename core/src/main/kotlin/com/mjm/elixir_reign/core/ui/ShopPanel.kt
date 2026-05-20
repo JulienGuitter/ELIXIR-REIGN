@@ -9,8 +9,14 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Align
 import com.mjm.elixir_reign.core.i18n.Localization
+import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
+import com.mjm.elixir_reign.shared.data.BuildingCatalog
+import com.mjm.elixir_reign.shared.data.BuildingDefinition
+import com.mjm.elixir_reign.shared.logic.BuildingState
 
 data class ShopVisualConfig(
     val backgroundDrawable: String = "shopBackground",
@@ -25,13 +31,16 @@ data class ShopVisualConfig(
 )
 
 open class ShopPanel(
-    private val cardFactory: (title: String, price: Int) -> Actor,
+    private val cardFactory: (title: String, price: Int, preview: Drawable?) -> Actor,
     private val visualConfig: ShopVisualConfig = ShopVisualConfig()
 ) : Table() {
 
     private val itemsTable = Table()
     private val container = Table()
     private lateinit var scrollPane: ScrollPane
+    private var onBuildingSelected: ((BuildingDefinition) -> Unit)? = null
+    private var onShopShown: (() -> Unit)? = null
+    private var onShopHidden: (() -> Unit)? = null
 
     init {
         touchable = Touchable.enabled
@@ -59,9 +68,7 @@ open class ShopPanel(
         topTable.add(closeBtn).size(visualConfig.closeButtonSize).padBottom(10f)
 
         itemsTable.defaults().padRight(visualConfig.cardsSpacing)
-        for (i in 1..20) {
-            itemsTable.add(cardFactory("Item $i", i * 10))
-        }
+        setBuildings(BuildingCatalog.ALL)
 
         scrollPane = ScrollPane(itemsTable, UiAssets.skin, visualConfig.scrollPaneStyle)
         scrollPane.setFadeScrollBars(false)
@@ -129,6 +136,7 @@ open class ShopPanel(
     fun show() {
         isVisible = true
         toFront()
+        onShopShown?.invoke()
     }
 
     fun hide() {
@@ -136,17 +144,58 @@ open class ShopPanel(
         stage?.setScrollFocus(null)
         stage?.setKeyboardFocus(null)
         stage?.cancelTouchFocus()
+        onShopHidden?.invoke()
     }
 
     fun toggle() {
         isVisible = !isVisible
         if (isVisible) {
             toFront()
+            onShopShown?.invoke()
         } else {
             stage?.setScrollFocus(null)
             stage?.setKeyboardFocus(null)
             stage?.cancelTouchFocus()
+            onShopHidden?.invoke()
         }
     }
-}
 
+    fun setBuildings(buildings: List<BuildingDefinition>) {
+        itemsTable.clearChildren()
+        buildings.forEach { building ->
+            val preview = createPreviewDrawable(building)
+            val card = cardFactory(building.stats.name, building.stats.primaryCost(), preview)
+            card.addListener(object : ClickListener() {
+                override fun clicked(event: InputEvent?, x: Float, y: Float) {
+                    onBuildingSelected?.invoke(building)
+                }
+            })
+            itemsTable.add(card)
+        }
+    }
+
+    private fun createPreviewDrawable(building: BuildingDefinition): Drawable? {
+        return try {
+            val animator = SpriteAnimationManager.createBuildingAnimator(
+                stats = building.stats,
+                buildingState = BuildingState.IDLE
+            )
+            val region = animator.getCurrentTextureRegion() ?: return null
+            TextureRegionDrawable(region)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun setOnBuildingSelected(listener: (BuildingDefinition) -> Unit) {
+        onBuildingSelected = listener
+    }
+
+    fun setOnShopShown(listener: () -> Unit) {
+        onShopShown = listener
+    }
+
+    fun setOnShopHidden(listener: () -> Unit) {
+        onShopHidden = listener
+    }
+}
