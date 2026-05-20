@@ -27,5 +27,6 @@ class SpriteAnimatorComponent(
     var lastActionType: ActionType? = spriteAnimator.currentAction,
     var lastDirectionType: DirectionType? = spriteAnimator.currentDirection,
     // Tracking pour BUILDINGS: détecte les changements de state
-    var lastBuildingState: BuildingState? = null
+    var lastBuildingState: BuildingState? = null,
+    var lastBuildingLevel: Int = 1
 ) : Component

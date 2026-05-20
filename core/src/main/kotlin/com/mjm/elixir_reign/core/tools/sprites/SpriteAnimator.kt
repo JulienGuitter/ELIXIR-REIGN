@@ -25,7 +25,8 @@ class SpriteAnimator(
     val baseClipName: String,
     directionType: DirectionType? = null,
     actionType: ActionType? = null,
-    buildingState: BuildingState? = null
+    buildingState: BuildingState? = null,
+    buildingLevel: Int = 1
 ) {
     private var currentClip: AnimationClip? = null
     private var currentFrameIndex = 0
@@ -55,7 +56,7 @@ class SpriteAnimator(
             setUnitClip(baseClipName, directionType!!, actionType!!)
         } else {
             // buildingState ne peut pas être null ici grâce à la validation
-            setBuildingClip(baseClipName, buildingState!!)
+            setBuildingClip(baseClipName, buildingState!!, buildingLevel)
         }
     }
 
@@ -83,14 +84,37 @@ class SpriteAnimator(
     fun setBuildingClip(baseClipName: String, buildingState: BuildingState) {
         if (isUnit) throw IllegalStateException("Cannot set building clip for a unit sprite")
 
+        setBuildingClip(baseClipName, buildingState, level = 1)
+    }
+
+    fun setBuildingClip(baseClipName: String, buildingState: BuildingState, level: Int) {
+        if (isUnit) throw IllegalStateException("Cannot set building clip for a unit sprite")
+
         // Mettre à jour l'état courant
         currentBuildingState = buildingState
 
         // Utiliser StateMapper pour construire le nom du clip avec le state
-        val fullClipName = stateMapper.buildClipName(baseClipName, buildingState)
-        currentClip = spriteSheet.clips.find { it.name == fullClipName }
+        val requestedLevel = level.coerceAtLeast(1)
+        currentClip = findBuildingClip(baseClipName, buildingState, requestedLevel)
         currentFrameIndex = 0
         elapsedTime = 0f
+    }
+
+    private fun findBuildingClip(baseClipName: String, buildingState: BuildingState, level: Int): AnimationClip? {
+        if (buildingState == BuildingState.MINING) {
+            for (candidateLevel in level downTo 1) {
+                val clipName = stateMapper.buildClipName(baseClipName, buildingState, candidateLevel)
+                val clip = spriteSheet.clips.find { it.name == clipName }
+                if (clip != null) {
+                    return clip
+                }
+            }
+        }
+
+        val fallbackClipName = stateMapper.buildClipName(baseClipName, buildingState, level)
+        return spriteSheet.clips.find { it.name == fallbackClipName }
+            ?: spriteSheet.clips.find { it.name == stateMapper.buildClipName(baseClipName, buildingState, 1) }
+            ?: spriteSheet.clips.firstOrNull()
     }
 
     /**

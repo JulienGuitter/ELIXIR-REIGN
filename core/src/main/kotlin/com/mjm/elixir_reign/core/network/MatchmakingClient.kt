@@ -164,6 +164,13 @@ object MatchmakingClient {
         return true
     }
 
+    fun consumeGameReadyWhenWorldReady(): Boolean {
+        if (!gameReady) return false
+        if (!GameSession.hasInitialMultiplayerVisibility()) return false
+        gameReady = false
+        return true
+    }
+
     fun canReconnectToLastInstance(): Boolean {
         return lastInstanceRedirect != null
     }

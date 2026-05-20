@@ -261,6 +261,12 @@ object GameSession {
         return currentFogSnapshot
     }
 
+    fun hasInitialMultiplayerVisibility(): Boolean {
+        synchronized(networkStateLock) {
+            return mapWidth > 0 && mapHeight > 0 && chunkSize > 0 && visibleTiles.isNotEmpty()
+        }
+    }
+
     fun unitSnapshots(): List<UnitState> {
         synchronized(networkStateLock) {
             return networkUnits.values.map {

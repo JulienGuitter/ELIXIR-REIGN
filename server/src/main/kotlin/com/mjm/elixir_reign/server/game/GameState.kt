@@ -36,6 +36,7 @@ class GameState(
     private val sentChunksByPlayer = mutableMapOf<Int, MutableSet<ChunkCoord>>()
     private val visibleUnitsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val visibleBuildingsByPlayer = mutableMapOf<Int, MutableSet<Int>>()
+    private val lastBuildingLevelSentByPlayer = mutableMapOf<Int, MutableMap<Int, Int>>()
     private val visibleTilesByPlayer = mutableMapOf<Int, MutableSet<Int>>()
     private val lastPresenceSentByPlayer = mutableMapOf<Int, Map<Int, PlayerConnectionState>>()
     private val lastMovingStateSentByPlayer = mutableMapOf<Int, MutableMap<Int, Boolean>>()
@@ -49,6 +50,9 @@ class GameState(
         if (players.containsKey(playerId)) return
 
         val player = PlayerState(id = playerId, name = name)
+        if (gameType == GameType.G1V1) {
+            player.buildings += createStartingTownHall(player, if (players.isEmpty()) STARTING_TOWN_HALL_ROW_OFFSET else 0)
+        }
         player.units += createStartingUnit(player, offset = 0)
         player.units += createStartingUnit(player, offset = 1)
         players[playerId] = player
@@ -57,6 +61,7 @@ class GameState(
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
         visibleBuildingsByPlayer[playerId] = mutableSetOf()
+        lastBuildingLevelSentByPlayer[playerId] = mutableMapOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
     }
 
@@ -67,6 +72,7 @@ class GameState(
         sentChunksByPlayer.remove(playerId)
         visibleUnitsByPlayer.remove(playerId)
         visibleBuildingsByPlayer.remove(playerId)
+        lastBuildingLevelSentByPlayer.remove(playerId)
         visibleTilesByPlayer.remove(playerId)
         lastPresenceSentByPlayer.remove(playerId)
         lastMovingStateSentByPlayer.remove(playerId)
@@ -106,6 +112,7 @@ class GameState(
         sentChunksByPlayer[playerId] = mutableSetOf()
         visibleUnitsByPlayer[playerId] = mutableSetOf()
         visibleBuildingsByPlayer[playerId] = mutableSetOf()
+        lastBuildingLevelSentByPlayer[playerId] = mutableMapOf()
         visibleTilesByPlayer[playerId] = mutableSetOf()
         lastPresenceSentByPlayer.remove(playerId)
         lastMovingStateSentByPlayer.remove(playerId)
@@ -179,6 +186,9 @@ class GameState(
             ?: return listOf(PacketUpgradeBuildingResult(requestId, false, "Batiment introuvable.", buildingId))
         val stats = buildingStats(building.entityType)
             ?: return listOf(PacketUpgradeBuildingResult(requestId, false, "Type de batiment invalide.", buildingId))
+        if (building.level >= stats.maxLevel) {
+            return listOf(PacketUpgradeBuildingResult(requestId, false, "Niveau maximum atteint.", buildingId, building.level))
+        }
         val multiplier = building.level + 1
         val goldCost = stats.costGold * multiplier
         val elixirCost = stats.costElixir * multiplier
@@ -231,11 +241,22 @@ class GameState(
 
     fun syncPacketsFor(playerId: Int, forcePresenceHeartbeat: Boolean = false): List<Any> {
         val player = players[playerId] ?: return emptyList()
-        val visibleTiles = computeVisibleTileIndices(player)
-        val visibleChunks = computeVisibleChunks(visibleTiles)
         val packets = mutableListOf<Any>()
 
         val sentChunks = sentChunksByPlayer.getOrPut(playerId) { mutableSetOf() }
+        worldMap.allChunks()
+            .map { it.coord }
+            .filter { it !in sentChunks }
+            .sortedWith(compareBy<ChunkCoord> { it.y }.thenBy { it.x })
+            .mapNotNull { worldMap.chunkAt(it) }
+            .forEach { chunk ->
+                packets += chunk.toPacket()
+                sentChunks += chunk.coord
+            }
+
+        val visibleTiles = computeVisibleTileIndices(player)
+        val visibleChunks = computeVisibleChunks(visibleTiles)
+
         visibleChunks
             .filter { it !in sentChunks }
             .sortedWith(compareBy<ChunkCoord> { it.y }.thenBy { it.x })
@@ -332,11 +353,19 @@ class GameState(
             .filter { it !in currentlyVisibleBuildings }
             .forEach { packets += PacketBuildingRemove(it) }
 
+        val lastBuildingLevels = lastBuildingLevelSentByPlayer.getOrPut(playerId) { mutableMapOf() }
         players.values
             .flatMap { it.buildings }
             .filter { it.id in currentlyVisibleBuildings }
-            .filter { it.id !in previouslyVisibleBuildings }
-            .forEach { building -> packets += building.toPacket() }
+            .forEach { building ->
+                val lastSentLevel = lastBuildingLevels[building.id]
+                if (building.id !in previouslyVisibleBuildings || lastSentLevel != building.level) {
+                    packets += building.toPacket()
+                    lastBuildingLevels[building.id] = building.level
+                }
+            }
+
+        lastBuildingLevels.keys.removeAll { it !in currentlyVisibleBuildings }
 
         previouslyVisibleUnits.clear()
         previouslyVisibleUnits += currentlyVisibleUnits
@@ -493,6 +522,18 @@ class GameState(
         )
     }
 
+    private fun createStartingTownHall(player: PlayerState, rowOffset: Int): BuildingInstanceState {
+        val spawn = spawnTileFor(players.size, rowOffset)
+        return BuildingInstanceState(
+            id = nextBuildingId++,
+            ownerPlayerId = player.id,
+            entityType = EntityType.TOWN_HALL,
+            row = spawn.first,
+            col = spawn.second,
+            level = 1
+        )
+    }
+
     private fun spawnTileFor(playerIndex: Int, offset: Int): Pair<Int, Int> {
         val margin = 3 + offset
         if (gameType == GameType.G1V1) {
@@ -619,5 +660,6 @@ class GameState(
         private const val ARRIVAL_THRESHOLD_TILES = 0.05f
         private const val UNKNOWN_TILE = -1
         private const val RECONNECT_GRACE_PERIOD_MS = 3 * 60 * 1000L
+        private const val STARTING_TOWN_HALL_ROW_OFFSET = 2
     }
 }

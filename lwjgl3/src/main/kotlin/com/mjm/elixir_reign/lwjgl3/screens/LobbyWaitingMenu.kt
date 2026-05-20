@@ -82,7 +82,7 @@ class LobbyWaitingMenu(private val game: Main) : ScreenAdapter() {
     }
 
     override fun render(delta: Float) {
-        if (MatchmakingClient.consumeGameReady()) {
+        if (MatchmakingClient.consumeGameReadyWhenWorldReady()) {
             game.navigateTo(ScreenRoute.GAME)
             return
         }

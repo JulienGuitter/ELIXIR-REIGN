@@ -17,6 +17,7 @@ data class BuildingStats(
     // Propriétés spécifiques aux bâtiments
     val buildTime: Float,
     val productionRate: Float = 0f,
+    val maxLevel: Int = 3,
     // Empreinte de construction en tuiles (NxN)
     val footprintSizeTiles: Int = 1
 ) : EntityStats(name, maxHP, texturePath, costGold, costElixir, costDarkElixir, spriteSheetJsonPath, spriteBaseClipName) {
@@ -33,6 +34,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 6f,
             productionRate = 0f,
+            maxLevel = 3,
             footprintSizeTiles = 3,
             texturePath = "sprites/buildings/tileset_troops_factory.png",
             spriteSheetJsonPath = "sprites/buildings/tileset_troops_factory.json",
@@ -46,6 +48,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 4f,
             productionRate = 0.5f,
+            maxLevel = 3,
             footprintSizeTiles = 2,
             texturePath = "sprites/buildings/anim_pack_elixir.png",
             spriteSheetJsonPath = "sprites/buildings/anim_pack_elixir.json",
@@ -59,6 +62,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 4f,
             productionRate = 0.3f,
+            maxLevel = 3,
             footprintSizeTiles = 3,
             texturePath = "sprites/buildings/dark_elixir_pack.png",
             spriteSheetJsonPath = "sprites/buildings/dark_elixir_pack.json",
@@ -72,6 +76,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 4f,
             productionRate = 0.5f,
+            maxLevel = 3,
             footprintSizeTiles = 2,
             texturePath = "sprites/buildings/anim_pack_mine.png",
             spriteSheetJsonPath = "sprites/buildings/anim_pack_mine.json",
@@ -85,6 +90,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 6f,
             productionRate = 0f,
+            maxLevel = 3,
             footprintSizeTiles = 3,
             texturePath = "sprites/buildings/tileset_archer_tower.png",
             spriteSheetJsonPath = "sprites/buildings/tileset_archer_tower.json",
@@ -98,6 +104,7 @@ data class BuildingStats(
             costDarkElixir = 0,
             buildTime = 10f,
             productionRate = 0f,
+            maxLevel = 3,
             footprintSizeTiles = 4,
             texturePath = "sprites/buildings/tileset_hdv.png",
             spriteSheetJsonPath = "sprites/buildings/tileset_hdv.json",

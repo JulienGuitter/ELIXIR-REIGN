@@ -153,9 +153,10 @@ object SpriteEntityFactory {
         // Créer l'animator (UNE FOIS) - peut être null si pas d'animation JSON
         val animator = SpriteAnimationManager.createBuildingAnimator(
             stats = stats,
-            buildingState = BuildingState.MINING
+            buildingState = BuildingState.MINING,
+            level = level
         )
-        entity.add(SpriteAnimatorComponent(animator))
+        entity.add(SpriteAnimatorComponent(animator, lastBuildingState = BuildingState.MINING, lastBuildingLevel = level))
 
         val spriteSheet = animator.spriteSheet
         // Créer le SpriteComponent avec dimensions depuis les stats

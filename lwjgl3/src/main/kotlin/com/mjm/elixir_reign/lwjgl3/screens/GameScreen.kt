@@ -47,6 +47,7 @@ import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.shared.data.BuildingDefinition
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.shared.ecs.systems.PlacementEventHandler
@@ -799,7 +800,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         entitiesByBuildingId.keys.removeAll { it !in visibleIds }
 
         snapshots.forEach { building ->
-            if (entitiesByBuildingId.containsKey(building.id)) return@forEach
+            val existing = entitiesByBuildingId[building.id]
+            if (existing != null) {
+                existing.getComponent(BuildingLevelComponent::class.java)?.level = building.level
+                return@forEach
+            }
             val position = buildingWorldPosition(building.row, building.col)
             SpriteEntityFactory.createBuilding(
                 entityType = building.entityType,
@@ -1257,6 +1262,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                     )
                 ) {
                     building.level += 1
+                    entitiesByBuildingId[buildingId]?.getComponent(BuildingLevelComponent::class.java)?.level = building.level
                 }
             }
         })
@@ -1304,7 +1310,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val stats = buildingStats(type)
         val multiplier = level + 1
         buildingPanelTitle.setText(stats.name)
-        buildingPanelLevel.setText("Niveau $level - cout: ${formatUpgradeCost(stats, multiplier)}")
+        val atMaxLevel = level >= stats.maxLevel
+        buildingPanelLevel.setText(
+            if (atMaxLevel) {
+                "Niveau $level / ${stats.maxLevel} - niveau max"
+            } else {
+                "Niveau $level / ${stats.maxLevel} - cout: ${formatUpgradeCost(stats, multiplier)}"
+            }
+        )
+        buildingPanelAction.isDisabled = atMaxLevel
         buildingPanelTable.isVisible = true
     }
 
