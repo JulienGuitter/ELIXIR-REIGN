@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.mjm.elixir_reign.core.grid.IsometricCoordinateConverter
 import com.mjm.elixir_reign.core.grid.IsometricGridRenderer
@@ -38,10 +39,14 @@ class BuildPlacementHandler(
     private var hoveredPlacementFootprintCells: List<Pair<Int, Int>> = emptyList()
     private val hoveredPlacementWorld = Vector2()
     private var canPlaceAtHoveredCell = false
+    private var previewBounds: Rectangle? = null
+    private var previewAnchorWorld: Vector2? = null
 
     fun togglePlacementMode() {
         isPlacementMode = !isPlacementMode
-        if (!isPlacementMode) {
+        if (isPlacementMode) {
+            ensurePreviewInitialized()
+        } else {
             clearPreviewState()
         }
     }
@@ -54,12 +59,45 @@ class BuildPlacementHandler(
             buildingState = PREVIEW_STATE
         )
         clearPreviewState()
-        if (activatePlacement) {
-            isPlacementMode = true
-        }
+        isPlacementMode = activatePlacement
     }
 
     fun isPlacementModeActive(): Boolean = isPlacementMode
+
+    fun canConfirmPlacement(): Boolean = isPlacementMode && canPlaceAtHoveredCell && hoveredPlacementCell != null
+
+    fun cancelPlacement() {
+        isPlacementMode = false
+        clearPreviewState()
+    }
+
+    fun confirmPlacement(): Boolean {
+        if (!canConfirmPlacement()) {
+            return false
+        }
+
+        val hoveredCell = hoveredPlacementCell ?: return false
+        val event = PlacementRequestEvent(
+            row = hoveredCell.first,
+            col = hoveredCell.second,
+            building = buildingToPlace()
+        )
+        eventBus.publish(event)
+
+        if (event.accepted) {
+            cancelPlacement()
+        }
+
+        return event.accepted
+    }
+
+    fun getPreviewAnchorWorldPosition(): Vector2? = previewAnchorWorld?.cpy()
+
+    fun isTouchOnPreview(screenX: Float, screenY: Float, camera: OrthographicCamera): Boolean {
+        val bounds = previewBounds ?: return false
+        val world = coordinateConverter.screenToWorld(screenX, screenY, camera)
+        return bounds.contains(world.x, world.y)
+    }
 
     fun updateHover(camera: OrthographicCamera, screenX: Float = Gdx.input.x.toFloat(), screenY: Float = Gdx.input.y.toFloat()) {
         if (!isPlacementMode) {
@@ -70,31 +108,16 @@ class BuildPlacementHandler(
         val gridPos = coordinateConverter.worldToGrid(world.x, world.y)
 
         if (gridPos == null) {
-            clearPreviewState()
             return
         }
 
         val (row, col) = gridPos
 
         if (!coordinateConverter.isGridPositionValid(row, col) || worldMap[row, col] == null) {
-            clearPreviewState()
             return
         }
 
-        hoveredPlacementCell = Pair(row, col)
-        hoveredPlacementFootprintCells = getFootprintCells(
-            centerRow = row,
-            centerCol = col,
-            size = placementBuildingStats.footprintSizeTiles
-        )
-
-        val worldPos = placementSystem.computePlacementWorldPosition(row, col)
-        hoveredPlacementWorld.set(worldPos.x, worldPos.y)
-        canPlaceAtHoveredCell = placementSystem.canPlace(
-            row = row,
-            col = col,
-            building = buildingToPlace()
-        )
+        setPreviewCell(row, col)
     }
 
     fun tryPlaceFromTap(screenX: Float, screenY: Float, camera: OrthographicCamera): Boolean {
@@ -128,8 +151,57 @@ class BuildPlacementHandler(
         val region = placementAnimator.getCurrentTextureRegion() ?: return
         val previewColor = if (canPlaceAtHoveredCell) VALID_PREVIEW_COLOR else INVALID_PREVIEW_COLOR
         val gridColor = if (canPlaceAtHoveredCell) VALID_GRID_HIGHLIGHT else INVALID_GRID_HIGHLIGHT
+        refreshPreviewGeometry()
+        val bounds = previewBounds ?: return
 
-        // Utiliser le calculator pour obtenir la position exactement comme RenderSystem
+        batch.begin()
+        batch.setColor(previewColor)
+        batch.draw(region, bounds.x, bounds.y, bounds.width, bounds.height)
+        batch.setColor(1f, 1f, 1f, 1f)
+        batch.end()
+
+        gridRenderer.highlightTiles(shapeRenderer, hoveredPlacementFootprintCells, gridColor)
+    }
+
+    private fun clearPreviewState() {
+        hoveredPlacementCell = null
+        hoveredPlacementFootprintCells = emptyList()
+        canPlaceAtHoveredCell = false
+        previewBounds = null
+        previewAnchorWorld = null
+    }
+
+    private fun ensurePreviewInitialized() {
+        if (hoveredPlacementCell != null) {
+            return
+        }
+        val centerRow = worldMap.height / 2
+        val centerCol = worldMap.width / 2
+        if (coordinateConverter.isGridPositionValid(centerRow, centerCol) && worldMap[centerRow, centerCol] != null) {
+            setPreviewCell(centerRow, centerCol)
+        }
+    }
+
+    private fun setPreviewCell(row: Int, col: Int) {
+        hoveredPlacementCell = Pair(row, col)
+        hoveredPlacementFootprintCells = getFootprintCells(
+            centerRow = row,
+            centerCol = col,
+            size = placementBuildingStats.footprintSizeTiles
+        )
+
+        val worldPos = placementSystem.computePlacementWorldPosition(row, col)
+        hoveredPlacementWorld.set(worldPos.x, worldPos.y)
+        canPlaceAtHoveredCell = placementSystem.canPlace(
+            row = row,
+            col = col,
+            building = buildingToPlace()
+        )
+        refreshPreviewGeometry()
+    }
+
+    private fun refreshPreviewGeometry() {
+        val hoveredCell = hoveredPlacementCell ?: return
         val spriteWidth = placementAnimator.spriteSheet.cellWidth
         val spriteHeight = placementAnimator.spriteSheet.cellHeight
         val (drawX, drawY) = SpritePositionCalculator.calculateDrawPosition(
@@ -145,50 +217,10 @@ class BuildPlacementHandler(
 
         val scaledWidth = spriteWidth * BUILDING_PREVIEW_SCALE
         val scaledHeight = spriteHeight * BUILDING_PREVIEW_SCALE
-
-        batch.begin()
-        batch.setColor(previewColor)
-        batch.draw(region, drawX, drawY, scaledWidth, scaledHeight)
-        batch.setColor(1f, 1f, 1f, 1f)
-        batch.end()
-
-        // === DEBUG VISUAL : Afficher les positions du preview ===
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line)
-
-        // Point de placement théorique (vert)
-        shapeRenderer.color.set(0f, 1f, 0f, 1f)
-        shapeRenderer.circle(hoveredPlacementWorld.x, hoveredPlacementWorld.y, 5f)
-        shapeRenderer.line(
-            hoveredPlacementWorld.x - 15f, hoveredPlacementWorld.y,
-            hoveredPlacementWorld.x + 15f, hoveredPlacementWorld.y
-        )
-        shapeRenderer.line(
-            hoveredPlacementWorld.x, hoveredPlacementWorld.y - 15f,
-            hoveredPlacementWorld.x, hoveredPlacementWorld.y + 15f
-        )
-
-        // Rectangle du preview (avec les offsets appliqués)
-        shapeRenderer.color.set(0.2f, 1f, 0.2f, 0.7f)
-        shapeRenderer.rect(drawX, drawY, scaledWidth, scaledHeight)
-
-        // Vecteur montrant l'offset appliqué
-        val offsetX = scaledWidth * (-placementAnimator.spriteSheet.footX)
-        val offsetY = scaledHeight * (-placementAnimator.spriteSheet.footY)
-        shapeRenderer.color.set(1f, 1f, 0f, 1f)
-        shapeRenderer.line(
-            hoveredPlacementWorld.x, hoveredPlacementWorld.y,
-            hoveredPlacementWorld.x + offsetX, hoveredPlacementWorld.y + offsetY
-        )
-
-        shapeRenderer.end()
-
-        gridRenderer.highlightTiles(shapeRenderer, hoveredPlacementFootprintCells, gridColor)
-    }
-
-    private fun clearPreviewState() {
-        hoveredPlacementCell = null
-        hoveredPlacementFootprintCells = emptyList()
-        canPlaceAtHoveredCell = false
+        previewBounds = Rectangle(drawX, drawY, scaledWidth, scaledHeight)
+        previewAnchorWorld = Vector2(drawX + scaledWidth / 2f, drawY + scaledHeight)
+        // Keep the latest preview cell anchored even if we briefly lose hover input.
+        hoveredPlacementCell = hoveredCell
     }
 
     private fun buildingToPlace(): PlacementSystem.BuildingToPlace {

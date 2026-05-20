@@ -84,22 +84,21 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private val input = object : InputAdapter() {
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-             selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-//             Clic gauche = sélectionner
-             selectionInputHandler.touchDown(screenX, screenY, camera)
+            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+            touchStartTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
-            // Essayer de placer un bâtiment si le mode placement est actif
             if (buildPlacementHandler.isPlacementModeActive()) {
-                val placed = buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)
-                if (placed) {
-                    Shop.hide()
-                    buildPlacementHandler.togglePlacementMode()
+                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
+                if (activeTouches.size >= 2) {
+                    beginPinch()
                 }
                 return true
             }
 
-            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+            val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
+            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+            // Clic gauche = sélectionner
+            selectionInputHandler.touchDown(screenX, screenY, camera)
 
             if (activeTouches.size >= 2) {
                 beginPinch()
@@ -109,7 +108,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             // Si mode double-clic actif, faire le drag selection
-             if (selectionInputHandler.isDoubleClickModeActive()) {
+             if (!buildPlacementHandler.isPlacementModeActive() && selectionInputHandler.isDoubleClickModeActive()) {
                  selectionInputHandler.touchDragged(screenX, screenY, camera)
                  return true
              }
@@ -128,16 +127,47 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
             val deltaX = screenX.toFloat() - previousTouch.x
             val deltaY = screenY.toFloat() - previousTouch.y
+            val startTouch = touchStartTouches[pointer]
+            if (startTouch != null && startTouch.dst(screenX.toFloat(), screenY.toFloat()) > CLICK_DRAG_THRESHOLD_PX) {
+                draggedPointers.add(pointer)
+            }
 
             // Sinon, bouger la caméra normalement
             camera.translate(-deltaX * camera.zoom, deltaY * camera.zoom, 0f)
             clampCameraPosition()
             camera.update()
             previousTouch.set(screenX.toFloat(), screenY.toFloat())
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
+            }
             return true
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
+            if (buildPlacementHandler.isPlacementModeActive()) {
+                val wasDragged = draggedPointers.contains(pointer) ||
+                    touchStartTouches[pointer]?.dst(screenX.toFloat(), screenY.toFloat())?.let { it > CLICK_DRAG_THRESHOLD_PX } == true
+
+                if (!wasDragged) {
+                    val placed = buildPlacementHandler.tryPlaceFromTap(screenX.toFloat(), screenY.toFloat(), camera)
+                    if (placed) {
+                        Shop.hide()
+                        buildPlacementHandler.cancelPlacement()
+                    }
+                }
+
+                activeTouches.remove(pointer)
+                touchStartTouches.remove(pointer)
+                draggedPointers.remove(pointer)
+
+                if (activeTouches.size >= 2) {
+                    beginPinch()
+                } else {
+                    endPinch()
+                }
+                return true
+            }
+
             // Finaliser la sélection/drag selection
              selectionInputHandler.touchUp()
 
@@ -150,6 +180,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             } else {
                 endPinch()
             }
+            return true
+        }
+
+        override fun mouseMoved(screenX: Int, screenY: Int): Boolean {
+            if (!buildPlacementHandler.isPlacementModeActive()) {
+                return false
+            }
+
+            buildPlacementHandler.updateHover(camera, screenX.toFloat(), screenY.toFloat())
             return true
         }
 
@@ -250,6 +289,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
          Shop.setOnBuildingSelected { selection: BuildingDefinition ->
              buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
+             centerPlacementPreviewOnScreen()
          }
 
          // Stocker la référence au gridRenderer pour l'accès ultérieur
@@ -312,7 +352,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         batch.end()
 
         // Mettre à jour et afficher le preview de placement
-        buildPlacementHandler.updateHover(camera)
         if (buildPlacementHandler.isPlacementModeActive()) {
             buildPlacementHandler.renderPreview(delta, batch, shapeRenderer)
         }
@@ -417,6 +456,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun centerPlacementPreviewOnScreen() {
+        buildPlacementHandler.updateHover(
+            camera = camera,
+            screenX = Gdx.graphics.width / 2f,
+            screenY = Gdx.graphics.height / 2f
+        )
+    }
+
     private fun beginPinch() {
         if (activeTouches.size < 2) {
             return
@@ -505,6 +552,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val MIN_ZOOM_PADDING_Y = 96f
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
+        private const val CLICK_DRAG_THRESHOLD_PX = 8f
         private const val DEBUG_LABEL_SCALE = 1.2f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
