@@ -107,21 +107,20 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
             }
 
             val worldCoords = camera.unproject(Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
-            if (clickedBarracks != null) {
-                barracksPanel.showFor(clickedBarracks)
-                activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
+
+            // Clic gauche = tenter de sélectionner
+            val hasSelectedEntity = selectionInputHandler.touchDown(screenX, screenY, camera)
+
+            if (hasSelectedEntity) {
                 return true
             }
 
-            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-            // emulate double click
-            selectionInputHandler.touchDown(screenX, screenY, camera)
-            if(isSelectionMode) {
-                selectionInputHandler.touchDown(screenX, screenY, camera)
+            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
+            if (clickedBarracks != null) {
+                barracksPanel.showFor(clickedBarracks)
+                return true
             }
 
-            activeTouches[pointer] = Vector2(screenX.toFloat(), screenY.toFloat())
 
             if (activeTouches.size >= 2) {
                 beginPinch()

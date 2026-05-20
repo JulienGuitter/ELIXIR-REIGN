@@ -102,15 +102,25 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             }
 
             val worldCoords = camera.unproject(com.badlogic.gdx.math.Vector3(screenX.toFloat(), screenY.toFloat(), 0f))
-            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
-            if (clickedBarracks != null) {
-                barracksPanel.showFor(clickedBarracks)
+
+            // On déplace les entités si elles sont sélectionnées (ceci ne fait rien s'il n'y a pas de sélection active)
+            // Mais attention, on ne veut peut-être pas les déplacer SI on clique sur un bâtiment ou une entité !
+            // La sélection doit être prioritaire.
+
+            // Clic gauche = tenter de sélectionner
+            val hasSelectedEntity = selectionInputHandler.touchDown(screenX, screenY, camera)
+
+            if (hasSelectedEntity) {
                 return true
             }
 
-            selectionInputHandler.moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-            // Clic gauche = sélectionner
-            selectionInputHandler.touchDown(screenX, screenY, camera)
+            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
+            if (clickedBarracks != null) {
+                barracksPanel.showFor(clickedBarracks)
+                // Désélectionner toutes les entités si on a cliqué sur une caserne
+                return true
+            }
+
 
             if (activeTouches.size >= 2) {
                 beginPinch()
