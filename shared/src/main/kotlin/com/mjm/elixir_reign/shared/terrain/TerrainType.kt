@@ -30,4 +30,7 @@ enum class TerrainType(
 
     val isBlendTarget: Boolean
         get() = material != TerrainMaterial.GRASS
+
+    val canBuildOn: Boolean
+        get() = material == TerrainMaterial.GRASS || material == TerrainMaterial.SAND
 }

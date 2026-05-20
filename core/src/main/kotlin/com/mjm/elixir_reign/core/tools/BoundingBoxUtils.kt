@@ -6,10 +6,10 @@ import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 
 /**
- * BoundingBoxUtils : Centralize tous les calculs de bounding box et positionnement
+ * BoundingBoxUtils : Wrapper convenable pour accéder aux calculs de positionnement via SpritePositionCalculator
  *
- * ⚠️ SOURCE DE VÉRITÉ UNIQUE pour les calculs de positionnement
- * Tous les calculs partagent la même logique de base : calculateAdjustedPosition()
+ * ⚠️ SOURCE DE VÉRITÉ UNIQUE : SpritePositionCalculator (voir ce fichier pour les calculs purs)
+ * BoundingBoxUtils fournit une API pratique pour les entités ECS
  */
 object BoundingBoxUtils {
 
@@ -29,41 +29,28 @@ object BoundingBoxUtils {
      *   (0,0) = bas-gauche de la cellule, (1,1) = haut-droite de la cellule
      */
     fun getBoundingBoxFromComponents(pos: PositionComponent, sprite: SpriteComponent): Rectangle {
-        val fullW = sprite.width * sprite.scaleX
-        val fullH = sprite.height * sprite.scaleY
-        val (drawX, drawY) = calculateAdjustedPosition(pos, sprite)
-
-        val collider = sprite.collider
-        return if (collider != null) {
-            val colX = drawX + collider.bottomLeftX * fullW
-            val colY = drawY + collider.bottomLeftY * fullH
-            val width = (collider.topRightX - collider.bottomLeftX) * fullW
-            val height = (collider.topRightY - collider.bottomLeftY) * fullH
-            Rectangle(colX, colY, width, height)
-        } else {
-            Rectangle(drawX, drawY, fullW, fullH)
-        }
+        return SpritePositionCalculator.calculateBoundingBox(pos, sprite)
     }
 
     /**
      * Calcule la position de dessin du sprite
      */
     fun getDrawPosition(pos: PositionComponent, sprite: SpriteComponent): Pair<Float, Float> {
-        return calculateAdjustedPosition(pos, sprite)
+        return SpritePositionCalculator.calculateDrawPosition(pos, sprite)
     }
 
     /**
      * Calcule le centre du sprite pour les cercles de sélection
      */
     fun getSpriteCenter(pos: PositionComponent, sprite: SpriteComponent): Pair<Float, Float> {
-        return Pair(pos.x, pos.y + sprite.height * sprite.scaleY * 0.1f)
+        return SpritePositionCalculator.calculateSpriteCenter(pos, sprite)
     }
 
     /**
      * Calcule le rayon du cercle de sélection
      */
     fun getSelectionRadius(sprite: SpriteComponent): Float {
-        return (sprite.width * sprite.scaleX) / 5f
+        return SpritePositionCalculator.calculateSelectionRadius(sprite)
     }
 
     /**
@@ -82,20 +69,5 @@ object BoundingBoxUtils {
         return rect.overlaps(box)
     }
 
-    // ============ CALCULS INTERNES (Source unique de vérité) ============
-
-    /**
-     * Logique UNIQUE de calcul de positionnement ajustée
-     * Tous les autres calculs l'utilisent pour éviter la duplication
-     *
-     * Calcule la position (X, Y) en tenant compte de:
-     * - La largeur du sprite (fullW) pour le centrage horizontal
-     * - Les offsets d'animation du SpriteComponent (offsetX, offsetY)
-     */
-    private fun calculateAdjustedPosition(pos: PositionComponent, sprite: SpriteComponent): Pair<Float, Float> {
-        val adjustedX = pos.x + sprite.width * sprite.scaleX * sprite.offsetX
-        val adjustedY = pos.y + sprite.height * sprite.scaleY * sprite.offsetY
-
-        return Pair(adjustedX, adjustedY)
-    }
+    // ============ Vérifications géométriques ============
 }

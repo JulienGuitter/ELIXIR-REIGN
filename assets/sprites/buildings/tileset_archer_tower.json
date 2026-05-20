@@ -1,0 +1,73 @@
+{
+  "frame_count": 5,
+  "columns": 3,
+  "rows": 2,
+  "frames_per_row": 3,
+  "frames_per_column": 2,
+  "cell_width": 129,
+  "cell_height": 152,
+  "frame_width": 129,
+  "frame_height": 152,
+  "sheet_width": 387,
+  "sheet_height": 304,
+  "align_origins": false,
+  "name": "anim_pack_archer_tower",
+  "foot_x": 0.5,
+  "foot_y": 0.0,
+  "clips": [
+    {
+      "name": "archer_tower_building",
+      "start_frame": 0,
+      "frame_count": 1,
+      "end_frame": 0,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "archer_tower_destroyed",
+      "start_frame": 1,
+      "frame_count": 1,
+      "end_frame": 1,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "archer_tower_idle",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "archer_tower_lvl1",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "archer_tower_lvl2",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    },
+    {
+      "name": "archer_tower_lvl3",
+      "start_frame": 2,
+      "frame_count": 1,
+      "end_frame": 2,
+      "timeline_frame_count": 50,
+      "visible_frame_count": 1,
+      "fps": 24
+    }
+  ]
+}

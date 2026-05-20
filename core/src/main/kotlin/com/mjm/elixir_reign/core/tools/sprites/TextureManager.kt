@@ -7,9 +7,17 @@ object TextureManager {
 
     // Chemins de tous les sprites du jeu — source unique de vérité
     val ALL_SPRITE_PATHS = listOf(
-        "sprites/anim_pack_chr_archer.png",
-        "sprites/anim_pack_chr_barbarian.png",
-        "sprites/anim_pack_chr_giant.png"
+        // Units
+        "sprites/units/anim_pack_chr_archer.png",
+        "sprites/units/anim_pack_chr_barbarian.png",
+        "sprites/units/anim_pack_chr_giant.png",
+        // Buildings
+        "sprites/buildings/dark_elixir_pack.png",
+        "sprites/buildings/anim_pack_elixir.png",
+        "sprites/buildings/anim_pack_mine.png",
+        "sprites/buildings/tileset_archer_tower.png",
+        "sprites/buildings/tileset_hdv.png",
+        "sprites/buildings/tileset_troops_factory.png"
     )
 
     // AssetManager injecté depuis Main une fois le chargement terminé
@@ -56,7 +64,6 @@ object TextureManager {
     fun unloadTexture(path: String) {
         fallbackCache[path]?.dispose()
         fallbackCache.remove(path)
-        // Ne pas toucher à l'AssetManager ici, il est géré par Main
     }
 
     fun unloadAll() {
@@ -67,4 +74,3 @@ object TextureManager {
 
     fun getCacheSize(): Int = fallbackCache.size
 }
-

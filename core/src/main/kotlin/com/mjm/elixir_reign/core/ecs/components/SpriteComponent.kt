@@ -4,7 +4,7 @@ import com.badlogic.ashley.core.Component
 import com.mjm.elixir_reign.core.tools.sprites.sprite_sheet.ColliderData
 
 class SpriteComponent(
-    var texturePath: String = "",
+    var texturePath: String? = "",
     var width: Int = 32,
     var height: Int = 32,
     var scaleX: Float = 1f,

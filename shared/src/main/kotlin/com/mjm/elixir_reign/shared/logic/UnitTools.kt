@@ -1,9 +1,22 @@
 package com.mjm.elixir_reign.shared.logic
 
-enum class UnitType {
+enum class EntityType {
     BARBARIAN,
     ARCHER,
-    GIANT
+    GIANT,
+    BARRACKS,
+    ELEXIR_PUMP,
+    DARCKELEXIR_PUMP,
+    GOLD_MINE,
+    ARCHER_TOWER,
+    TOWN_HALL
+}
+
+enum class BuildingState {
+    IDLE,
+    TRAINING_UNIT,
+    MINING,
+    DESTROYED
 }
 
 enum class DirectionType {
