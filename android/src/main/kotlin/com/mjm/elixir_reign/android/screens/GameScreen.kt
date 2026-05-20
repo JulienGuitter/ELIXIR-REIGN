@@ -227,12 +227,15 @@ class GameScreen(@Suppress("UNUSED_PARAMETER") game: Main) : ScreenAdapter() {
             worldMap = worldMap,
             geometry = isometricGeometry,
             occupancy = gridOccupancy,
-            spawnBuilding = { entityType, x, y ->
+            spawnBuilding = { entityType, x, y, row, col, footprintSize ->
                 SpriteEntityFactory.createBuilding(
                     entityType = entityType,
                     x = x,
                     y = y,
-                    engine = gameWorld.coreEngine.engine
+                    engine = gameWorld.coreEngine.engine,
+                    gridRow = row,
+                    gridCol = col,
+                    footprintSizeTiles = footprintSize
                 )
             }
         )

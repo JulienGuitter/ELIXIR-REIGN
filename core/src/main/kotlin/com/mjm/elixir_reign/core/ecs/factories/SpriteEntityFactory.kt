@@ -16,6 +16,7 @@ import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.GridPlacementComponent
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
@@ -103,7 +104,10 @@ object SpriteEntityFactory {
         entityType: EntityType,
         x: Float,
         y: Float,
-        engine: Engine
+        engine: Engine,
+        gridRow: Int? = null,
+        gridCol: Int? = null,
+        footprintSizeTiles: Int? = null
     ): Entity {
         val stats = getBuildingStats(entityType)
         val entity = Entity()
@@ -120,6 +124,13 @@ object SpriteEntityFactory {
         ))
         entity.add(EntityTypeComponent(entityType))
         entity.add(BuildingStateComponent(initialState))
+        if (gridRow != null && gridCol != null) {
+            entity.add(GridPlacementComponent(
+                row = gridRow,
+                col = gridCol,
+                footprintSizeTiles = footprintSizeTiles ?: stats.footprintSizeTiles
+            ))
+        }
 
         if (entityType == EntityType.BARRACKS) {
             entity.add(BarracksComponent(
@@ -152,7 +163,7 @@ object SpriteEntityFactory {
         entity.add(TextureRegionComponent(textureRegion))
 
         entity.add(HealthBarComponent(barHeight = 5f))
-        entity.add(LayerComponent(layer = 3))
+        entity.add(LayerComponent(layer = 1))
         entity.add(DepthComponent())
         entity.add(SelectableComponent(isSelected = false))
 
