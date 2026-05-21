@@ -18,6 +18,9 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
+import com.mjm.elixir_reign.core.network.MatchmakingClient
+import com.mjm.elixir_reign.core.session.GameSession
+import com.mjm.elixir_reign.shared.type.GameType
 
 class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
 
@@ -41,27 +44,31 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
         // Ajouter les listeners
         btnSolo.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
+                GameSession.startSolo()
                 game.navigateTo(ScreenRoute.GAME)
             }
         })
 
         btn1v1.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 1v1 mode
+                GameSession.startMultiplayer(GameType.G1V1)
+                MatchmakingClient.startMatchmaking(GameType.G1V1)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn1v3.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 1v3 mode
+                GameSession.startMultiplayer(GameType.G1V3)
+                MatchmakingClient.startMatchmaking(GameType.G1V3)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
 
         btn2v2.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
-                // TODO : Start 2v2 mode
+                GameSession.startMultiplayer(GameType.G2V2)
+                MatchmakingClient.startMatchmaking(GameType.G2V2)
                 game.navigateTo(ScreenRoute.LOBBY_WAITING)
             }
         })
@@ -83,7 +90,7 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
             add(btnSolo).width(300f).height(80f).pad(15f).row()
             add(btn1v1).width(300f).height(80f).pad(15f).row()
             add(btn1v3).width(300f).height(80f).pad(15f).row()
-            add(btn2v2).width(300f).height(80f).pad(15f).row()
+//            add(btn2v2).width(300f).height(80f).pad(15f).row()
             add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 

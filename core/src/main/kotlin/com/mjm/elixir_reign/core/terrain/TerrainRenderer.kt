@@ -4,11 +4,14 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.terrain.TerrainType
 import com.mjm.elixir_reign.shared.world.ChunkCoord
 import com.mjm.elixir_reign.shared.world.WorldMap
+import kotlin.math.roundToInt
 
 class TerrainRenderer(
     private val geometry: IsometricGeometry,
@@ -17,6 +20,7 @@ class TerrainRenderer(
 ) : Disposable {
 
     private val tileset = GroundTileset()
+    private val fogTileset = FogTileset()
     private val tileWidth = geometry.tileWidth
     private val tileHeight = geometry.tileHeight
 
@@ -52,6 +56,52 @@ class TerrainRenderer(
         return Rectangle(terrainBounds)
     }
 
+    fun renderFog(batch: SpriteBatch, fogSnapshot: GameSession.FogSnapshot, elapsedSeconds: Float) {
+        if (fogSnapshot.width != worldMap.width || fogSnapshot.height != worldMap.height) return
+        val frame = fogTileset.frame(elapsedSeconds)
+        val baseColor = batch.color.cpy()
+        val alphaByTile = fogSnapshot.alphaByTile
+        for (row in 0 until worldMap.height) {
+            for (col in 0 until worldMap.width) {
+                val tileIndex = row * worldMap.width + col
+                val fogAlpha = alphaByTile.getOrNull(tileIndex) ?: 1f
+                if (fogAlpha <= 0f) continue
+
+                val position = tileRenderPosition(row, col)
+                batch.setColor(baseColor.r, baseColor.g, baseColor.b, baseColor.a * fogAlpha)
+                drawRegion(
+                    batch = batch,
+                    region = frame,
+                    x = position.x,
+                    y = position.y,
+                    width = tileWidth,
+                    height = tileHeight
+                )
+            }
+        }
+        batch.color = baseColor
+    }
+
+    fun tileCenterPosition(row: Int, col: Int): Vector2 {
+        val position = tileRenderPosition(row, col)
+        return Vector2(position.x + geometry.halfTileWidth, position.y + geometry.halfTileHeight)
+    }
+
+    fun tileCenterPosition(row: Float, col: Float): Vector2 {
+        val position = tileRenderPosition(row, col)
+        return Vector2(position.x + geometry.halfTileWidth, position.y + geometry.halfTileHeight)
+    }
+
+    fun tileAtWorldPosition(x: Float, y: Float): Pair<Int, Int> {
+        val rawX = x - geometry.offsetX
+        val rawY = y - geometry.offsetY
+        val colMinusRow = rawX / geometry.halfTileWidth
+        val colPlusRow = -rawY / geometry.halfTileHeight
+        val row = ((colPlusRow - colMinusRow) / 2f).roundToInt().coerceIn(0, worldMap.height - 1)
+        val col = ((colPlusRow + colMinusRow) / 2f).roundToInt().coerceIn(0, worldMap.width - 1)
+        return row to col
+    }
+
     fun renderChunkDebug(shapeRenderer: ShapeRenderer) {
         chunkDebugOutlines.forEach { outline ->
             shapeRenderer.line(outline.topX, outline.topY, outline.rightX, outline.rightY)
@@ -74,12 +124,11 @@ class TerrainRenderer(
 
     override fun dispose() {
         tileset.dispose()
+        fogTileset.dispose()
     }
 
     private fun computeRenderOffset(): RenderOffset {
-        // Placeholder: in a real implementation, this would calculate the offset
-        // based on the position of the terrain in world space
-        return RenderOffset(x = 0f, y = 0f)
+        return RenderOffset(x = geometry.offsetX, y = geometry.offsetY)
     }
 
     private fun buildRenderTiles(): List<RenderTile> {
@@ -94,8 +143,8 @@ class TerrainRenderer(
                     row = row,
                     col = col,
                     type = terrainType,
-                    x = worldPos.x + renderOffset.x,
-                    y = worldPos.y + renderOffset.y
+                    x = worldPos.x,
+                    y = worldPos.y
                 )
             }
         }
@@ -315,6 +364,10 @@ class TerrainRenderer(
     }
 
     private fun tileRenderPosition(row: Int, col: Int): Point {
+        return tileRenderPosition(row.toFloat(), col.toFloat())
+    }
+
+    private fun tileRenderPosition(row: Float, col: Float): Point {
         return Point(
             x = (col - row) * geometry.halfTileWidth + renderOffset.x,
             y = -(col + row) * geometry.halfTileHeight + renderOffset.y

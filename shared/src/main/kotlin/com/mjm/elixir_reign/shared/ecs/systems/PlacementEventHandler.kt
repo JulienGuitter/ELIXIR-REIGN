@@ -15,4 +15,3 @@ class PlacementEventHandler(
         unsubscribe()
     }
 }
-

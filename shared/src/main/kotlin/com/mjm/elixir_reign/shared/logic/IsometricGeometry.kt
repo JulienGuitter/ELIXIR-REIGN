@@ -139,5 +139,3 @@ class IsometricGeometry(
         return Pair(offsetX, offsetY)
     }
 }
-
-

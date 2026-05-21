@@ -14,4 +14,3 @@ import com.mjm.elixir_reign.shared.logic.BuildingState
 class BuildingStateComponent(
     var state: BuildingState = BuildingState.IDLE
 ) : Component
-

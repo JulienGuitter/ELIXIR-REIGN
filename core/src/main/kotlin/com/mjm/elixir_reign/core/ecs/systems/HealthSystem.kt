@@ -22,12 +22,6 @@ class HealthSystem : IteratingSystem(
         val health = entity.getComponent(HealthComponent::class.java)
         val healthBar = entity.getComponent(HealthBarComponent::class.java)
 
-        // Affichage/animation de la santé côté client
-        if (health.currentHP <= 0f) {
-            println("[CLIENT] Entity died! Showing death animation...")
-            // Ici tu ajouteras les effets visuels, animation de mort, etc.
-        }
-
         // Clamp la santé aux limites
         if (health.currentHP > health.maxHP) {
             health.currentHP = health.maxHP
@@ -37,4 +31,3 @@ class HealthSystem : IteratingSystem(
         }
     }
 }
-

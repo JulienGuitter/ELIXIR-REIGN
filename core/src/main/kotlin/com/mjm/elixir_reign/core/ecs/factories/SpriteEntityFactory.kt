@@ -12,13 +12,18 @@ import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.data.UnitStats
+import com.mjm.elixir_reign.shared.ecs.components.AttackComponent
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
 import com.mjm.elixir_reign.shared.ecs.components.GridPlacementComponent
 import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
+import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
 import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
@@ -28,7 +33,7 @@ import com.mjm.elixir_reign.shared.logic.DirectionType
 import com.mjm.elixir_reign.shared.logic.EntityType
 
 /**
- * Factory ECS pour créer des entités avec sprites.
+ * Factory ECS pour creer des entites avec sprites.
  */
 object SpriteEntityFactory {
     private var nextBarracksId = 1
@@ -38,8 +43,11 @@ object SpriteEntityFactory {
         x: Float,
         y: Float,
         engine: Engine,
+        networkUnitId: Int = 0,
+        ownerPlayerId: Int = 0,
+        selectable: Boolean = true,
         barracksId: Int? = null,
-        teamId: Int = 0,
+        teamId: Int = ownerPlayerId,
         currentHP: Float? = null
     ): Entity {
         val stats = getUnitStats(entityType)
@@ -55,8 +63,14 @@ object SpriteEntityFactory {
             currentHP = currentHP ?: stats.maxHP,
             maxHP = stats.maxHP
         ))
-
+        entity.add(OwnerComponent(ownerPlayerId))
+        entity.add(NetworkUnitComponent(networkUnitId))
         entity.add(EntityTypeComponent(entityType))
+        entity.add(AttackComponent(
+            damage = stats.damage,
+            attackSpeed = stats.attackSpeed,
+            range = stats.range
+        ))
         entity.add(AnimationComponent(
             currentActionType = ActionType.RUN,
             currentDirectionType = DirectionType.DOWN,
@@ -86,7 +100,9 @@ object SpriteEntityFactory {
             ?: throw RuntimeException("Failed to create TextureRegion for $entityType")
         entity.add(TextureRegionComponent(textureRegion))
 
-        entity.add(SelectableComponent(isSelected = false))
+        if (selectable) {
+            entity.add(SelectableComponent(isSelected = false))
+        }
         entity.add(DestinationComponent())
         entity.add(HealthBarComponent(barHeight = 5f))
         entity.add(DepthComponent())
@@ -105,6 +121,10 @@ object SpriteEntityFactory {
         x: Float,
         y: Float,
         engine: Engine,
+        networkBuildingId: Int = 0,
+        ownerPlayerId: Int = 0,
+        level: Int = 1,
+        selectable: Boolean = true,
         gridRow: Int? = null,
         gridCol: Int? = null,
         footprintSizeTiles: Int? = null
@@ -124,6 +144,10 @@ object SpriteEntityFactory {
         ))
         entity.add(EntityTypeComponent(entityType))
         entity.add(BuildingStateComponent(initialState))
+        entity.add(BuildingLevelComponent(level))
+        entity.add(OwnerComponent(ownerPlayerId))
+        entity.add(NetworkBuildingComponent(networkBuildingId))
+
         if (gridRow != null && gridCol != null) {
             entity.add(GridPlacementComponent(
                 row = gridRow,
@@ -134,17 +158,22 @@ object SpriteEntityFactory {
 
         if (entityType == EntityType.BARRACKS) {
             entity.add(BarracksComponent(
-                barracksId = nextBarracksId++,
-                teamId = 0,
-                maxFormedUnits = stats.maxFormedTroops
+                barracksId = if (networkBuildingId != 0) networkBuildingId else nextBarracksId++,
+                teamId = ownerPlayerId,
+                maxFormedUnits = 6
             ))
         }
 
         val animator = SpriteAnimationManager.createBuildingAnimator(
             stats = stats,
-            buildingState = initialState
+            buildingState = initialState,
+            level = level
         )
-        entity.add(SpriteAnimatorComponent(animator))
+        entity.add(SpriteAnimatorComponent(
+            spriteAnimator = animator,
+            lastBuildingState = initialState,
+            lastBuildingLevel = level
+        ))
 
         val spriteSheet = animator.spriteSheet
         entity.add(SpriteComponent(
@@ -165,7 +194,9 @@ object SpriteEntityFactory {
         entity.add(HealthBarComponent(barHeight = 5f))
         entity.add(LayerComponent(layer = 1))
         entity.add(DepthComponent())
-        entity.add(SelectableComponent(isSelected = false))
+        if (selectable) {
+            entity.add(SelectableComponent(isSelected = false))
+        }
 
         engine.addEntity(entity)
         return entity

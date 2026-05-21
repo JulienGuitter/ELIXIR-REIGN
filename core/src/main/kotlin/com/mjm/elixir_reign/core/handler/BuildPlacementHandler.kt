@@ -26,6 +26,8 @@ class BuildPlacementHandler(
     private val gridRenderer: IsometricGridRenderer,
     private val placementSystem: PlacementSystem,
     private val eventBus: EventBus,
+    private val extraCanPlaceValidator: (Int, Int, PlacementSystem.BuildingToPlace) -> Boolean = { _, _, _ -> true },
+    private val placementRequestHandler: ((Int, Int, PlacementSystem.BuildingToPlace) -> Boolean)? = null,
     private var placementBuildingType: EntityType = EntityType.DARCKELEXIR_PUMP,
     private var placementBuildingStats: BuildingStats = BuildingStats.DARCKELEXIR_PUMP
 ) {
@@ -82,13 +84,17 @@ class BuildPlacementHandler(
             col = hoveredCell.second,
             building = buildingToPlace()
         )
-        eventBus.publish(event)
+        val accepted = placementRequestHandler?.invoke(hoveredCell.first, hoveredCell.second, event.building)
+            ?: run {
+                eventBus.publish(event)
+                event.accepted
+            }
 
-        if (event.accepted) {
+        if (accepted) {
             cancelPlacement()
         }
 
-        return event.accepted
+        return accepted
     }
 
     fun getPreviewAnchorWorldPosition(): Vector2? = previewAnchorWorld?.cpy()
@@ -137,8 +143,11 @@ class BuildPlacementHandler(
             col = hoveredCell.second,
             building = buildingToPlace()
         )
-        eventBus.publish(event)
-        return event.accepted
+        return placementRequestHandler?.invoke(hoveredCell.first, hoveredCell.second, event.building)
+            ?: run {
+                eventBus.publish(event)
+                event.accepted
+            }
     }
 
     fun renderPreview(delta: Float, batch: SpriteBatch, shapeRenderer: ShapeRenderer) {
@@ -196,7 +205,7 @@ class BuildPlacementHandler(
             row = row,
             col = col,
             building = buildingToPlace()
-        )
+        ) && extraCanPlaceValidator(row, col, buildingToPlace())
         refreshPreviewGeometry()
     }
 

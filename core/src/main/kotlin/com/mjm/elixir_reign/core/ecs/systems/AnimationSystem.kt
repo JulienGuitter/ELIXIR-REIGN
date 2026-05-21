@@ -8,8 +8,10 @@ import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
+import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
 
 /**
  * AnimationSystem côté client (ECS-pur)
@@ -41,6 +43,8 @@ class AnimationSystem : IteratingSystem(
         val movementComp = entity.getComponent(MovementComponent::class.java)
         val entityTypeComp = entity.getComponent(EntityTypeComponent::class.java)
         val spriteComp = entity.getComponent(SpriteComponent::class.java)
+        val buildingStateComp = entity.getComponent(BuildingStateComponent::class.java)
+        val buildingLevelComp = entity.getComponent(BuildingLevelComponent::class.java)
 
         val spriteAnimator = spriteAnimatorComp.spriteAnimator
 
@@ -72,6 +76,21 @@ class AnimationSystem : IteratingSystem(
 
             if (!unitAnimation.isAnimating) {
                 return
+            }
+        } else if (buildingStateComp != null && buildingLevelComp != null) {
+            val buildingStateChanged = buildingStateComp.state != spriteAnimatorComp.lastBuildingState
+            val buildingLevelChanged = buildingLevelComp.level != spriteAnimatorComp.lastBuildingLevel
+
+            if (buildingStateChanged || buildingLevelChanged) {
+                val baseClipName = SpriteAnimationManager.getBaseClipName(entityTypeComp.entityType)
+                spriteAnimator.setBuildingClip(
+                    baseClipName = baseClipName,
+                    buildingState = buildingStateComp.state,
+                    level = buildingLevelComp.level
+                )
+                spriteAnimatorComp.lastBuildingState = buildingStateComp.state
+                spriteAnimatorComp.lastBuildingLevel = buildingLevelComp.level
+                spriteComp?.collider = spriteAnimator.getCurrentCollider()
             }
         }
 

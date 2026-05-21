@@ -50,7 +50,8 @@ object SpriteAnimationManager {
      */
     fun createBuildingAnimator(
         stats: BuildingStats,
-        buildingState: BuildingState
+        buildingState: BuildingState,
+        level: Int = 1
     ): SpriteAnimator {
         val spriteSheet = getBuildingSpriteSheet(stats)
 
@@ -61,7 +62,8 @@ object SpriteAnimationManager {
             baseClipName = stats.spriteBaseClipName,
             directionType = null,
             actionType = null,
-            buildingState = buildingState
+            buildingState = buildingState,
+            buildingLevel = level
         )
     }
 

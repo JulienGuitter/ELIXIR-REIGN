@@ -4,7 +4,9 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.Disposable
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.core.terrain.TerrainRenderer
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.world.WorldMap
@@ -28,6 +30,10 @@ class WorldRenderer(
         // La couche OVERLAY n'est pas encore modelisee.
     }
 
+    fun renderFog(batch: SpriteBatch, fogSnapshot: GameSession.FogSnapshot, elapsedSeconds: Float) {
+        terrainRenderer.renderFog(batch, fogSnapshot, elapsedSeconds)
+    }
+
     fun renderChunkDebug(shapeRenderer: ShapeRenderer) {
         terrainRenderer.renderChunkDebug(shapeRenderer)
     }
@@ -38,6 +44,22 @@ class WorldRenderer(
 
     fun worldBounds(): Rectangle {
         return terrainRenderer.worldBounds()
+    }
+
+    fun tileCenterPosition(row: Int, col: Int): Vector2 {
+        return terrainRenderer.tileCenterPosition(row, col)
+    }
+
+    fun tileCenterPosition(row: Float, col: Float): Vector2 {
+        return terrainRenderer.tileCenterPosition(row, col)
+    }
+
+    fun tileAtWorldPosition(x: Float, y: Float): Pair<Int, Int> {
+        return terrainRenderer.tileAtWorldPosition(x, y)
+    }
+
+    fun geometry(): IsometricGeometry {
+        return geometry
     }
 
     override fun dispose() {

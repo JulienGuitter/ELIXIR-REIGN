@@ -25,6 +25,7 @@ import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.UnitStats
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
 import com.mjm.elixir_reign.shared.logic.ActionType
 import com.mjm.elixir_reign.shared.logic.DirectionType
@@ -35,7 +36,9 @@ class BarracksPanel(
     private val barracksProvider: () -> List<Entity>,
     private val allEntitiesProvider: () -> Iterable<Entity>,
     private val removeEntity: (Entity) -> Unit,
-    private val onBarracksFocused: (Entity) -> Unit
+    private val onBarracksFocused: (Entity) -> Unit,
+    private val onTrainUnitRequested: (Entity, EntityType) -> Boolean = { _, _ -> false },
+    private val canMutateLocally: () -> Boolean = { true }
 ) : Table() {
     private val container = Table()
     private val titleLabel = Label("", UiAssets.skin)
@@ -178,7 +181,7 @@ class BarracksPanel(
     private fun rebuildAvailableUnits() {
         availableUnitsTable.clearChildren()
         trainButtons.clear()
-        TRAINABLE_UNITS.forEach { unitType ->
+        listOf(EntityType.BARBARIAN, EntityType.ARCHER, EntityType.GIANT).forEach { unitType ->
             availableUnitsTable.add(createUnitCard(unitType)).width(260f).height(176f)
         }
     }
@@ -215,7 +218,11 @@ class BarracksPanel(
                         refresh()
                         return
                     }
-                    barracks.trainingQueue.add(unitType)
+                    if (canMutateLocally()) {
+                        barracks.trainingQueue.add(unitType)
+                    } else {
+                        onTrainUnitRequested(selectedBarracks ?: return, unitType)
+                    }
                     refresh()
                 }
             })
@@ -260,7 +267,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = active.unitType,
                     progress = progress,
-                    multiplier = null
+                    multiplier = null,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.activeTraining = null
                     refresh()
@@ -270,7 +278,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = null,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.trainingQueue.remove(unitType)
                     refresh()
@@ -280,7 +289,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = 1f,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.readyToSpawn.remove(unitType)
                     refresh()
@@ -291,7 +301,6 @@ class BarracksPanel(
         formedUnitsTable.clearChildren()
         val formedByType = formedUnitEntitiesFor(barracks)
             .mapNotNull { it.getComponent(EntityTypeComponent::class.java)?.entityType }
-            .filter { it in TRAINABLE_UNITS }
             .groupingBy { it }
             .eachCount()
         if (formedByType.isEmpty()) {
@@ -301,7 +310,8 @@ class BarracksPanel(
                 formedUnitsTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = null,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     formedUnitEntitiesFor(barracks)
                         .firstOrNull { it.getComponent(EntityTypeComponent::class.java)?.entityType == unitType }
@@ -319,8 +329,11 @@ class BarracksPanel(
             if (trainedUnit.barracksId != barracks.barracksId || trainedUnit.teamId != barracks.teamId) {
                 continue
             }
-            val entityType = entity.getComponent(EntityTypeComponent::class.java)?.entityType
-            if (entityType in TRAINABLE_UNITS) {
+            val health = entity.getComponent(HealthComponent::class.java)
+            if (health != null && health.currentHP <= 0f) {
+                continue
+            }
+            if (entity.getComponent(EntityTypeComponent::class.java) != null) {
                 formedUnits.add(entity)
             }
         }
@@ -356,6 +369,7 @@ class BarracksPanel(
         unitType: EntityType,
         progress: Float?,
         multiplier: Int?,
+        canDelete: Boolean,
         onDelete: () -> Unit
     ): Table {
         val table = Table()
@@ -379,7 +393,9 @@ class BarracksPanel(
         }
 
         table.add(slot).size(66f).padRight(5f)
-        table.add(deleteButton(onDelete)).size(32f, 30f).top()
+        if (canDelete) {
+            table.add(deleteButton(onDelete)).size(32f, 30f).top()
+        }
         return table
     }
 
@@ -422,25 +438,20 @@ class BarracksPanel(
     }
 
     private fun costText(stats: UnitStats): String {
-        val costs = stats.costs.joinToString(" + ") { "${it.amount} ${it.resourceType.displayName}" }
-        return "$costs  ${stats.trainingTimeSeconds.roundToInt()}s"
+        val costs = mutableListOf<String>()
+        if (stats.costGold > 0) costs += "${stats.costGold} or"
+        if (stats.costElixir > 0) costs += "${stats.costElixir} elixir"
+        if (stats.costDarkElixir > 0) costs += "${stats.costDarkElixir} elixir noir"
+        val costText = if (costs.isEmpty()) "aucun cout" else costs.joinToString(", ")
+        return "$costText  ${stats.trainingTimeSeconds.roundToInt()}s"
     }
 
     private fun unitTexture(unitType: EntityType): TextureRegion {
-        val stats = SpriteEntityFactory.getUnitStats(unitType)
         return SpriteAnimationManager.createUnitAnimator(
-            stats = stats,
+            stats = SpriteEntityFactory.getUnitStats(unitType),
             actionType = ActionType.RUN,
             directionType = DirectionType.DOWN
         ).getCurrentTextureRegion() ?: TextureRegion()
-    }
-
-    companion object {
-        private val TRAINABLE_UNITS = listOf(
-            EntityType.BARBARIAN,
-            EntityType.ARCHER,
-            EntityType.GIANT
-        )
     }
 
     private class ProgressOverlay(

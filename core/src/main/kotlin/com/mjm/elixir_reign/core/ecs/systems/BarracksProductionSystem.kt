@@ -6,6 +6,8 @@ import com.badlogic.ashley.core.Family
 import com.badlogic.ashley.systems.IteratingSystem
 import com.badlogic.gdx.math.MathUtils
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.session.GameMode
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BarracksTrainingProgress
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
@@ -18,6 +20,8 @@ class BarracksProductionSystem(
     Family.all(BarracksComponent::class.java, PositionComponent::class.java).get()
 ) {
     override fun processEntity(entity: Entity, deltaTime: Float) {
+        if (GameSession.mode == GameMode.MULTI) return
+
         val barracks = entity.getComponent(BarracksComponent::class.java)
         val position = entity.getComponent(PositionComponent::class.java)
 
@@ -33,7 +37,7 @@ class BarracksProductionSystem(
         val stats = SpriteEntityFactory.getUnitStats(activeTraining.unitType)
         if (activeTraining.elapsedSeconds >= stats.trainingTimeSeconds) {
             if (formedUnitCount(barracks) < barracks.maxFormedUnits) {
-                spawnUnit(activeTraining.unitType, barracks, position)
+                spawnUnit(unitType = activeTraining.unitType, barracks = barracks, position = position)
             }
             barracks.activeTraining = null
         }
@@ -42,7 +46,7 @@ class BarracksProductionSystem(
     private fun spawnReadyUnits(barracks: BarracksComponent, position: PositionComponent) {
         while (barracks.readyToSpawn.isNotEmpty() && formedUnitCount(barracks) < barracks.maxFormedUnits) {
             val unitType = barracks.readyToSpawn.removeAt(0)
-            spawnUnit(unitType, barracks, position)
+            spawnUnit(unitType = unitType, barracks = barracks, position = position)
         }
     }
 

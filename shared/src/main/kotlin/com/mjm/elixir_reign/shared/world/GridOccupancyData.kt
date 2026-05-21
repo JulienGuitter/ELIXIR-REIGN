@@ -46,4 +46,3 @@ class GridOccupancyData(
 		occupied.clear()
 	}
 }
-

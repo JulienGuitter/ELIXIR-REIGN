@@ -151,3 +151,34 @@ internal class GroundTileset : Disposable {
         const val OVERLAY_REGION_SIZE = 32
     }
 }
+
+internal class FogTileset : Disposable {
+    private val texture = Texture(Gdx.files.internal(TEXTURE_PATH)).also {
+        it.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
+    }
+
+    private val frames = List(FRAME_COUNT) { index ->
+        TextureRegion(
+            texture,
+            0,
+            index * GroundTileset.TOP_REGION_HEIGHT,
+            GroundTileset.TOP_REGION_WIDTH,
+            GroundTileset.TOP_REGION_HEIGHT
+        )
+    }
+
+    fun frame(elapsedSeconds: Float): TextureRegion {
+        val index = ((elapsedSeconds / FRAME_DURATION_SECONDS).toInt() % FRAME_COUNT).coerceAtLeast(0)
+        return frames[index]
+    }
+
+    override fun dispose() {
+        texture.dispose()
+    }
+
+    companion object {
+        private const val TEXTURE_PATH = "sprites/ground/FogTileSet.png"
+        private const val FRAME_COUNT = 8
+        private const val FRAME_DURATION_SECONDS = 0.12f
+    }
+}

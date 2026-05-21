@@ -43,6 +43,20 @@ class WorldMap private constructor(
     }
 
     companion object {
+        fun fromChunks(
+            chunkSize: Int,
+            width: Int,
+            height: Int,
+            chunks: Map<ChunkCoord, WorldChunk>
+        ): WorldMap {
+            return WorldMap(
+                chunkSize = chunkSize,
+                width = width,
+                height = height,
+                chunks = chunks.toMap()
+            )
+        }
+
         fun build(
             width: Int,
             height: Int,

@@ -8,4 +8,3 @@ data class PlacementRequestEvent(
     val building: PlacementSystem.BuildingToPlace,
     var accepted: Boolean = false
 )
-

@@ -57,4 +57,3 @@ class PlacementValidator(
         return isometricGrid.placeBuilding(building)
     }
 }
-

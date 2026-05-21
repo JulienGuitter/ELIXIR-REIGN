@@ -35,4 +35,3 @@ class GameScreenDebugRenderer(
         // Intentionally left minimal; wire offset vectors later.
     }
 }
-

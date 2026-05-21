@@ -23,4 +23,3 @@ class EventBus {
         listeners[event::class]?.toList()?.forEach { it(event) }
     }
 }
-

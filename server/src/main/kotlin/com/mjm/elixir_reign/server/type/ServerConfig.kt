@@ -5,5 +5,6 @@ data class ServerConfig(
     val lobby: Boolean,
     val instance: Boolean,
     var maxInstances: Int,
-    var serversIP: List<String>
+    var serversIP: List<String>,
+    var logLevel: String = "NORMAL"
 )

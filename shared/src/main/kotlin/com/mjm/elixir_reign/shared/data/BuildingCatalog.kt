@@ -16,4 +16,3 @@ object BuildingCatalog {
         BuildingDefinition(EntityType.ARCHER_TOWER, BuildingStats.ARCHER_TOWER),
     )
 }
-

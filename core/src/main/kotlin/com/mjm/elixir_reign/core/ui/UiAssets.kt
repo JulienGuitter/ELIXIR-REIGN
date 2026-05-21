@@ -21,6 +21,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.SelectBox
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
+import com.badlogic.gdx.scenes.scene2d.ui.TextField
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
@@ -173,6 +174,40 @@ object UiAssets {
         skin.add("default", Label.LabelStyle().apply {
             this.font = font; fontColor = Color.WHITE
         }, Label.LabelStyle::class.java)
+
+        val textFieldBackgroundTexture = createRoundedRectTexture(
+            width = 24,
+            height = 24,
+            radius = 0,
+            color = Color(0.08f, 0.08f, 0.08f, 0.92f)
+        )
+        val textFieldCursorTexture = createRoundedRectTexture(
+            width = 3,
+            height = 28,
+            radius = 0,
+            color = Color(1f, 1f, 1f, 0.95f)
+        )
+        val textFieldSelectionTexture = createRoundedRectTexture(
+            width = 12,
+            height = 28,
+            radius = 0,
+            color = Color(1f, 1f, 1f, 0.28f)
+        )
+
+        skin.add("textFieldBgTexture", textFieldBackgroundTexture, Texture::class.java)
+        skin.add("textFieldCursorTexture", textFieldCursorTexture, Texture::class.java)
+        skin.add("textFieldSelectionTexture", textFieldSelectionTexture, Texture::class.java)
+
+        skin.add("default", TextField.TextFieldStyle().apply {
+            this.font = font
+            fontColor = Color.WHITE
+            messageFont = font
+            messageFontColor = Color(1f, 1f, 1f, 0.45f)
+            background = TextureRegionDrawable(TextureRegion(textFieldBackgroundTexture))
+            focusedBackground = TextureRegionDrawable(TextureRegion(textFieldBackgroundTexture)).tint(Color(0.12f, 0.12f, 0.12f, 0.98f))
+            cursor = TextureRegionDrawable(TextureRegion(textFieldCursorTexture))
+            selection = TextureRegionDrawable(TextureRegion(textFieldSelectionTexture))
+        }, TextField.TextFieldStyle::class.java)
 
         val listStyle = com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle().apply {
             this.font = font

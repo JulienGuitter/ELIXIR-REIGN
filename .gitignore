@@ -44,6 +44,7 @@ imc-cret/build/
 /ios/IOSLauncher.app.dSYM
 
 ## Server:
+/config.yml
 /server/config.yml
 
 ## GWT:
@@ -158,6 +159,9 @@ Thumbs.db
 *#*#
 /.kotlin/
 /assets/assets.txt
+.env
+.env.*
+!.env.example
 
 ## Special cases:
 

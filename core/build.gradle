@@ -1,6 +1,50 @@
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 eclipse.project.name = appName + '-core'
 
+def generatedNetworkDefaultsDir = file("$buildDir/generated/network-defaults")
+
+tasks.register('generateNetworkDefaults') {
+  def hostValue = (project.findProperty('elixirDefaultServerHost') ?: '').toString().trim()
+  def portRaw = (project.findProperty('elixirDefaultServerPort') ?: '').toString().trim()
+  def portValue = 0
+  try {
+    portValue = portRaw ? Integer.parseInt(portRaw) : 0
+  } catch (Exception ignored) {
+    portValue = 0
+  }
+
+  inputs.property('defaultServerHost', hostValue)
+  inputs.property('defaultServerPort', portValue)
+  outputs.dir(generatedNetworkDefaultsDir)
+
+  doLast {
+    def packageDir = new File(generatedNetworkDefaultsDir, 'com/mjm/elixir_reign/core/network')
+    packageDir.mkdirs()
+
+    def escapedHost = hostValue.replace('\\', '\\\\').replace('"', '\\"')
+    new File(packageDir, 'NetworkDefaults.kt').text = """
+      package com.mjm.elixir_reign.core.network
+
+      object NetworkDefaults {
+          const val BUILD_HOST: String = \"${escapedHost}\"
+          const val BUILD_PORT: Int = ${portValue}
+      }
+    """.stripIndent()
+  }
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs += generatedNetworkDefaultsDir
+    }
+  }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  dependsOn tasks.named('generateNetworkDefaults')
+}
+
 dependencies {
   api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
   api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
@@ -8,8 +52,14 @@ dependencies {
   api "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
   api "org.json:json:20251224"
   api project(':shared')
+  testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+  testImplementation "org.jetbrains.kotlin:kotlin-test:$kotlinVersion"
 
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
   }
+}
+
+test {
+  useJUnitPlatform()
 }
