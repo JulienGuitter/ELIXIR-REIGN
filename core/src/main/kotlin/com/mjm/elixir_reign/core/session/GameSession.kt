@@ -32,6 +32,7 @@ object GameSession {
     private val networkBuildings = linkedMapOf<Int, BuildingInstanceState>()
     private val playerNameById = linkedMapOf<Int, String>()
     private val playerStateById = linkedMapOf<Int, PlayerConnectionState>()
+    private val playerColorSlotById = linkedMapOf<Int, Int>()
 
     @Volatile
     var mode: GameMode = GameMode.SOLO
@@ -107,9 +108,11 @@ object GameSession {
             playerNames = packet.players.map { it.name }
             playerNameById.clear()
             playerStateById.clear()
-            packet.players.forEach { player ->
+            playerColorSlotById.clear()
+            packet.players.forEachIndexed { index, player ->
                 playerNameById[player.id] = player.name
                 playerStateById[player.id] = player.connectionState
+                playerColorSlotById[player.id] = index
             }
             mapRevision = 0
 
@@ -280,6 +283,12 @@ object GameSession {
         }
     }
 
+    fun getPlayerColorSlot(playerId: Int): Int {
+        synchronized(networkStateLock) {
+            return playerColorSlotById[playerId] ?: playerId
+        }
+    }
+
     fun multiplayerWorldMap(): WorldMap? {
         synchronized(networkStateLock) {
             if (mapWidth <= 0 || mapHeight <= 0 || chunkSize <= 0) return null
@@ -387,6 +396,7 @@ object GameSession {
             playerNames = emptyList()
             playerNameById.clear()
             playerStateById.clear()
+            playerColorSlotById.clear()
             knownChunks.clear()
             visibleChunks.clear()
             visibleTiles.clear()
