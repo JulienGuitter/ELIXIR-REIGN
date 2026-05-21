@@ -120,11 +120,18 @@ Dans le menu de sélection de mode de jeu, vous pouvez choisir entre :
 
 Vous pouvez **lancer plusieurs instances du jeu** pour tester les fonctionnalités multijoueurs seul(es) :
 
+### Test sur Android studio :
+- Lancez la configuration "serveur App"
 - Lancez le jeu avec un compte/joueur 1
 - Lancez une deuxième instance du jeu avec un compte/joueur 2
-- Les deux instances se connectent au **même serveur** et peuvent interagir
-- Idéal pour tester les attaques, les défenses et les stratégies !
+- Les deux instances se connectent au **même serveur** (le serveur local que vous avez lancé précédemment) et peuvent interagir entre elle
 
+### Test avec les builds github :
+- Téléchargez les builds pour PC et/ou Android depuis la section "[Releases](https://github.com/JulienGuitter/ELIXIR-REIGN/releases)" du projet
+- Lancez le jeu, il se connectera automatiquement au serveur en ligne
+
+---
+## Tester le jeu multijoueur
 ### Pour PC :
 - Lancez le jeu plusieurs fois depuis votre ordinateur
 
