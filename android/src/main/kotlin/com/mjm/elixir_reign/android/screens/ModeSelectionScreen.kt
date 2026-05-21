@@ -90,7 +90,7 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
             add(btnSolo).width(300f).height(80f).pad(15f).row()
             add(btn1v1).width(300f).height(80f).pad(15f).row()
             add(btn1v3).width(300f).height(80f).pad(15f).row()
-            add(btn2v2).width(300f).height(80f).pad(15f).row()
+//            add(btn2v2).width(300f).height(80f).pad(15f).row()
             add(btnReturn).width(300f).height(80f).pad(15f).row()
         }
 
