@@ -14,7 +14,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 public abstract class BaseActivity extends AppCompatActivity {
 
-    private static final String CORE_PACKAGE = "com.mjm.elixir_reign";
     private static final String CORE_ACTIVITY = "com.mjm.elixir_reign.android.AndroidLauncher";
 
 
@@ -62,7 +61,7 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     private void openCore() {
         Intent intent = new Intent();
-        intent.setClassName(CORE_PACKAGE, CORE_ACTIVITY);
+        intent.setClassName(this, CORE_ACTIVITY);
 
         try {
             startActivity(intent);

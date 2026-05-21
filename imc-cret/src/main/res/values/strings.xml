@@ -3,7 +3,7 @@
     <string name="app_name">IMC-cret</string>
     <string name="open_core">Ouvrir le core</string>
 
-    <string name="core_not_installed">Le core n\'est pas installé, on reste sur IMC-cret.</string>
+    <string name="core_not_installed">Le jeu Elixir-Reign n\'est pas disponible.</string>
     <string name="nav_nouvelle_mesure">Nouvelle Mesure</string>
     <string name="nav_profil">Profil</string>
     <string name="nav_elixir_reign">Elixir-Reign</string>

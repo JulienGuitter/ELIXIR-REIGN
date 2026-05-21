@@ -28,6 +28,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="com.mjm.elixir_reign.android.AndroidLauncher" />
+
         <activity android:name=".NewMeasureActivity" />
         <activity android:name=".ProfileActivity" />
     </application>

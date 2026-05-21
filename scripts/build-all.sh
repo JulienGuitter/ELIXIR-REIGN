@@ -35,8 +35,9 @@ fi
 
 GRADLEW="${ROOT_DIR}/gradlew"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/build/release-artifacts}"
-ANDROID_BUILD_TASKS="${ANDROID_BUILD_TASKS:-${ANDROID_BUILD_TASK:-:android:assembleRelease}}"
+ANDROID_BUILD_TASKS="${ANDROID_BUILD_TASKS:-${ANDROID_BUILD_TASK:-:android:assembleRelease :imc-cret:assembleRelease}}"
 APP_NAME="${APP_NAME:-ELIXIR-REIGN}"
+IMC_APP_NAME="${IMC_APP_NAME:-IMC-CRET}"
 APP_VERSION="${APP_VERSION:-$(grep -E '^projectVersion=' "${ROOT_DIR}/gradle.properties" | head -n 1 | cut -d'=' -f2-)}"
 APP_VERSION="${APP_VERSION:-0.0.0}"
 
@@ -94,8 +95,15 @@ if [[ -n "$win_jar_file" ]]; then
   cp -f "$win_jar_file" "${OUTPUT_DIR}/${APP_NAME}-${APP_VERSION}-pc-win.jar"
 fi
 
-# Android APK(s)
-if [[ -d "${ROOT_DIR}/android/build/outputs/apk" ]]; then
+copy_android_apks() {
+  local module_dir="$1"
+  local artifact_name="$2"
+  local artifact_suffix="$3"
+
+  if [[ ! -d "${ROOT_DIR}/${module_dir}/build/outputs/apk" ]]; then
+    return
+  fi
+
   while IFS= read -r apk_file; do
     apk_base_name="$(basename "$apk_file")"
     apk_variant="release"
@@ -108,9 +116,12 @@ if [[ -d "${ROOT_DIR}/android/build/outputs/apk" ]]; then
       apk_variant="release"
     fi
 
-    cp -f "$apk_file" "${OUTPUT_DIR}/${APP_NAME}-${APP_VERSION}-android-${apk_variant}.apk"
-  done < <(find "${ROOT_DIR}/android/build/outputs/apk" -type f -name "*.apk")
-fi
+    cp -f "$apk_file" "${OUTPUT_DIR}/${artifact_name}-${APP_VERSION}-${artifact_suffix}-${apk_variant}.apk"
+  done < <(find "${ROOT_DIR}/${module_dir}/build/outputs/apk" -type f -name "*.apk")
+}
+
+copy_android_apks "android" "$APP_NAME" "android"
+copy_android_apks "imc-cret" "$IMC_APP_NAME" "imc-cret"
 
 echo "Artifacts copied to: $OUTPUT_DIR"
 ls -1 "$OUTPUT_DIR" | sed 's/^/ - /'

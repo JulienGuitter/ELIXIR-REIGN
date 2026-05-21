@@ -50,7 +50,8 @@ By default it runs:
 - `:server:jar`
 - `:lwjgl3:jarLinux`
 - `:lwjgl3:jarWin`
-- `:android:assembleRelease` (or tasks set in `.env` with `ANDROID_BUILD_TASKS`)
+- `:android:assembleRelease`
+- `:imc-cret:assembleRelease` (or tasks set in `.env` with `ANDROID_BUILD_TASKS`)
 
 Artifacts are copied to `build/release-artifacts`.
 
@@ -61,6 +62,8 @@ Default copied names:
 - `ELIXIR-REIGN-<version>-pc-win.jar`
 - `ELIXIR-REIGN-<version>-android-debug.apk` (if built)
 - `ELIXIR-REIGN-<version>-android-release.apk` or `ELIXIR-REIGN-<version>-android-release-unsigned.apk`
+- `IMC-CRET-<version>-imc-cret-debug.apk` (if built)
+- `IMC-CRET-<version>-imc-cret-release.apk` or `IMC-CRET-<version>-imc-cret-release-unsigned.apk`
 
 Optional checks:
 
