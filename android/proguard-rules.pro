@@ -47,6 +47,16 @@
 # You will probably need this line in most cases:
 -keep public class com.badlogic.gdx.graphics.Color { *; }
 
+# Kryo serializes these classes by reflection. Keep their names and fields stable
+# so Android release builds stay compatible with the desktop client and server.
+-keep class com.mjm.elixir_reign.shared.network.** { *; }
+-keep class com.mjm.elixir_reign.shared.game.** { *; }
+-keep class com.mjm.elixir_reign.shared.logic.EntityType { *; }
+-keep class com.mjm.elixir_reign.shared.terrain.TerrainType { *; }
+-keep class com.mjm.elixir_reign.shared.type.GameType { *; }
+-dontwarn java.beans.**
+-dontwarn sun.nio.ch.**
+
 # These two lines are used with mapping files; see https://developer.android.com/build/shrink-code#retracing
 -keepattributes LineNumberTable,SourceFile
 -renamesourcefileattribute SourceFile

@@ -4,10 +4,29 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT_DIR}/.env"
 DRY_RUN="false"
+BUILD_VERSION=""
+
+usage() {
+  echo "Usage: $0 --version <version> [--env-file /path/to/.env] [--dry-run]"
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --version)
+      if [[ $# -lt 2 || "$2" == --* ]]; then
+        echo "Missing value for --version"
+        usage
+        exit 1
+      fi
+      BUILD_VERSION="$2"
+      shift 2
+      ;;
     --env-file)
+      if [[ $# -lt 2 || "$2" == --* ]]; then
+        echo "Missing value for --env-file"
+        usage
+        exit 1
+      fi
       ENV_FILE="$2"
       shift 2
       ;;
@@ -17,11 +36,23 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--env-file /path/to/.env] [--dry-run]"
+      usage
       exit 1
       ;;
   esac
 done
+
+if [[ -z "$BUILD_VERSION" ]]; then
+  echo "Missing required argument: --version"
+  usage
+  exit 1
+fi
+
+if [[ ! "$BUILD_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
+  echo "Invalid version: $BUILD_VERSION"
+  echo "Allowed characters: letters, digits, dot, underscore, plus and hyphen."
+  exit 1
+fi
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -37,11 +68,33 @@ GRADLEW="${ROOT_DIR}/gradlew"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/build/release-artifacts}"
 APP_NAME="${APP_NAME:-ELIXIR-REIGN}"
 IMC_APP_NAME="${IMC_APP_NAME:-IMC-CRET}"
-APP_VERSION="${APP_VERSION:-$(grep -E '^projectVersion=' "${ROOT_DIR}/gradle.properties" | head -n 1 | cut -d'=' -f2-)}"
-APP_VERSION="${APP_VERSION:-0.0.0}"
+APP_VERSION="$BUILD_VERSION"
+
+update_gradle_property() {
+  local key="$1"
+  local value="$2"
+  local file="${ROOT_DIR}/gradle.properties"
+
+  PROPERTY_KEY="$key" PROPERTY_VALUE="$value" perl -0pi -e '
+    BEGIN {
+      $key = $ENV{"PROPERTY_KEY"};
+      $value = $ENV{"PROPERTY_VALUE"};
+    }
+    if (!s/^\Q$key\E=.*/$key=$value/m) {
+      $_ .= "\n$key=$value\n";
+    }
+  ' "$file"
+}
+
+if [[ "$DRY_RUN" == "true" ]]; then
+  echo "Dry run: would set projectVersion=${APP_VERSION} in gradle.properties"
+else
+  update_gradle_property "projectVersion" "$APP_VERSION"
+fi
 
 GRADLE_ARGS=(
   "--console=plain"
+  "-PprojectVersion=${APP_VERSION}"
 )
 
 if [[ -n "${ELIXIR_DEFAULT_SERVER_HOST:-}" ]]; then
@@ -122,4 +175,3 @@ copy_android_apks "imc-cret" "$IMC_APP_NAME" "imc-cret"
 
 echo "Artifacts copied to: $OUTPUT_DIR"
 ls -1 "$OUTPUT_DIR" | sed 's/^/ - /'
-

@@ -8,6 +8,8 @@ buildscript {
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+def appVersionName = (project.findProperty('projectVersion') ?: '0.0.0').toString()
+
 android {
   namespace = "com.mjm.elixir_reign"
   compileSdk = 35
@@ -35,7 +37,7 @@ android {
     minSdkVersion 21
     targetSdkVersion 35
     versionCode 1
-    versionName "1.0"
+    versionName appVersionName
   }
   compileOptions {
     sourceCompatibility "17"

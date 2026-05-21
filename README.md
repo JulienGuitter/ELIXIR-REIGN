@@ -42,7 +42,7 @@ To build server + desktop (Linux/Windows) + Android APK in one command:
 2. Run:
 
 ```bash
-./scripts/build-all.sh
+./scripts/build-all.sh --version 1.0.0
 ```
 
 By default it runs:
@@ -68,8 +68,8 @@ Default copied names:
 Optional checks:
 
 ```bash
-./scripts/build-all.sh --dry-run
-./scripts/build-all.sh --env-file /path/to/.env
+./scripts/build-all.sh --version 1.0.0 --dry-run
+./scripts/build-all.sh --version 1.0.0 --env-file /path/to/.env
 ```
 
 Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
