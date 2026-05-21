@@ -55,8 +55,6 @@ ELIXIR-REIGN propose deux modes de jeu multijoueur :
     - Entraîne des troupes (Barbares, Archers, Géants)
     - Limite le nombre total de troupes
 
-- **Canon** : Défense contre les troupes ennemies
-
 - **Tour d'Archers** : Défense contre les troupes ennemies
 
 ## ⚔️ Troupes
