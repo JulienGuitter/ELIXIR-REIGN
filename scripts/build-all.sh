@@ -35,7 +35,6 @@ fi
 
 GRADLEW="${ROOT_DIR}/gradlew"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/build/release-artifacts}"
-ANDROID_BUILD_TASKS="${ANDROID_BUILD_TASKS:-${ANDROID_BUILD_TASK:-:android:assembleRelease :imc-cret:assembleRelease}}"
 APP_NAME="${APP_NAME:-ELIXIR-REIGN}"
 IMC_APP_NAME="${IMC_APP_NAME:-IMC-CRET}"
 APP_VERSION="${APP_VERSION:-$(grep -E '^projectVersion=' "${ROOT_DIR}/gradle.properties" | head -n 1 | cut -d'=' -f2-)}"
@@ -57,13 +56,11 @@ TASKS=(
   ":server:jar"
   ":lwjgl3:jarLinux"
   ":lwjgl3:jarWin"
+  ":android:assembleDebug"
+  ":android:assembleRelease"
+  ":imc-cret:assembleDebug"
+  ":imc-cret:assembleRelease"
 )
-
-read -r -a ANDROID_TASK_ARRAY <<< "$ANDROID_BUILD_TASKS"
-if [[ ${#ANDROID_TASK_ARRAY[@]} -eq 0 ]]; then
-  ANDROID_TASK_ARRAY=(":android:assembleRelease")
-fi
-TASKS+=("${ANDROID_TASK_ARRAY[@]}")
 
 if [[ "$DRY_RUN" == "true" ]]; then
   GRADLE_ARGS+=("--dry-run")
