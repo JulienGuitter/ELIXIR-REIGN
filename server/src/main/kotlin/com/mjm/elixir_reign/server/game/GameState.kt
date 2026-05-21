@@ -726,10 +726,11 @@ class GameState(
             if (produced <= 0) return@forEach
 
             building.productionAccumulator -= produced
+            val producedAmount = produced * RESOURCE_PRODUCTION_BATCH_SIZE
             when (building.entityType) {
-                EntityType.GOLD_MINE -> player.gold += produced
-                EntityType.ELEXIR_PUMP -> player.elixir += produced
-                EntityType.DARCKELEXIR_PUMP -> player.darkElixir += produced
+                EntityType.GOLD_MINE -> player.gold += producedAmount
+                EntityType.ELEXIR_PUMP -> player.elixir += producedAmount
+                EntityType.DARCKELEXIR_PUMP -> player.darkElixir += producedAmount
                 else -> Unit
             }
         }
@@ -1154,6 +1155,7 @@ class GameState(
         private const val ARCHER_TOWER_RANGE_TILES = 5f
         private const val ARCHER_TOWER_DAMAGE = 20f
         private const val ARCHER_TOWER_ATTACK_COOLDOWN_SECONDS = 1f / 1.5f
+        private const val RESOURCE_PRODUCTION_BATCH_SIZE = 5
         private const val UNKNOWN_TILE = -1
         private const val RECONNECT_GRACE_PERIOD_MS = 3 * 60 * 1000L
         private const val STARTING_TOWN_HALL_ROW_OFFSET = 2

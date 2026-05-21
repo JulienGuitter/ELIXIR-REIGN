@@ -1136,10 +1136,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             val stats = buildingStats(building.entityType)
             val produced = (stats.productionRate * building.level * elapsed).toInt()
             if (produced <= 0) return@forEach
+            val producedAmount = produced * RESOURCE_PRODUCTION_BATCH_SIZE
             when (building.entityType) {
-                EntityType.GOLD_MINE -> GameSession.addResources(goldAmount = produced)
-                EntityType.ELEXIR_PUMP -> GameSession.addResources(elixirAmount = produced)
-                EntityType.DARCKELEXIR_PUMP -> GameSession.addResources(darkElixirAmount = produced)
+                EntityType.GOLD_MINE -> GameSession.addResources(goldAmount = producedAmount)
+                EntityType.ELEXIR_PUMP -> GameSession.addResources(elixirAmount = producedAmount)
+                EntityType.DARCKELEXIR_PUMP -> GameSession.addResources(darkElixirAmount = producedAmount)
                 else -> Unit
             }
         }
@@ -1795,6 +1796,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
         private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
+        private const val RESOURCE_PRODUCTION_BATCH_SIZE = 5
         private const val BUILDING_PANEL_WIDTH = 292f
         private const val BUILDING_PANEL_HEIGHT = 154f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
