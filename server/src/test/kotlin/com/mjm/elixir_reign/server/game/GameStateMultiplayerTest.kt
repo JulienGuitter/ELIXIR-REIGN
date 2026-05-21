@@ -1,6 +1,7 @@
 package com.mjm.elixir_reign.server.game
 
 import com.mjm.elixir_reign.shared.data.BuildingStats
+import com.mjm.elixir_reign.shared.data.UnitStats
 import com.mjm.elixir_reign.shared.game.PlayerState
 import com.mjm.elixir_reign.shared.logic.EntityType
 import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
@@ -24,14 +25,16 @@ class GameStateMultiplayerTest {
     fun `building placement is authoritative and returns resource and building packets`() {
         val state = startedState()
         val player = state.player(1)
+        player.gold = BuildingStats.BARRACKS.costGold
+        val beforeGold = player.gold
         val (row, col) = state.findValidPlacement(player, EntityType.BARRACKS, BuildingStats.BARRACKS)
 
         val packets = state.handlePlaceBuildingRequest(1, 10, EntityType.BARRACKS, row, col)
 
         val result = packets.singleOfType<PacketPlaceBuildingResult>()
         assertTrue(result.accepted, result.reason)
-        assertEquals(300, player.buildings.single { it.id == result.buildingId }.let { BuildingStats.BARRACKS.costGold })
-        assertEquals(PlayerState.DEFAULT_GOLD - BuildingStats.BARRACKS.costGold, packets.singleOfType<PacketPlayerResources>().gold)
+        assertEquals(EntityType.BARRACKS, player.buildings.single { it.id == result.buildingId }.entityType)
+        assertEquals(beforeGold - BuildingStats.BARRACKS.costGold, packets.singleOfType<PacketPlayerResources>().gold)
         assertEquals(result.buildingId, packets.singleOfType<PacketBuildingSnapshot>().buildingId)
     }
 
@@ -60,6 +63,8 @@ class GameStateMultiplayerTest {
     fun `barracks queues trains and syncs formed troops`() {
         val state = startedState()
         val player = state.player(1)
+        player.gold = BuildingStats.BARRACKS.costGold + UnitStats.ARCHER.costGold
+        player.elixir = UnitStats.ARCHER.costElixir
         val (row, col) = state.findValidPlacement(player, EntityType.BARRACKS, BuildingStats.BARRACKS)
         val barracksId = state.handlePlaceBuildingRequest(1, 12, EntityType.BARRACKS, row, col)
             .singleOfType<PacketPlaceBuildingResult>()
@@ -69,9 +74,10 @@ class GameStateMultiplayerTest {
         val trainResult = state.handleTrainUnitRequest(1, 13, barracksId, EntityType.ARCHER)
             .singleOfType<PacketTrainUnitResult>()
         assertTrue(trainResult.accepted, trainResult.reason)
-        assertEquals(PlayerState.DEFAULT_GOLD - BuildingStats.BARRACKS.costGold - 150, player.gold)
+        assertEquals(0, player.gold)
+        assertEquals(0, player.elixir)
 
-        state.update(3f)
+        state.update(UnitStats.ARCHER.trainingTimeSeconds)
 
         assertTrue(player.units.any { it.barracksId == barracksId && it.entityType == EntityType.ARCHER })
         assertTrue(
@@ -84,6 +90,8 @@ class GameStateMultiplayerTest {
     fun `building upgrade spends resources and syncs upgraded level`() {
         val state = startedState()
         val player = state.player(1)
+        player.gold = BuildingStats.TOWN_HALL.costGold * 2
+        val beforeGold = player.gold
         val townHallId = player.buildings.first { it.entityType == EntityType.TOWN_HALL }.id
 
         val packets = state.handleUpgradeBuildingRequest(1, 14, townHallId)
@@ -91,7 +99,7 @@ class GameStateMultiplayerTest {
         val result = packets.singleOfType<PacketUpgradeBuildingResult>()
         assertTrue(result.accepted, result.reason)
         assertEquals(2, result.level)
-        assertEquals(PlayerState.DEFAULT_GOLD - BuildingStats.TOWN_HALL.costGold * 2, packets.singleOfType<PacketPlayerResources>().gold)
+        assertEquals(beforeGold - BuildingStats.TOWN_HALL.costGold * 2, packets.singleOfType<PacketPlayerResources>().gold)
         assertEquals(2, packets.singleOfType<PacketBuildingSnapshot>().level)
     }
 
