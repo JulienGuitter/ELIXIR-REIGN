@@ -7,10 +7,8 @@ data class UnitStats(
     override var costGold: Int,
     override var costElixir: Int,
     override var costDarkElixir: Int,
-    // Métadonnées de sprite
     override var spriteSheetJsonPath: String,
     override var spriteBaseClipName: String,
-    // Propriétés spécifiques aux unités
     val damage: Float,
     val attackSpeed: Float,
     val range: Float,
@@ -26,13 +24,15 @@ data class UnitStats(
             attackSpeed = 1.2f,
             range = 2.5f,
             speed = 60f,
-            costGold = 100,
-            costElixir = 0,
+//            costs = listOf(ResourceCost(ResourceType.ELEXIR, 100)),
+            trainingTimeSeconds = 4f,
+            costGold = 0,
+            costElixir = 100,
             costDarkElixir = 0,
             texturePath = "sprites/units/anim_pack_chr_barbarian.png",
             spriteSheetJsonPath = "sprites/units/anim_pack_chr_barbarian.json",
             spriteBaseClipName = "barbarian",
-            trainingTimeSeconds = 2.5f
+//            trainingTimeSeconds = 2.5f
         )
 
         val ARCHER = UnitStats(
@@ -42,13 +42,18 @@ data class UnitStats(
             attackSpeed = 1.5f,
             range = 4f,
             speed = 70f,
-            costGold = 150,
-            costElixir = 0,
+//            costs = listOf(
+//                ResourceCost(ResourceType.ELEXIR, 120),
+//                ResourceCost(ResourceType.GOLD, 20)
+//            ),
+            trainingTimeSeconds = 5f,
+            costGold = 20,
+            costElixir = 120,
             costDarkElixir = 0,
             texturePath = "sprites/units/anim_pack_chr_archer.png",
             spriteSheetJsonPath = "sprites/units/anim_pack_chr_archer.json",
             spriteBaseClipName = "archer",
-            trainingTimeSeconds = 2.5f
+//            trainingTimeSeconds = 2.5f
         )
 
         val GIANT = UnitStats(
@@ -58,13 +63,18 @@ data class UnitStats(
             attackSpeed = 0.5f,
             range = 2.5f,
             speed = 20f,
-            costGold = 150,
-            costElixir = 0,
+//            costs = listOf(
+//                ResourceCost(ResourceType.ELEXIR, 250),
+//                ResourceCost(ResourceType.GOLD, 80)
+//            ),
+            trainingTimeSeconds = 10f,
+            costGold = 80,
+            costElixir = 250,
             costDarkElixir = 0,
             texturePath = "sprites/units/anim_pack_chr_giant.png",
             spriteSheetJsonPath = "sprites/units/anim_pack_chr_giant.json",
             spriteBaseClipName = "giant",
-            trainingTimeSeconds = 6f
+//            trainingTimeSeconds = 6f
         )
     }
 }

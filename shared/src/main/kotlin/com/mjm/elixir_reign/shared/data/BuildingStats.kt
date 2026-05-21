@@ -1,8 +1,9 @@
 package com.mjm.elixir_reign.shared.data
+
 /**
- * Stats spécifiques aux bâtiments
- * Les propriétés communes (name, maxHP, texturePath, costs) viennent d'EntityStats
- * Les propriétés spécifiques aux bâtiments (width, height, buildTime) sont ici
+ * Stats specifiques aux batiments.
+ * Les proprietes communes viennent d'EntityStats, les proprietes de placement
+ * et de production restent ici.
  */
 data class BuildingStats(
     override var name: String,
@@ -11,10 +12,8 @@ data class BuildingStats(
     override var costGold: Int,
     override var costElixir: Int,
     override var costDarkElixir: Int,
-    // Métadonnées de sprite
     override var spriteSheetJsonPath: String,
     override var spriteBaseClipName: String,
-    // Propriétés spécifiques aux bâtiments
     val buildTime: Float,
     val productionRate: Float = 0f,
     val maxLevel: Int = 3,
@@ -42,6 +41,7 @@ data class BuildingStats(
             spriteSheetJsonPath = "sprites/buildings/tileset_troops_factory.json",
             spriteBaseClipName = "troops_factory"
         )
+
         val ELEXIR_PUMP = BuildingStats(
             name = "Elixir Pump",
             maxHP = 100f,
@@ -56,6 +56,7 @@ data class BuildingStats(
             spriteSheetJsonPath = "sprites/buildings/anim_pack_elixir.json",
             spriteBaseClipName = "elixir_pump"
         )
+
         val DARCKELEXIR_PUMP = BuildingStats(
             name = "Dark Elixir Pump",
             maxHP = 120f,
@@ -70,6 +71,7 @@ data class BuildingStats(
             spriteSheetJsonPath = "sprites/buildings/dark_elixir_pack.json",
             spriteBaseClipName = "darkelixir_pump"
         )
+
         val GOLD_MINE = BuildingStats(
             name = "Gold Mine",
             maxHP = 110f,
@@ -84,6 +86,7 @@ data class BuildingStats(
             spriteSheetJsonPath = "sprites/buildings/anim_pack_mine.json",
             spriteBaseClipName = "gold_mine"
         )
+
         val ARCHER_TOWER = BuildingStats(
             name = "Archer Tower",
             maxHP = 180f,
@@ -98,6 +101,7 @@ data class BuildingStats(
             spriteSheetJsonPath = "sprites/buildings/tileset_archer_tower.json",
             spriteBaseClipName = "archer_tower"
         )
+
         val TOWN_HALL = BuildingStats(
             name = "Town Hall",
             maxHP = 400f,

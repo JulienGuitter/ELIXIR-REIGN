@@ -1,11 +1,11 @@
 package com.mjm.elixir_reign.lwjgl3.screens
 
-import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.ScreenAdapter
+import com.badlogic.ashley.core.Entity
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
@@ -47,9 +47,10 @@ import com.mjm.elixir_reign.core.ui.UiAssets
 import com.mjm.elixir_reign.core.ui.UiImage
 import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.core.world.WorldRenderer
+import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.data.BuildingDefinition
 import com.mjm.elixir_reign.shared.data.BuildingStats
-import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BarracksTrainingProgress
 import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
@@ -72,7 +73,6 @@ import com.mjm.elixir_reign.core.navigation.ScreenRoute
 import com.mjm.elixir_reign.shared.ecs.components.DestinationComponent
 import com.mjm.elixir_reign.shared.ecs.components.MovementComponent
 import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
-import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.world.GridOccupancyData
 import com.mjm.elixir_reign.shared.world.WorldMap
