@@ -935,13 +935,6 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 y = spawn.y,
                 engine = gameWorld.coreEngine.engine
             )
-            val secondSpawn = worldRenderer.tileCenterPosition(worldMap.height / 2, worldMap.width / 2 + 1)
-            SpriteEntityFactory.createUnit(
-                entityType = EntityType.BARBARIAN,
-                x = secondSpawn.x,
-                y = secondSpawn.y,
-                engine = gameWorld.coreEngine.engine
-            )
             return
         }
 

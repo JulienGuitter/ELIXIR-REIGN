@@ -62,7 +62,6 @@ class GameState(
         val player = PlayerState(id = playerId, name = name)
         player.buildings += createStartingTownHall(player, STARTING_TOWN_HALL_ROW_OFFSET)
         player.units += createStartingUnit(player, offset = 0)
-        player.units += createStartingUnit(player, offset = 1)
         players[playerId] = player
         connectionStateByPlayer[playerId] = PlayerConnectionState.CONNECTED
         reconnectDeadlineByPlayer.remove(playerId)

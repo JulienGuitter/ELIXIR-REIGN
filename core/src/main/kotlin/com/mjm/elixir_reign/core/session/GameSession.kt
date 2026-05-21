@@ -454,9 +454,9 @@ object GameSession {
         val alphaByTile: FloatArray
     )
 
-    private const val DEFAULT_GOLD = 1200
-    private const val DEFAULT_ELIXIR = 1200
-    private const val DEFAULT_DARK_ELIXIR = 80
+    private const val DEFAULT_GOLD = 200
+    private const val DEFAULT_ELIXIR = 150
+    private const val DEFAULT_DARK_ELIXIR = 0
     private const val UNKNOWN_TILE = -1
     private const val FIRST_RING_DISTANCE_SQUARED = 2
     private const val SECOND_RING_DISTANCE_SQUARED = 8

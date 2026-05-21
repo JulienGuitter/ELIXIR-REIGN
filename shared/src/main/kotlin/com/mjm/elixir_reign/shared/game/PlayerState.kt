@@ -10,8 +10,8 @@ class PlayerState(
     var buildings: MutableList<BuildingInstanceState> = mutableListOf()
 ) {
     companion object {
-        const val DEFAULT_GOLD = 1200
-        const val DEFAULT_ELIXIR = 1200
-        const val DEFAULT_DARK_ELIXIR = 80
+        const val DEFAULT_GOLD = 200
+        const val DEFAULT_ELIXIR = 150
+        const val DEFAULT_DARK_ELIXIR = 0
     }
 }
