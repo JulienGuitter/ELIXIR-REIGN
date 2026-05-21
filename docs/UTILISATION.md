@@ -21,6 +21,7 @@ ELIXIR-REIGN propose plusieurs modes de jeu multijoueur :
 
 - **Mode Solo** : La map simple sans adversaire, idéale pour apprendre les mécaniques du jeu
 - **Mode 1v1** : Affrontement entre 2 joueurs
+- **Mode 1v3** : Affrontement entre 4 joueurs
 
 ### Configuration de Départ
 
@@ -73,30 +74,45 @@ Les statistiques des troupes sont affichées dans le menu d'entraînement de la 
 
 ### Sur PC (librairie LWJGL3)
 
-| Action | Contrôle                                                   |
-|--------|------------------------------------------------------------|
-| **Déplacer la vue** | Clic droit + mouvement souris OU touches fléchées          |
-| **Zoomer** | Molette souris (haut/bas)                                  |
+| Action                       | Contrôle                                                   |
+|------------------------------|------------------------------------------------------------|
+| **Déplacer la vue**          | Clic droit + mouvement souris OU touches fléchées          |
+| **Zoomer**                   | Molette souris (haut/bas)                                  |
 | **Sélectionner un bâtiment** | Clic gauche sur le bâtiment                                |
-| **Construire/Placer** | Clic gauche sur l'emplacement souhaité                     |
-| **Améliorer un bâtiment** | Clic gauche sur le bâtiment + option d'amélioration        |
-| **Entraîner une troupe** | Clic gauche sur la Caserne + sélectionner la troupe voulue |
-| **Attaquer** | Clic gauche sur une troupe, puis clic sur la cible         |
-| **Menu/Paramètres** | Clic sur l'icône menu en haut à gauche                     |
+| **Construire/Placer**        | Clic gauche sur l'emplacement souhaité                     |
+| **Améliorer un bâtiment**    | Clic gauche sur le bâtiment + option d'amélioration        |
+| **Entraîner une troupe**     | Clic gauche sur la Caserne + sélectionner la troupe voulue |
+| **Attaquer**                 | Clic gauche sur une troupe, puis clic sur la cible         |
+| **Menu/Paramètres**          | Appuyez la touche echap                                    |
+| **Sélectionner une troupe**  | Double click gauche + drag                                 |
 
 ### Sur Android
 
-| Action                       | Contrôle                                        |
-|------------------------------|-------------------------------------------------|
-| **Déplacer la vue**          | Glisser votre doigt sur l'écran                 |
-| **Zoomer**                   | Pincer/écarter deux doigts                      |
-| **Sélectionner un bâtiment** | Appuyez sur le bâtiment                         |
-| **Construire/Placer**        | Appuyez sur l'emplacement souhaité              |
-| **Améliorer un bâtiment**    | Appuyez sur le bâtiment + option d'amélioration |
-| **Entraîner une troupe**     | Appuyez sur la Caserne + sélectionner le type   |
-| **Attaquer**                 | Appuyez sur une troupe, puis sur la cible       |
-| **Menu/Paramètres**          | Appuyez sur l'icône menu (en haut)              |
-| **Revenir au menu**          | Appuyez la touche echap                         |
+| Action                       | Contrôle                                                |
+|------------------------------|---------------------------------------------------------|
+| **Déplacer la vue**          | Glisser votre doigt sur l'écran                         |
+| **Zoomer**                   | Pincer/écarter deux doigts                              |
+| **Sélectionner un bâtiment** | Appuyez sur le bâtiment                                 |
+| **Construire/Placer**        | Appuyez sur l'emplacement souhaité                      |
+| **Améliorer un bâtiment**    | Appuyez sur le bâtiment + option d'amélioration         |
+| **Entraîner une troupe**     | Appuyez sur la Caserne + sélectionner le type           |
+| **Attaquer**                 | Appuyez sur une troupe, puis sur la cible               |
+| **Menu/Paramètres**          | Appuyez sur l'icône menu (en haut)                      |
+| **Sélectionner une troupe**  | Appuyez sur l'icone de sélection de troupe (bas droite) |
+
+---
+
+Au lancement du jeu, si c'est votre première connexion, vous devez choisir votre pseudo.
+
+Vous arrivez ensuite sur la page d'accueil ou vous pouvez choisir entre :
+- **Jouer** : Passer au menu de sélection de mode de jeu
+- **Paramètres** : Configurer la langue de l'application
+- **Quitter** : Fermer le jeu
+
+Dans le menu de sélection de mode de jeu, vous pouvez choisir entre :
+- **Mode Solo** : La map simple sans adversaire, idéale pour apprendre les mécaniques du jeu
+- **Mode 1v1** : Affrontement entre 2 joueurs
+- **Mode 1v3** : Affrontement entre 4 joueurs
 
 ---
 
