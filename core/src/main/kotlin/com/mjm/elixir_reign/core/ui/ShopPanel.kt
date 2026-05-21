@@ -16,6 +16,7 @@ import com.mjm.elixir_reign.core.i18n.Localization
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.BuildingCatalog
 import com.mjm.elixir_reign.shared.data.BuildingDefinition
+import com.mjm.elixir_reign.shared.data.ResourceCost
 import com.mjm.elixir_reign.shared.logic.BuildingState
 
 data class ShopVisualConfig(
@@ -31,7 +32,7 @@ data class ShopVisualConfig(
 )
 
 open class ShopPanel(
-    private val cardFactory: (title: String, price: Int, preview: Drawable?) -> Actor,
+    private val cardFactory: (title: String, costs: List<ResourceCost>, preview: Drawable?) -> Actor,
     private val visualConfig: ShopVisualConfig = ShopVisualConfig()
 ) : Table() {
 
@@ -164,7 +165,7 @@ open class ShopPanel(
         itemsTable.clearChildren()
         buildings.forEach { building ->
             val preview = createPreviewDrawable(building)
-            val card = cardFactory(building.stats.name, building.stats.primaryCost(), preview)
+            val card = cardFactory(building.stats.name, building.stats.costs(), preview)
             card.addListener(object : ClickListener() {
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
                     onBuildingSelected?.invoke(building)

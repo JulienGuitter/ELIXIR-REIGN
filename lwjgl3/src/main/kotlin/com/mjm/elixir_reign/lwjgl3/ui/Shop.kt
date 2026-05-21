@@ -4,7 +4,7 @@ import com.mjm.elixir_reign.core.ui.ShopPanel
 import com.mjm.elixir_reign.core.ui.ShopVisualConfig
 
 object Shop : ShopPanel(
-    cardFactory = { title, price, preview -> ShopCard(title, price, preview) },
+    cardFactory = { title, costs, preview -> ShopCard(title, costs, preview) },
     visualConfig = ShopVisualConfig(
         scrollPaneStyle = "shopTransparent"
     )

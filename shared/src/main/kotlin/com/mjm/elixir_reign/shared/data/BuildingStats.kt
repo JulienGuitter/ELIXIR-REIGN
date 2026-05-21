@@ -25,6 +25,14 @@ data class BuildingStats(
         return listOf(costGold, costElixir, costDarkElixir).firstOrNull { it > 0 } ?: 0
     }
 
+    fun costs(): List<ResourceCost> {
+        return buildList {
+            if (costGold > 0) add(ResourceCost(ResourceType.GOLD, costGold))
+            if (costElixir > 0) add(ResourceCost(ResourceType.ELEXIR, costElixir))
+            if (costDarkElixir > 0) add(ResourceCost(ResourceType.BLACK_ELEXIR, costDarkElixir))
+        }
+    }
+
     companion object {
         val BARRACKS = BuildingStats(
             name = "Barracks",
