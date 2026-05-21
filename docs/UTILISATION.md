@@ -8,7 +8,7 @@ ELIXIR-REIGN est jouable sur **plusieurs plateformes** :
 
 - **Android** : Téléchargez et lancez l'application sur votre téléphone ou tablette
 - **PC (Windows/Linux/Mac)** : Lancez le jeu directement depuis votre ordinateur
-- **Cross-serveur** : Les joueurs Android et PC peuvent jouer ensemble sur le même serveur !
+- **Cross-Platforme** : Les joueurs Android et PC peuvent jouer ensemble sur le même serveur !
 
 ---
 
@@ -106,14 +106,11 @@ Vous pouvez **lancer plusieurs instances du jeu** pour tester les fonctionnalit�
 - Idéal pour tester les attaques, les défenses et les stratégies !
 
 ### Pour PC :
-```
-Lancez le jeu plusieurs fois depuis votre ordinateur
-```
+- Lancez le jeu plusieurs fois depuis votre ordinateur
 
 ### Pour Android :
-```
-Créez plusieurs profils utilisateurs ou utilisez des appareils/émulateurs différents
-```
+- Créez plusieurs profils utilisateurs ou utilisez des appareils/émulateurs différents
+
 
 ---
 
@@ -143,9 +140,4 @@ ELIXIR-REIGN utilise une architecture **client-serveur** :
 ---
 
 **Bonne chance et que le meilleur stratège gagne !** 🏆
-
-
-
-
-
 
