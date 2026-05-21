@@ -67,6 +67,12 @@ object InstanceManager {
         instance.handleUpgradeBuildingRequest(connectionId, resolvedPlayerId, requestId, buildingId)
     }
 
+    fun handleTrainUnitRequest(connectionId: Int, requestId: Int, buildingId: Int, entityType: EntityType) {
+        val instance = instances.firstOrNull { it.active && it.containsConnection(connectionId) } ?: return
+        val resolvedPlayerId = instance.playerIdForConnection(connectionId) ?: return
+        instance.handleTrainUnitRequest(connectionId, resolvedPlayerId, requestId, buildingId, entityType)
+    }
+
     fun update(deltaSeconds: Float) {
         instances
             .filter { it.active }

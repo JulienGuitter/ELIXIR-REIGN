@@ -54,6 +54,9 @@ object Network {
         kryo?.register(PacketPlayerResources::class.java)
         kryo?.register(PacketUpgradeBuildingRequest::class.java)
         kryo?.register(PacketUpgradeBuildingResult::class.java)
+        kryo?.register(PacketTrainUnitRequest::class.java)
+        kryo?.register(PacketTrainUnitResult::class.java)
+        kryo?.register(PacketGameOver::class.java)
         kryo?.register(PacketGameReady::class.java)
     }
 }

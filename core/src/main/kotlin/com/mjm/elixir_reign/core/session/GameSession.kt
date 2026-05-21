@@ -4,6 +4,7 @@ import com.mjm.elixir_reign.shared.game.BuildingInstanceState
 import com.mjm.elixir_reign.shared.game.UnitState
 import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
 import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
+import com.mjm.elixir_reign.shared.network.PacketGameOver
 import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketMapChunk
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
@@ -71,6 +72,18 @@ object GameSession {
     var mapRevision: Int = 0
         private set
 
+    @Volatile
+    var gameOver: Boolean = false
+        private set
+
+    @Volatile
+    var winnerPlayerId: Int = 0
+        private set
+
+    @Volatile
+    var eliminatedPlayerIds: Set<Int> = emptySet()
+        private set
+
     fun startSolo() {
         mode = GameMode.SOLO
         gameType = GameType.SOLO
@@ -117,6 +130,9 @@ object GameSession {
             currentFogSnapshot = FogSnapshot(width = mapWidth, height = mapHeight, alphaByTile = FloatArray(mapWidth * mapHeight) { 1f })
             networkUnits.clear()
             networkBuildings.clear()
+            gameOver = false
+            winnerPlayerId = 0
+            eliminatedPlayerIds = emptySet()
         }
     }
 
@@ -185,7 +201,10 @@ object GameSession {
                 col = packet.col,
                 targetRow = packet.targetRow,
                 targetCol = packet.targetCol,
-                moving = packet.moving
+                moving = packet.moving,
+                currentHP = packet.currentHP,
+                maxHP = packet.maxHP,
+                barracksId = packet.barracksId
             )
         }
     }
@@ -204,7 +223,15 @@ object GameSession {
                 entityType = packet.entityType,
                 row = packet.row,
                 col = packet.col,
-                level = packet.level
+                level = packet.level,
+                currentHP = packet.currentHP,
+                maxHP = packet.maxHP,
+                destroyed = packet.destroyed,
+                maxFormedUnits = packet.maxFormedUnits,
+                trainingQueue = packet.trainingQueue.toMutableList(),
+                hasActiveTraining = packet.hasActiveTraining,
+                activeTrainingUnitType = packet.activeTrainingUnitType,
+                activeTrainingElapsedSeconds = packet.activeTrainingElapsedSeconds
             )
         }
     }
@@ -231,11 +258,25 @@ object GameSession {
         }
     }
 
+    fun applyGameOver(packet: PacketGameOver) {
+        synchronized(networkStateLock) {
+            gameOver = true
+            winnerPlayerId = packet.winnerPlayerId
+            eliminatedPlayerIds = packet.eliminatedPlayerIds.toSet()
+        }
+    }
+
     fun getPlayerState(playerName: String): PlayerConnectionState {
         synchronized(networkStateLock) {
             val playerId = playerNameById.entries.firstOrNull { it.value == playerName }?.key
                 ?: return PlayerConnectionState.CONNECTED
             return playerStateById[playerId] ?: PlayerConnectionState.CONNECTED
+        }
+    }
+
+    fun getPlayerName(playerId: Int): String {
+        synchronized(networkStateLock) {
+            return playerNameById[playerId] ?: "Joueur $playerId"
         }
     }
 
@@ -278,7 +319,10 @@ object GameSession {
                     col = it.col,
                     targetRow = it.targetRow,
                     targetCol = it.targetCol,
-                    moving = it.moving
+                    moving = it.moving,
+                    currentHP = it.currentHP,
+                    maxHP = it.maxHP,
+                    barracksId = it.barracksId
                 )
             }
         }
@@ -293,7 +337,15 @@ object GameSession {
                     entityType = it.entityType,
                     row = it.row,
                     col = it.col,
-                    level = it.level
+                    level = it.level,
+                    currentHP = it.currentHP,
+                    maxHP = it.maxHP,
+                    destroyed = it.destroyed,
+                    maxFormedUnits = it.maxFormedUnits,
+                    trainingQueue = it.trainingQueue.toMutableList(),
+                    hasActiveTraining = it.hasActiveTraining,
+                    activeTrainingUnitType = it.activeTrainingUnitType,
+                    activeTrainingElapsedSeconds = it.activeTrainingElapsedSeconds
                 )
             }
         }
@@ -342,6 +394,9 @@ object GameSession {
             currentFogSnapshot = FogSnapshot(width = 0, height = 0, alphaByTile = floatArrayOf())
             networkUnits.clear()
             networkBuildings.clear()
+            gameOver = false
+            winnerPlayerId = 0
+            eliminatedPlayerIds = emptySet()
         }
     }
 

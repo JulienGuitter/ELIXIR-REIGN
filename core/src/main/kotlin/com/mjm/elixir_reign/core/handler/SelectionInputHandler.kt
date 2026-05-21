@@ -14,6 +14,9 @@ import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
+import com.mjm.elixir_reign.shared.logic.EntityType
 
 /**
  * SelectionInputHandler : Gère la sélection des entités au clic/double-clic
@@ -67,8 +70,9 @@ class SelectionInputHandler(private val engine: Engine) {
                 // mais l'appelant ne sait pas que selectedEntities = null !
                 // Faisons la logique : si on a cliqué dans le vide, on bouge d'abord, puis on désélectionne.
                 if (selectedEntities.isNotEmpty()) {
-                    moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
-                    selectedEntities.clear()
+                    if (GameSession.mode != GameMode.MULTI) {
+                        moveSelectedEntitiesToTarget(worldCoords.x, worldCoords.y)
+                    }
                     updateSelection()
                     return false
                 }
@@ -103,7 +107,7 @@ class SelectionInputHandler(private val engine: Engine) {
             val dragRect = getDragRectangle()
             selectedEntities.clear()
             for (entity in engine.entities) {
-                if (canInteractWith(entity) && entityTouchesRectangle(entity, dragRect)) {
+                if (isSelectableTroop(entity) && canInteractWith(entity) && entityTouchesRectangle(entity, dragRect)) {
                     selectedEntities.add(entity)
                 }
             }
@@ -134,6 +138,15 @@ class SelectionInputHandler(private val engine: Engine) {
     private fun entityTouchesRectangle(entity: Entity, rect: Rectangle): Boolean {
         if (entity.getComponent(SelectableComponent::class.java) == null) return false
         return BoundingBoxUtils.entityTouchesRectangle(entity, rect)
+    }
+
+    private fun isSelectableTroop(entity: Entity): Boolean {
+        if (entity.getComponent(NetworkBuildingComponent::class.java) != null) return false
+        val entityType = entity.getComponent(EntityTypeComponent::class.java)?.entityType ?: return false
+        return entityType == EntityType.BARBARIAN ||
+            entityType == EntityType.ARCHER ||
+            entityType == EntityType.GIANT ||
+            entity.getComponent(NetworkUnitComponent::class.java) != null
     }
 
     private fun canInteractWith(entity: Entity): Boolean {
@@ -167,6 +180,11 @@ class SelectionInputHandler(private val engine: Engine) {
     fun getEntityBoundingBox(entity: Entity): Rectangle? = BoundingBoxUtils.getBoundingBox(entity)
     fun isEntitySelected(entity: Entity): Boolean = entity in selectedEntities
     fun selectedEntitiesSnapshot(): List<Entity> = selectedEntities.toList()
+    fun clearSelection() {
+        selectedEntities.clear()
+        updateSelection()
+    }
+
     fun selectedNetworkUnitIds(): IntArray {
         return selectedEntities
             .mapNotNull { it.getComponent(NetworkUnitComponent::class.java)?.unitId }

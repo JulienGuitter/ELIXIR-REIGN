@@ -102,6 +102,7 @@ class Instance(
 
     fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
         gameState?.handleMoveRequest(playerId, unitIds, targetRow, targetCol)
+        lastSyncAtMs = 0L
     }
 
     fun handlePlaceBuildingRequest(connectionId: Int, playerId: Int, requestId: Int, entityType: EntityType, row: Int, col: Int) {
@@ -109,7 +110,7 @@ class Instance(
         gameState
             ?.handlePlaceBuildingRequest(playerId, requestId, entityType, row, col)
             ?.forEach { packet -> ServerLog.sendTcp(connection, packet) }
-        lastSyncAtMs = 0L
+        flushSyncToPlayers(forcePresenceHeartbeat = false)
     }
 
     fun handleUpgradeBuildingRequest(connectionId: Int, playerId: Int, requestId: Int, buildingId: Int) {
@@ -117,12 +118,27 @@ class Instance(
         gameState
             ?.handleUpgradeBuildingRequest(playerId, requestId, buildingId)
             ?.forEach { packet -> ServerLog.sendTcp(connection, packet) }
-        lastSyncAtMs = 0L
+        flushSyncToPlayers(forcePresenceHeartbeat = false)
+    }
+
+    fun handleTrainUnitRequest(connectionId: Int, playerId: Int, requestId: Int, buildingId: Int, entityType: EntityType) {
+        val connection = players[playerId]?.connection ?: return
+        gameState
+            ?.handleTrainUnitRequest(playerId, requestId, buildingId, entityType)
+            ?.forEach { packet -> ServerLog.sendTcp(connection, packet) }
+        flushSyncToPlayers(forcePresenceHeartbeat = false)
     }
 
     fun update(deltaSeconds: Float) {
         val state = gameState ?: return
+        val wasGameOver = state.isGameOver()
         state.update(deltaSeconds)
+
+        if (!wasGameOver && state.isGameOver()) {
+            flushSyncToPlayers(forcePresenceHeartbeat = false)
+            stop()
+            return
+        }
 
         val hasMovement = state.hasMovingUnits()
         val syncInterval = if (hasMovement) ACTIVE_SYNC_INTERVAL_MS else IDLE_HEARTBEAT_INTERVAL_MS
@@ -132,16 +148,22 @@ class Instance(
             return
         }
 
+        flushSyncToPlayers(forcePresenceHeartbeat = !hasMovement)
+        lastSyncAtMs = now
+    }
+
+    private fun flushSyncToPlayers(forcePresenceHeartbeat: Boolean) {
+        val state = gameState ?: return
         for ((playerId, client) in players) {
             val connection = client.connection ?: continue
             state.syncPacketsFor(
                 playerId = playerId,
-                forcePresenceHeartbeat = !hasMovement
+                forcePresenceHeartbeat = forcePresenceHeartbeat
             ).forEach { packet ->
                 ServerLog.sendTcp(connection, packet)
             }
         }
-        lastSyncAtMs = now
+        lastSyncAtMs = System.currentTimeMillis()
     }
 
     private fun sendInitialGameState(state: GameState) {

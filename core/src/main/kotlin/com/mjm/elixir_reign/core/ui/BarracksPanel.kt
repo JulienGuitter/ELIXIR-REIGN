@@ -21,21 +21,24 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.Scaling
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
-import com.mjm.elixir_reign.core.ecs.components.UnitTypeComponent
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.UnitStats
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
 import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
 import com.mjm.elixir_reign.shared.logic.ActionType
 import com.mjm.elixir_reign.shared.logic.DirectionType
-import com.mjm.elixir_reign.shared.logic.UnitType
+import com.mjm.elixir_reign.shared.logic.EntityType
 import kotlin.math.roundToInt
 
 class BarracksPanel(
     private val barracksProvider: () -> List<Entity>,
     private val allEntitiesProvider: () -> Iterable<Entity>,
     private val removeEntity: (Entity) -> Unit,
-    private val onBarracksFocused: (Entity) -> Unit
+    private val onBarracksFocused: (Entity) -> Unit,
+    private val onTrainUnitRequested: (Entity, EntityType) -> Boolean = { _, _ -> false },
+    private val canMutateLocally: () -> Boolean = { true }
 ) : Table() {
     private val container = Table()
     private val titleLabel = Label("", UiAssets.skin)
@@ -43,7 +46,7 @@ class BarracksPanel(
     private val activeTrainingTable = Table().apply { left() }
     private val formedUnitsTable = Table().apply { left() }
     private val statusLabel = Label("", UiAssets.skin)
-    private val trainButtons = mutableMapOf<UnitType, TextButton>()
+    private val trainButtons = mutableMapOf<EntityType, TextButton>()
     private val overlayTexture: Texture = UiAssets.createRoundedRectTexture(2, 2, 0, Color.WHITE)
     private val multiplierBackground = TextureRegionDrawable(TextureRegion(overlayTexture))
         .tint(Color(0f, 0f, 0f, 0.48f))
@@ -178,12 +181,12 @@ class BarracksPanel(
     private fun rebuildAvailableUnits() {
         availableUnitsTable.clearChildren()
         trainButtons.clear()
-        UnitType.entries.forEach { unitType ->
+        listOf(EntityType.BARBARIAN, EntityType.ARCHER, EntityType.GIANT).forEach { unitType ->
             availableUnitsTable.add(createUnitCard(unitType)).width(260f).height(176f)
         }
     }
 
-    private fun createUnitCard(unitType: UnitType): Actor {
+    private fun createUnitCard(unitType: EntityType): Actor {
         val stats = SpriteEntityFactory.getUnitStats(unitType)
         val card = Table().apply {
             background = UiAssets.skin.getDrawable("shopCardBackground")
@@ -215,7 +218,11 @@ class BarracksPanel(
                         refresh()
                         return
                     }
-                    barracks.trainingQueue.add(unitType)
+                    if (canMutateLocally()) {
+                        barracks.trainingQueue.add(unitType)
+                    } else {
+                        onTrainUnitRequested(selectedBarracks ?: return, unitType)
+                    }
                     refresh()
                 }
             })
@@ -260,7 +267,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = active.unitType,
                     progress = progress,
-                    multiplier = null
+                    multiplier = null,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.activeTraining = null
                     refresh()
@@ -270,7 +278,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = null,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.trainingQueue.remove(unitType)
                     refresh()
@@ -280,7 +289,8 @@ class BarracksPanel(
                 activeTrainingTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = 1f,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     barracks.readyToSpawn.remove(unitType)
                     refresh()
@@ -290,7 +300,7 @@ class BarracksPanel(
 
         formedUnitsTable.clearChildren()
         val formedByType = formedUnitEntitiesFor(barracks)
-            .mapNotNull { it.getComponent(UnitTypeComponent::class.java)?.unitType }
+            .mapNotNull { it.getComponent(EntityTypeComponent::class.java)?.entityType }
             .groupingBy { it }
             .eachCount()
         if (formedByType.isEmpty()) {
@@ -300,10 +310,11 @@ class BarracksPanel(
                 formedUnitsTable.add(deletableUnitSlot(
                     unitType = unitType,
                     progress = null,
-                    multiplier = count
+                    multiplier = count,
+                    canDelete = canMutateLocally()
                 ) {
                     formedUnitEntitiesFor(barracks)
-                        .firstOrNull { it.getComponent(UnitTypeComponent::class.java)?.unitType == unitType }
+                        .firstOrNull { it.getComponent(EntityTypeComponent::class.java)?.entityType == unitType }
                         ?.let(removeEntity)
                     refresh()
                 }).left().padRight(12f)
@@ -318,7 +329,11 @@ class BarracksPanel(
             if (trainedUnit.barracksId != barracks.barracksId || trainedUnit.teamId != barracks.teamId) {
                 continue
             }
-            if (entity.getComponent(UnitTypeComponent::class.java) != null) {
+            val health = entity.getComponent(HealthComponent::class.java)
+            if (health != null && health.currentHP <= 0f) {
+                continue
+            }
+            if (entity.getComponent(EntityTypeComponent::class.java) != null) {
                 formedUnits.add(entity)
             }
         }
@@ -351,9 +366,10 @@ class BarracksPanel(
     }
 
     private fun deletableUnitSlot(
-        unitType: UnitType,
+        unitType: EntityType,
         progress: Float?,
         multiplier: Int?,
+        canDelete: Boolean,
         onDelete: () -> Unit
     ): Table {
         val table = Table()
@@ -377,7 +393,9 @@ class BarracksPanel(
         }
 
         table.add(slot).size(66f).padRight(5f)
-        table.add(deleteButton(onDelete)).size(32f, 30f).top()
+        if (canDelete) {
+            table.add(deleteButton(onDelete)).size(32f, 30f).top()
+        }
         return table
     }
 
@@ -409,7 +427,7 @@ class BarracksPanel(
         }
     }
 
-    private fun unitImage(unitType: UnitType): Image {
+    private fun unitImage(unitType: EntityType): Image {
         return Image(TextureRegionDrawable(unitTexture(unitType))).apply {
             setScaling(Scaling.fit)
         }
@@ -420,13 +438,17 @@ class BarracksPanel(
     }
 
     private fun costText(stats: UnitStats): String {
-        val costs = stats.costs.joinToString(" + ") { "${it.amount} ${it.resourceType.displayName}" }
-        return "$costs  ${stats.trainingTimeSeconds.roundToInt()}s"
+        val costs = mutableListOf<String>()
+        if (stats.costGold > 0) costs += "${stats.costGold} or"
+        if (stats.costElixir > 0) costs += "${stats.costElixir} elixir"
+        if (stats.costDarkElixir > 0) costs += "${stats.costDarkElixir} elixir noir"
+        val costText = if (costs.isEmpty()) "aucun cout" else costs.joinToString(", ")
+        return "$costText  ${stats.trainingTimeSeconds.roundToInt()}s"
     }
 
-    private fun unitTexture(unitType: UnitType): TextureRegion {
-        return SpriteAnimationManager.createAnimator(
-            unitType = unitType,
+    private fun unitTexture(unitType: EntityType): TextureRegion {
+        return SpriteAnimationManager.createUnitAnimator(
+            stats = SpriteEntityFactory.getUnitStats(unitType),
             actionType = ActionType.RUN,
             directionType = DirectionType.DOWN
         ).getCurrentTextureRegion() ?: TextureRegion()

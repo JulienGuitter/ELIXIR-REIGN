@@ -157,6 +157,17 @@ class ServerLauncher {
                             )
                         }
                     }
+
+                    is PacketTrainUnitRequest -> {
+                        if(config.instance && InstanceManager.isInit){
+                            InstanceManager.handleTrainUnitRequest(
+                                connectionId = connection.id,
+                                requestId = message.requestId,
+                                buildingId = message.buildingId,
+                                entityType = message.entityType
+                            )
+                        }
+                    }
                 }
             }
 

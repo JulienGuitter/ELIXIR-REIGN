@@ -13,6 +13,7 @@ import com.mjm.elixir_reign.shared.network.PacketBuildingRemove
 import com.mjm.elixir_reign.shared.network.PacketBuildingSnapshot
 import com.mjm.elixir_reign.shared.network.PacketConnectToInstance
 import com.mjm.elixir_reign.shared.network.PacketGameInit
+import com.mjm.elixir_reign.shared.network.PacketGameOver
 import com.mjm.elixir_reign.shared.network.PacketGameReady
 import com.mjm.elixir_reign.shared.network.PacketGameplayTick
 import com.mjm.elixir_reign.shared.network.PacketLogin
@@ -25,6 +26,8 @@ import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingResult
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
 import com.mjm.elixir_reign.shared.network.PacketPlayerResources
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
+import com.mjm.elixir_reign.shared.network.PacketTrainUnitRequest
+import com.mjm.elixir_reign.shared.network.PacketTrainUnitResult
 import com.mjm.elixir_reign.shared.network.PacketUnitRemove
 import com.mjm.elixir_reign.shared.network.PacketUnitSnapshot
 import com.mjm.elixir_reign.shared.network.PacketUpgradeBuildingRequest
@@ -76,6 +79,9 @@ object MatchmakingClient {
 
     @Volatile
     private var lastUpgradeResult: PacketUpgradeBuildingResult? = null
+
+    @Volatile
+    private var lastTrainUnitResult: PacketTrainUnitResult? = null
 
     fun startMatchmaking(gameType: GameType) {
         synchronized(lock) {
@@ -265,6 +271,25 @@ object MatchmakingClient {
         return result
     }
 
+    fun sendTrainUnitRequest(buildingId: Int, entityType: EntityType): Int {
+        val client = instanceClient ?: return 0
+        val requestId = nextRequestId++
+
+        try {
+            client.sendTCP(PacketTrainUnitRequest(requestId = requestId, buildingId = buildingId, entityType = entityType))
+        } catch (_: Exception) {
+            setError(Localization.get("network.error.disconnected"))
+            return 0
+        }
+        return requestId
+    }
+
+    fun consumeTrainUnitResult(): PacketTrainUnitResult? {
+        val result = lastTrainUnitResult
+        lastTrainUnitResult = null
+        return result
+    }
+
     private fun connectToInstance(redirect: PacketRedirectToInstance, isReconnectAttempt: Boolean = false) {
         val host = if (redirect.ip == "this" || redirect.ip.isBlank()) resolveHost() else redirect.ip
         val port = if (redirect.port > 0) redirect.port else resolvePort()
@@ -335,6 +360,10 @@ object MatchmakingClient {
                         lastUpgradeResult = message
                     }
 
+                    is PacketTrainUnitResult -> {
+                        lastTrainUnitResult = message
+                    }
+
                     is PacketGameReady -> {
                         gameReady = true
                         reconnectAttemptAfterDisconnect = false
@@ -342,6 +371,10 @@ object MatchmakingClient {
 
                     is PacketPlayerPresenceUpdate -> {
                         GameSession.applyPlayerPresenceUpdate(message)
+                    }
+
+                    is PacketGameOver -> {
+                        GameSession.applyGameOver(message)
                     }
                 }
             }

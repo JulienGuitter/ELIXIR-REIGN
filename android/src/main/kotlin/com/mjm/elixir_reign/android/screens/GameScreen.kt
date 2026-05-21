@@ -34,6 +34,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Array
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.mjm.elixir_reign.core.Main
+import com.mjm.elixir_reign.core.tools.BoundingBoxUtils
 import com.mjm.elixir_reign.core.world.GameWorld
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
 import com.mjm.elixir_reign.core.grid.IsometricCoordinateConverter
@@ -41,6 +42,7 @@ import com.mjm.elixir_reign.core.grid.IsometricGridRenderer
 import com.mjm.elixir_reign.core.handler.BuildPlacementHandler
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
 import com.mjm.elixir_reign.core.terrain.TerrainPresets
+import com.mjm.elixir_reign.core.ui.BarracksPanel
 import com.mjm.elixir_reign.core.ui.NineSliceImageButton
 import com.mjm.elixir_reign.android.ui.Shop
 import com.mjm.elixir_reign.core.ui.UiAssets
@@ -49,8 +51,13 @@ import com.mjm.elixir_reign.shared.GameConfiguration
 import com.mjm.elixir_reign.core.world.WorldRenderer
 import com.mjm.elixir_reign.shared.data.BuildingDefinition
 import com.mjm.elixir_reign.shared.data.BuildingStats
-import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
+import com.mjm.elixir_reign.shared.ecs.components.BarracksTrainingProgress
 import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
+import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
+import com.mjm.elixir_reign.shared.ecs.components.EntityTypeComponent
+import com.mjm.elixir_reign.shared.ecs.components.HealthComponent
+import com.mjm.elixir_reign.shared.logic.BuildingState
 import com.mjm.elixir_reign.shared.ecs.components.NetworkBuildingComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.shared.ecs.systems.PlacementEventHandler
@@ -103,18 +110,16 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var eventBus: EventBus
     private lateinit var gridRenderer: IsometricGridRenderer
     private lateinit var gridOccupancy: GridOccupancyData
+    private lateinit var coordinateConverter: IsometricCoordinateConverter
     private lateinit var terrainBounds: Rectangle
     private lateinit var uiStage: Stage
     private lateinit var btnSelectTroops: NineSliceImageButton
     private lateinit var placementControlsTable: Table
     private lateinit var btnConfirmPlacement: TextButton
     private lateinit var btnCancelPlacement: TextButton
+    private lateinit var barracksPanel: BarracksPanel
     private var uiDebugEnabled = false
     private var mapDebugEnabled = false
-    private var isSelectionMode = false
-
-    private val activeTouches = mutableMapOf<Int, Vector2>()
-    private var pinchState: PinchState? = null
 
     private lateinit var goldLabel: Label
     private lateinit var elixirLabel: Label
@@ -124,6 +129,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private lateinit var settingsMenuTable: Table
     private lateinit var connectionErrorTable: Table
     private lateinit var connectionErrorLabel: Label
+    private lateinit var gameOverTable: Table
+    private lateinit var gameOverLabel: Label
     private lateinit var buildingPanelTable: Table
     private lateinit var buildingPanelTitle: Label
     private lateinit var buildingPanelLevel: Label
@@ -136,8 +143,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private var localNextBuildingId = -1
     private var localProductionElapsed = 0f
     private var selectedBuildingEntity: Entity? = null
-    private var placementDragPointer: Int? = null
     private var pendingPlacementRequestId = 0
+    private val pendingTrainingRequests = mutableMapOf<Int, PendingTrainingRequest>()
     private val entitiesByUnitId = mutableMapOf<Int, Entity>()
     private val entitiesByBuildingId = mutableMapOf<Int, Entity>()
     private val localBuildings = mutableListOf<BuildingInstanceState>()
@@ -153,7 +160,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         if (!this::pauseMenuTable.isInitialized) return false
         return pauseMenuTable.isVisible ||
             settingsMenuTable.isVisible ||
-            (this::connectionErrorTable.isInitialized && connectionErrorTable.isVisible)
+            (this::connectionErrorTable.isInitialized && connectionErrorTable.isVisible) ||
+            (this::gameOverTable.isInitialized && gameOverTable.isVisible)
     }
 
     private fun openPauseMenu() {
@@ -223,6 +231,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 return true
             }
 
+            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
+            if (clickedBarracks != null) {
+                barracksPanel.showFor(clickedBarracks)
+                return true
+            }
+
             // Clic gauche = tenter de sélectionner
             val hasSelectedEntity = selectionInputHandler.touchDown(screenX, screenY, camera)
 
@@ -235,10 +249,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 return true
             }
 
-            val clickedBarracks = findBarracksAt(worldCoords.x, worldCoords.y)
-            if (clickedBarracks != null) {
-                barracksPanel.showFor(clickedBarracks)
-                return true
+            if (!commandSelectedUnitsTo(worldCoords.x, worldCoords.y)) {
+                selectionInputHandler.clearSelection()
             }
 
             if (activeTouches.size >= 2) {
@@ -403,55 +415,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         selectionInputHandler = gameWorld.coreEngine.selectionInputHandler
         terrainBounds = worldRenderer.worldBounds()
 
-        val isometricGeometry = IsometricGeometry(worldMap, scale = 4f)
-        val coordinateConverter = IsometricCoordinateConverter(isometricGeometry)
-        val gridRenderer = IsometricGridRenderer(isometricGeometry)
-        val gridOccupancy = GridOccupancyData(rows = worldMap.height, cols = worldMap.width)
-        this.gridOccupancy = gridOccupancy
-
-        val placementSystem = PlacementSystem(
-            worldMap = worldMap,
-            geometry = isometricGeometry,
-            occupancy = gridOccupancy,
-            spawnBuilding = { entityType, x, y, row, col, footprintSize ->
-                SpriteEntityFactory.createBuilding(
-                    entityType = entityType,
-                    x = x,
-                    y = y,
-                    engine = gameWorld.coreEngine.engine,
-                    gridRow = row,
-                    gridCol = col,
-                    footprintSizeTiles = footprintSize
-                )
-            }
-        )
-
-        eventBus = EventBus()
-        placementEventHandler = PlacementEventHandler(eventBus, placementSystem)
-
-        buildPlacementHandler = BuildPlacementHandler(
-            worldMap = worldMap,
-            coordinateConverter = coordinateConverter,
-            gridRenderer = gridRenderer,
-            placementSystem = placementSystem,
-            eventBus = eventBus
-        )
-
-        Shop.setOnBuildingSelected { selection: BuildingDefinition ->
-            buildPlacementHandler.selectBuilding(selection.entityType, selection.stats, activatePlacement = true)
-            centerPlacementPreviewOnScreen()
-        }
-
-        this.gridRenderer = gridRenderer
-        this.coordinateConverter = coordinateConverter
-
-        SpriteEntityFactory.createUnit(
-            entityType = EntityType.BARBARIAN,
-            x = 0f,
-            y = 0f,
-            engine = gameWorld.coreEngine.engine,
-            currentHP = 55f
-        )
+        setupPlacement(worldMap)
+        spawnInitialUnits()
 
         configureCamera(resetView = true)
 
@@ -481,6 +446,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             updateSoloBuildingProduction(delta)
         }
         updateConnectionErrorOverlay()
+        updateGameOverOverlay()
         refreshPlayerConnectionTable()
 
         batch.begin()
@@ -665,7 +631,20 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         pauseMenuTable = buildPauseMenuTable()
         settingsMenuTable = buildSettingsMenuTable()
         connectionErrorTable = buildConnectionErrorTable()
+        gameOverTable = buildGameOverTable()
         buildingPanelTable = buildBuildingPanelTable()
+        barracksPanel = BarracksPanel(
+            barracksProvider = {
+                gameWorld.coreEngine.engine.entities
+                    .filter { entity -> entity.getComponent(BarracksComponent::class.java) != null }
+                    .toList()
+            },
+            allEntitiesProvider = { gameWorld.coreEngine.engine.entities },
+            removeEntity = { entity -> gameWorld.coreEngine.engine.removeEntity(entity) },
+            onBarracksFocused = { barracks -> focusCameraOnBarracks(barracks) },
+            onTrainUnitRequested = { barracks, unitType -> requestUnitTraining(barracks, unitType) },
+            canMutateLocally = { GameSession.mode != GameMode.MULTI }
+        )
 
         uiStage.addActor(hudTopTable)
         uiStage.addActor(hudTopLeftTable)
@@ -673,9 +652,11 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         uiStage.addActor(hudRightTable)
         uiStage.addActor(placementControlsTable)
         uiStage.addActor(buildingPanelTable)
+        uiStage.addActor(barracksPanel)
         uiStage.addActor(pauseMenuTable)
         uiStage.addActor(settingsMenuTable)
         uiStage.addActor(connectionErrorTable)
+        uiStage.addActor(gameOverTable)
 
         applyUiDebugRecursively(uiStage.root, uiDebugEnabled)
         Gdx.input.inputProcessor = InputMultiplexer(uiStage, input)
@@ -749,7 +730,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
             worldMap = worldMap,
             geometry = geometry,
             occupancy = gridOccupancy,
-            spawnBuilding = { entityType, x, y ->
+            spawnBuilding = { entityType, x, y, row, col, footprintSize ->
                 val localId = localNextBuildingId--
                 SpriteEntityFactory.createBuilding(
                     entityType = entityType,
@@ -758,14 +739,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                     engine = gameWorld.coreEngine.engine,
                     networkBuildingId = localId,
                     ownerPlayerId = localPlayerId(),
-                    selectable = true
+                    selectable = true,
+                    gridRow = row,
+                    gridCol = col,
+                    footprintSizeTiles = footprintSize
                 )
                 localBuildings += BuildingInstanceState(
                     id = localId,
                     ownerPlayerId = localPlayerId(),
                     entityType = entityType,
-                    row = 0,
-                    col = 0,
+                    row = row,
+                    col = col,
                     level = 1
                 )
             }
@@ -854,6 +838,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         if (GameSession.mode == GameMode.MULTI) {
             if (pendingPlacementRequestId != 0) {
                 Gdx.app.log("GameScreen", "Placement deja en attente de validation serveur.")
+                return false
+            }
+            if (!hasResources(building.stats.costGold, building.stats.costElixir, building.stats.costDarkElixir)) {
+                Gdx.app.log("GameScreen", "Ressources insuffisantes pour placer ${building.entityType}.")
                 return false
             }
             val requestId = MatchmakingClient.sendPlaceBuildingRequest(building.entityType, row, col)
@@ -947,6 +935,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 y = spawn.y,
                 engine = gameWorld.coreEngine.engine
             )
+            val secondSpawn = worldRenderer.tileCenterPosition(worldMap.height / 2, worldMap.width / 2 + 1)
+            SpriteEntityFactory.createUnit(
+                entityType = EntityType.BARBARIAN,
+                x = secondSpawn.x,
+                y = secondSpawn.y,
+                engine = gameWorld.coreEngine.engine
+            )
             return
         }
 
@@ -959,11 +954,17 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 engine = gameWorld.coreEngine.engine,
                 networkUnitId = unit.id,
                 ownerPlayerId = unit.ownerPlayerId,
-                selectable = unit.ownerPlayerId == GameSession.myPlayerId
+                selectable = unit.ownerPlayerId == GameSession.myPlayerId,
+                currentHP = unit.currentHP,
+                barracksId = unit.barracksId.takeIf { it > 0 },
+                teamId = unit.ownerPlayerId
             )
             gameWorld.coreEngine.engine.entities.firstOrNull {
                 it.getComponent(NetworkUnitComponent::class.java)?.unitId == unit.id
-            }?.let { entitiesByUnitId[unit.id] = it }
+            }?.let {
+                entitiesByUnitId[unit.id] = it
+                applyNetworkHealth(it, unit.currentHP, unit.maxHP)
+            }
         }
     }
 
@@ -988,16 +989,21 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                     engine = gameWorld.coreEngine.engine,
                     networkUnitId = unit.id,
                     ownerPlayerId = unit.ownerPlayerId,
-                    selectable = unit.ownerPlayerId == GameSession.myPlayerId
+                    selectable = unit.ownerPlayerId == GameSession.myPlayerId,
+                    currentHP = unit.currentHP,
+                    barracksId = unit.barracksId.takeIf { it > 0 },
+                    teamId = unit.ownerPlayerId
                 )
                 val created = gameWorld.coreEngine.engine.entities.firstOrNull {
                     it.getComponent(NetworkUnitComponent::class.java)?.unitId == unit.id
                 }
                 if (created != null) {
                     entitiesByUnitId[unit.id] = created
+                    applyNetworkHealth(created, unit.currentHP, unit.maxHP)
                     applyServerUnitState(created, unit.row, unit.col, unit.targetRow, unit.targetCol, unit.moving)
                 }
             } else {
+                applyNetworkHealth(existing, unit.currentHP, unit.maxHP)
                 applyServerUnitState(existing, unit.row, unit.col, unit.targetRow, unit.targetCol, unit.moving)
             }
         }
@@ -1006,6 +1012,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     private fun syncNetworkBuildings() {
         val snapshots = GameSession.buildingSnapshots()
         val visibleIds = snapshots.mapTo(mutableSetOf()) { it.id }
+        gridOccupancy.clear()
 
         entitiesByBuildingId
             .filterKeys { it !in visibleIds }
@@ -1014,9 +1021,14 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         entitiesByBuildingId.keys.removeAll { it !in visibleIds }
 
         snapshots.forEach { building ->
+            val footprint = footprint(building.row, building.col, buildingStats(building.entityType).footprintSizeTiles)
+            gridOccupancy.occupy(footprint)
             val existing = entitiesByBuildingId[building.id]
             if (existing != null) {
                 existing.getComponent(BuildingLevelComponent::class.java)?.level = building.level
+                applyNetworkHealth(existing, building.currentHP, building.maxHP)
+                applyBuildingDestroyedState(existing, building.destroyed)
+                applyBarracksSnapshot(existing, building)
                 return@forEach
             }
             val position = buildingWorldPosition(building.row, building.col)
@@ -1028,21 +1040,55 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 networkBuildingId = building.id,
                 ownerPlayerId = building.ownerPlayerId,
                 level = building.level,
-                selectable = building.ownerPlayerId == GameSession.myPlayerId
+                selectable = building.ownerPlayerId == GameSession.myPlayerId,
+                gridRow = building.row,
+                gridCol = building.col,
+                footprintSizeTiles = buildingStats(building.entityType).footprintSizeTiles
             )
-            gridOccupancy.occupy(footprint(building.row, building.col, buildingStats(building.entityType).footprintSizeTiles))
             val created = gameWorld.coreEngine.engine.entities.firstOrNull {
                 it.getComponent(NetworkBuildingComponent::class.java)?.buildingId == building.id
             }
             if (created != null) {
                 entitiesByBuildingId[building.id] = created
+                applyNetworkHealth(created, building.currentHP, building.maxHP)
+                applyBuildingDestroyedState(created, building.destroyed)
+                applyBarracksSnapshot(created, building)
             }
+        }
+    }
+
+    private fun applyBarracksSnapshot(entity: Entity, building: BuildingInstanceState) {
+        val barracks = entity.getComponent(BarracksComponent::class.java) ?: return
+        barracks.maxFormedUnits = building.maxFormedUnits
+        barracks.trainingQueue.clear()
+        barracks.trainingQueue.addAll(building.trainingQueue)
+        barracks.readyToSpawn.clear()
+        barracks.activeTraining = if (building.hasActiveTraining) {
+            BarracksTrainingProgress(
+                unitType = building.activeTrainingUnitType,
+                elapsedSeconds = building.activeTrainingElapsedSeconds
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun applyNetworkHealth(entity: Entity, currentHP: Float, maxHP: Float) {
+        val health = entity.getComponent(HealthComponent::class.java) ?: return
+        health.maxHP = maxHP
+        health.currentHP = currentHP.coerceIn(0f, maxHP)
+    }
+
+    private fun applyBuildingDestroyedState(entity: Entity, destroyed: Boolean) {
+        val state = entity.getComponent(BuildingStateComponent::class.java) ?: return
+        if (destroyed) {
+            state.state = BuildingState.DESTROYED
         }
     }
 
     private fun consumeNetworkBuildingResults() {
         MatchmakingClient.consumePlacementResult()?.let { result ->
-            if (result.requestId == pendingPlacementRequestId) {
+            if (pendingPlacementRequestId != 0 && (result.requestId == pendingPlacementRequestId || result.requestId > 0)) {
                 pendingPlacementRequestId = 0
             }
             if (result.accepted) {
@@ -1057,6 +1103,34 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 Gdx.app.log("GameScreen", "Amelioration refusee: ${result.reason}")
             }
         }
+        MatchmakingClient.consumeTrainUnitResult()?.let { result ->
+            pendingTrainingRequests.remove(result.requestId)
+            if (!result.accepted) {
+                Gdx.app.log("GameScreen", "Formation refusee: ${result.reason}")
+            }
+        }
+    }
+
+    private fun requestUnitTraining(barracksEntity: Entity, unitType: EntityType): Boolean {
+        if (GameSession.mode != GameMode.MULTI) return false
+        val buildingId = barracksEntity.getComponent(NetworkBuildingComponent::class.java)?.buildingId ?: return false
+        val stats = SpriteEntityFactory.getUnitStats(unitType)
+        if (!hasResources(stats.costGold, stats.costElixir, stats.costDarkElixir)) {
+            Gdx.app.log("GameScreen", "Ressources insuffisantes pour former $unitType.")
+            return false
+        }
+        val requestId = MatchmakingClient.sendTrainUnitRequest(buildingId, unitType)
+        if (requestId <= 0) {
+            return false
+        }
+        pendingTrainingRequests[requestId] = PendingTrainingRequest(buildingId, unitType)
+        return true
+    }
+
+    private fun hasResources(goldCost: Int, elixirCost: Int, darkElixirCost: Int): Boolean {
+        return GameSession.gold >= goldCost &&
+            GameSession.elixir >= elixirCost &&
+            GameSession.darkElixir >= darkElixirCost
     }
 
     private fun updateSoloBuildingProduction(delta: Float) {
@@ -1211,6 +1285,26 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         connectionErrorTable.isVisible = true
     }
 
+    private fun updateGameOverOverlay() {
+        if (!this::gameOverTable.isInitialized || !GameSession.gameOver) {
+            return
+        }
+
+        val winnerName = GameSession.getPlayerName(GameSession.winnerPlayerId)
+        gameOverLabel.setText(
+            if (GameSession.winnerPlayerId == GameSession.myPlayerId) {
+                "Victoire - gagnant: $winnerName"
+            } else {
+                "Defaite - gagnant: $winnerName"
+            }
+        )
+        pauseMenuTable.isVisible = false
+        settingsMenuTable.isVisible = false
+        connectionErrorTable.isVisible = false
+        gameOverTable.isVisible = true
+        gameOverTable.toFront()
+    }
+
     private fun formatResource(value: Int): String {
         return String.format(Locale.US, "%,d", value).replace(',', ' ')
     }
@@ -1253,7 +1347,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
     private fun barracksEntities(): List<Entity> {
         return gameWorld.coreEngine.engine.entities
-            .filter { it.getComponent(BarracksComponent::class.java) != null }
+            .filter {
+                it.getComponent(BarracksComponent::class.java) != null &&
+                    canOpenBarracks(it)
+            }
             .sortedBy { it.getComponent(BarracksComponent::class.java).barracksId }
     }
 
@@ -1261,6 +1358,12 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         return barracksEntities().firstOrNull { barracks ->
             BoundingBoxUtils.pointInEntity(barracks, worldX, worldY)
         }
+    }
+
+    private fun canOpenBarracks(entity: Entity): Boolean {
+        if (GameSession.mode != GameMode.MULTI) return true
+        val owner = entity.getComponent(OwnerComponent::class.java) ?: return false
+        return owner.playerId == GameSession.myPlayerId
     }
 
     private fun focusCameraOnBarracks(barracks: Entity) {
@@ -1525,6 +1628,37 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         }
     }
 
+    private fun buildGameOverTable(): Table {
+        gameOverLabel = Label("", UiAssets.skin).apply {
+            setWrap(true)
+            setFontScale(1f)
+        }
+
+        val btnBack = TextButton(Localization.get("global.back"), UiAssets.skin)
+        btnBack.addListener(object : ChangeListener() {
+            override fun changed(event: ChangeEvent, actor: Actor) {
+                leaveGameToMainMenu()
+            }
+        })
+
+        val panel = Table().apply {
+            background = NinePatchDrawable(
+                NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
+            ).tint(Color(0.08f, 0.08f, 0.1f, 0.98f))
+            pad(18f)
+            add(gameOverLabel).width(420f).padBottom(16f).row()
+            add(btnBack).width(280f).height(72f)
+        }
+
+        return Table().apply {
+            setFillParent(true)
+            background = TextureRegionDrawable(TextureRegion(UiAssets.texture(UiImage.BUTTON_9PATCH))).tint(Color(0f, 0f, 0f, 0.68f))
+            touchable = Touchable.enabled
+            isVisible = false
+            add(panel).center()
+        }
+    }
+
     private fun buildBuildingPanelTable(): Table {
         buildingPanelTitle = Label("", UiAssets.skin).apply { setFontScale(0.9f) }
         buildingPanelLevel = Label("", UiAssets.skin).apply { setFontScale(0.75f) }
@@ -1559,18 +1693,15 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
                 NinePatch(UiAssets.texture(UiImage.BUTTON_9PATCH), 20, 20, 20, 20)
             ).tint(Color(0.08f, 0.08f, 0.1f, 0.96f))
             pad(12f)
-            add(buildingPanelTitle).width(260f).left().row()
-            add(buildingPanelLevel).width(260f).left().padTop(4f).row()
-            add(buildingPanelAction).width(220f).height(58f).padTop(10f)
+            add(buildingPanelTitle).width(BUILDING_PANEL_WIDTH - 24f).left().row()
+            add(buildingPanelLevel).width(BUILDING_PANEL_WIDTH - 24f).left().padTop(4f).row()
+            add(buildingPanelAction).width(BUILDING_PANEL_WIDTH - 48f).height(52f).padTop(10f)
         }
 
         return Table().apply {
-            setFillParent(true)
-            bottom().right()
-            pad(24f)
-            padBottom(128f)
             isVisible = false
             add(panel)
+            setSize(BUILDING_PANEL_WIDTH, BUILDING_PANEL_HEIGHT)
         }
     }
 
@@ -1608,6 +1739,39 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         )
         buildingPanelAction.isDisabled = atMaxLevel
         buildingPanelTable.isVisible = true
+        positionBuildingPanelAbove(selected)
+    }
+
+    private fun positionBuildingPanelAbove(entity: Entity) {
+        val position = entity.getComponent(PositionComponent::class.java) ?: return
+        val bounds = BoundingBoxUtils.getBoundingBox(entity)
+        buildingPanelTable.setSize(BUILDING_PANEL_WIDTH, BUILDING_PANEL_HEIGHT)
+        val anchorX = bounds?.let { it.x + it.width / 2f } ?: position.x
+        val anchorY = bounds?.let { it.y + it.height } ?: position.y
+        val screen = camera.project(Vector3(anchorX, anchorY, 0f))
+        val padding = 10f
+        val x = (screen.x - BUILDING_PANEL_WIDTH / 2f)
+            .coerceIn(12f, Gdx.graphics.width - buildingPanelTable.width - 12f)
+        val y = (screen.y + padding)
+            .coerceIn(12f, Gdx.graphics.height - buildingPanelTable.height - 12f)
+        buildingPanelTable.setPosition(x, y)
+        buildingPanelTable.toFront()
+    }
+
+    private fun commandSelectedUnitsTo(worldX: Float, worldY: Float): Boolean {
+        val selectedNetworkUnitIds = selectionInputHandler.selectedNetworkUnitIds()
+        if (GameSession.mode == GameMode.MULTI) {
+            if (selectedNetworkUnitIds.isEmpty()) return false
+            val (targetRow, targetCol) = worldRenderer.tileAtWorldPosition(worldX, worldY)
+            MatchmakingClient.sendMoveUnitsRequest(selectedNetworkUnitIds, targetRow, targetCol)
+            selectionInputHandler.clearSelection()
+            return true
+        }
+
+        if (selectionInputHandler.selectedEntitiesSnapshot().isEmpty()) return false
+        selectionInputHandler.moveSelectedEntitiesToTarget(worldX, worldY)
+        selectionInputHandler.clearSelection()
+        return true
     }
 
     private fun formatUpgradeCost(stats: BuildingStats, multiplier: Int): String {
@@ -1638,6 +1802,8 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
         private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
+        private const val BUILDING_PANEL_WIDTH = 292f
+        private const val BUILDING_PANEL_HEIGHT = 154f
         private val DEBUG_CHUNK_COLOR = Color(0.16f, 0.85f, 1f, 0.95f)
         private val DEBUG_LABEL_COLOR = Color(1f, 1f, 1f, 1f)
         private const val CAMERA_FOCUS_DURATION_SECONDS = 0.35f
@@ -1654,5 +1820,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val targetX: Float,
         val targetY: Float,
         var elapsed: Float = 0f
+    )
+
+    private data class PendingTrainingRequest(
+        val buildingId: Int,
+        val unitType: EntityType
     )
 }

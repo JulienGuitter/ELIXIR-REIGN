@@ -17,6 +17,12 @@ dependencies {
   implementation project(':shared')
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonModuleKotlin")
   implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonModuleKotlin")
+  testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+  testImplementation "org.jetbrains.kotlin:kotlin-test:$kotlinVersion"
+}
+
+test {
+  useJUnitPlatform()
 }
 
 jar {

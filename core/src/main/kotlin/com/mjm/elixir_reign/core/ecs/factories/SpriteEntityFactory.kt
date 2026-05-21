@@ -2,7 +2,6 @@ package com.mjm.elixir_reign.core.ecs.factories
 
 import com.badlogic.ashley.core.Engine
 import com.badlogic.ashley.core.Entity
-import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.core.ecs.components.AnimationComponent
 import com.mjm.elixir_reign.core.ecs.components.DepthComponent
 import com.mjm.elixir_reign.core.ecs.components.HealthBarComponent
@@ -10,8 +9,10 @@ import com.mjm.elixir_reign.core.ecs.components.LayerComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteAnimatorComponent
 import com.mjm.elixir_reign.core.ecs.components.SpriteComponent
 import com.mjm.elixir_reign.core.ecs.components.TextureRegionComponent
+import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.BuildingStats
 import com.mjm.elixir_reign.shared.data.UnitStats
+import com.mjm.elixir_reign.shared.ecs.components.AttackComponent
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingLevelComponent
 import com.mjm.elixir_reign.shared.ecs.components.BuildingStateComponent
@@ -25,26 +26,18 @@ import com.mjm.elixir_reign.shared.ecs.components.NetworkUnitComponent
 import com.mjm.elixir_reign.shared.ecs.components.OwnerComponent
 import com.mjm.elixir_reign.shared.ecs.components.PositionComponent
 import com.mjm.elixir_reign.shared.ecs.components.SelectableComponent
+import com.mjm.elixir_reign.shared.ecs.components.TrainedUnitComponent
 import com.mjm.elixir_reign.shared.logic.ActionType
 import com.mjm.elixir_reign.shared.logic.BuildingState
 import com.mjm.elixir_reign.shared.logic.DirectionType
 import com.mjm.elixir_reign.shared.logic.EntityType
 
 /**
- * Factory ECS pour créer des entités avec sprites
- * Gère la création des components d'animation et rendu
- *
- * Crée aussi bien :
- * - Des unités (avec animation, vie, etc.)
- * - Des bâtiments (statiques, placés sur la grille)
+ * Factory ECS pour creer des entites avec sprites.
  */
 object SpriteEntityFactory {
     private var nextBarracksId = 1
 
-
-    /**
-     * Crée une unité avec tous les components (animation + rendu)
-     */
     fun createUnit(
         entityType: EntityType,
         x: Float,
@@ -52,13 +45,14 @@ object SpriteEntityFactory {
         engine: Engine,
         networkUnitId: Int = 0,
         ownerPlayerId: Int = 0,
-        selectable: Boolean = true
-    ) {
+        selectable: Boolean = true,
+        barracksId: Int? = null,
+        teamId: Int = ownerPlayerId,
+        currentHP: Float? = null
+    ): Entity {
         val stats = getUnitStats(entityType)
-
         val entity = Entity()
 
-        // Components partagés (shared)
         entity.add(PositionComponent(x, y))
         entity.add(MovementComponent(
             directionType = DirectionType.DOWN,
@@ -66,21 +60,23 @@ object SpriteEntityFactory {
             isMoving = false
         ))
         entity.add(HealthComponent(
-            currentHP = stats.maxHP - 45, // For test
+            currentHP = currentHP ?: stats.maxHP,
             maxHP = stats.maxHP
         ))
         entity.add(OwnerComponent(ownerPlayerId))
         entity.add(NetworkUnitComponent(networkUnitId))
-
-        // Components client (core) - Animation
         entity.add(EntityTypeComponent(entityType))
+        entity.add(AttackComponent(
+            damage = stats.damage,
+            attackSpeed = stats.attackSpeed,
+            range = stats.range
+        ))
         entity.add(AnimationComponent(
             currentActionType = ActionType.RUN,
             currentDirectionType = DirectionType.DOWN,
             isAnimating = true
         ))
 
-        // Créer l'animator (UNE FOIS)
         val animator = SpriteAnimationManager.createUnitAnimator(
             stats = stats,
             actionType = ActionType.RUN,
@@ -88,7 +84,6 @@ object SpriteEntityFactory {
         )
         entity.add(SpriteAnimatorComponent(animator))
 
-        // Créer le SpriteComponent avec dimensions et offsets depuis l'animator
         val spriteSheet = animator.spriteSheet
         entity.add(SpriteComponent(
             texturePath = stats.texturePath,
@@ -101,28 +96,24 @@ object SpriteEntityFactory {
             collider = animator.getCurrentCollider()
         ))
 
-        // Créer la TextureRegion (UNE FOIS) et la stocker dans le component
         val textureRegion = animator.getCurrentTextureRegion()
             ?: throw RuntimeException("Failed to create TextureRegion for $entityType")
         entity.add(TextureRegionComponent(textureRegion))
 
-        // Components de sélection
         if (selectable) {
             entity.add(SelectableComponent(isSelected = false))
         }
         entity.add(DestinationComponent())
-
-        // Barre de vie : position et largeur calculées dynamiquement depuis le collider
         entity.add(HealthBarComponent(barHeight = 5f))
-
-        // Component de profondeur (pour tri automatique par Y-sorting)
         entity.add(DepthComponent())
-
-        // Component de couche (layer 1 = entités principales)
         entity.add(LayerComponent(layer = 1))
 
-        // Ajouter l'entité à l'engine
+        if (barracksId != null) {
+            entity.add(TrainedUnitComponent(barracksId = barracksId, teamId = teamId))
+        }
+
         engine.addEntity(entity)
+        return entity
     }
 
     fun createBuilding(
@@ -133,29 +124,30 @@ object SpriteEntityFactory {
         networkBuildingId: Int = 0,
         ownerPlayerId: Int = 0,
         level: Int = 1,
-        selectable: Boolean = true
-        ,
+        selectable: Boolean = true,
         gridRow: Int? = null,
         gridCol: Int? = null,
         footprintSizeTiles: Int? = null
     ): Entity {
         val stats = getBuildingStats(entityType)
-
         val entity = Entity()
+        val initialState = if (entityType == EntityType.BARRACKS) {
+            BuildingState.IDLE
+        } else {
+            BuildingState.MINING
+        }
 
-        // Position dans le monde
         entity.add(PositionComponent(x, y))
         entity.add(HealthComponent(
-            currentHP = stats.maxHP - 45, // For test
+            currentHP = stats.maxHP,
             maxHP = stats.maxHP
         ))
-
-        // Component du type de bâtiment
         entity.add(EntityTypeComponent(entityType))
-        entity.add(BuildingStateComponent(BuildingState.MINING))
+        entity.add(BuildingStateComponent(initialState))
         entity.add(BuildingLevelComponent(level))
         entity.add(OwnerComponent(ownerPlayerId))
         entity.add(NetworkBuildingComponent(networkBuildingId))
+
         if (gridRow != null && gridCol != null) {
             entity.add(GridPlacementComponent(
                 row = gridRow,
@@ -166,22 +158,24 @@ object SpriteEntityFactory {
 
         if (entityType == EntityType.BARRACKS) {
             entity.add(BarracksComponent(
-                barracksId = nextBarracksId++,
-                teamId = 0,
-                maxFormedUnits = stats.maxFormedTroops
+                barracksId = if (networkBuildingId != 0) networkBuildingId else nextBarracksId++,
+                teamId = ownerPlayerId,
+                maxFormedUnits = 6
             ))
         }
 
-        // Créer l'animator (UNE FOIS) - peut être null si pas d'animation JSON
         val animator = SpriteAnimationManager.createBuildingAnimator(
             stats = stats,
-            buildingState = BuildingState.MINING,
+            buildingState = initialState,
             level = level
         )
-        entity.add(SpriteAnimatorComponent(animator, lastBuildingState = BuildingState.MINING, lastBuildingLevel = level))
+        entity.add(SpriteAnimatorComponent(
+            spriteAnimator = animator,
+            lastBuildingState = initialState,
+            lastBuildingLevel = level
+        ))
 
         val spriteSheet = animator.spriteSheet
-        // Créer le SpriteComponent avec dimensions depuis les stats
         entity.add(SpriteComponent(
             texturePath = stats.texturePath,
             width = spriteSheet.cellWidth,
@@ -193,44 +187,31 @@ object SpriteEntityFactory {
             collider = animator.getCurrentCollider()
         ))
 
-        // Créer la TextureRegion (UNE FOIS) et la stocker dans le component (si animator exists)
         val textureRegion = animator.getCurrentTextureRegion()
             ?: throw RuntimeException("Failed to create TextureRegion: currentClip is null for $entityType")
         entity.add(TextureRegionComponent(textureRegion))
 
-        // Barre de vie : position et largeur calculées dynamiquement depuis le collider
         entity.add(HealthBarComponent(barHeight = 5f))
         entity.add(LayerComponent(layer = 1))
         entity.add(DepthComponent())
-
-        // Sélectionnable (utile pour interactions)
         if (selectable) {
             entity.add(SelectableComponent(isSelected = false))
         }
 
-        // Ajouter l'entité à l'engine
         engine.addEntity(entity)
         return entity
     }
 
-    /**
-     * Récupère les stats d'une unité
-     * Type-safe: retourne directement UnitStats
-     */
-    private fun getUnitStats(entityType: EntityType): UnitStats {
+    fun getUnitStats(entityType: EntityType): UnitStats {
         return when (entityType) {
             EntityType.BARBARIAN -> UnitStats.BARBARIAN
             EntityType.ARCHER -> UnitStats.ARCHER
             EntityType.GIANT -> UnitStats.GIANT
-            else -> throw IllegalArgumentException("$entityType n'est pas une unité")
+            else -> throw IllegalArgumentException("$entityType n'est pas une unite")
         }
     }
 
-    /**
-     * Récupère les stats d'un bâtiment
-     * Type-safe: retourne directement BuildingStats
-     */
-    private fun getBuildingStats(entityType: EntityType): BuildingStats {
+    fun getBuildingStats(entityType: EntityType): BuildingStats {
         return when (entityType) {
             EntityType.BARRACKS -> BuildingStats.BARRACKS
             EntityType.ELEXIR_PUMP -> BuildingStats.ELEXIR_PUMP
@@ -238,8 +219,7 @@ object SpriteEntityFactory {
             EntityType.GOLD_MINE -> BuildingStats.GOLD_MINE
             EntityType.ARCHER_TOWER -> BuildingStats.ARCHER_TOWER
             EntityType.TOWN_HALL -> BuildingStats.TOWN_HALL
-            else -> throw IllegalArgumentException("$entityType n'est pas un bâtiment")
+            else -> throw IllegalArgumentException("$entityType n'est pas un batiment")
         }
     }
-
 }

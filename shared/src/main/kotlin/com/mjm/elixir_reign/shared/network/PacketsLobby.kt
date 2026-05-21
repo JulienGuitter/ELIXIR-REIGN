@@ -66,7 +66,10 @@ class PacketUnitSnapshot(
     var col: Float = 0f,
     var targetRow: Float = 0f,
     var targetCol: Float = 0f,
-    var moving: Boolean = false
+    var moving: Boolean = false,
+    var currentHP: Float = 100f,
+    var maxHP: Float = 100f,
+    var barracksId: Int = 0
 )
 
 class PacketVisibilityUpdate(
@@ -104,7 +107,15 @@ class PacketBuildingSnapshot(
     var entityType: EntityType = EntityType.GOLD_MINE,
     var row: Int = 0,
     var col: Int = 0,
-    var level: Int = 1
+    var level: Int = 1,
+    var currentHP: Float = 100f,
+    var maxHP: Float = 100f,
+    var destroyed: Boolean = false,
+    var maxFormedUnits: Int = 0,
+    var trainingQueue: ArrayList<EntityType> = arrayListOf(),
+    var hasActiveTraining: Boolean = false,
+    var activeTrainingUnitType: EntityType = EntityType.BARBARIAN,
+    var activeTrainingElapsedSeconds: Float = 0f
 )
 
 class PacketBuildingRemove(var buildingId: Int = 0)
@@ -126,6 +137,25 @@ class PacketUpgradeBuildingResult(
     var reason: String = "",
     var buildingId: Int = 0,
     var level: Int = 1
+)
+
+class PacketTrainUnitRequest(
+    var requestId: Int = 0,
+    var buildingId: Int = 0,
+    var entityType: EntityType = EntityType.BARBARIAN
+)
+
+class PacketTrainUnitResult(
+    var requestId: Int = 0,
+    var accepted: Boolean = false,
+    var reason: String = "",
+    var buildingId: Int = 0,
+    var entityType: EntityType = EntityType.BARBARIAN
+)
+
+class PacketGameOver(
+    var winnerPlayerId: Int = 0,
+    var eliminatedPlayerIds: IntArray = intArrayOf()
 )
 
 class PacketGameReady

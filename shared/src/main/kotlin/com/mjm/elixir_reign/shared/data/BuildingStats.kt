@@ -19,7 +19,8 @@ data class BuildingStats(
     val productionRate: Float = 0f,
     val maxLevel: Int = 3,
     // Empreinte de construction en tuiles (NxN)
-    val footprintSizeTiles: Int = 1
+    val footprintSizeTiles: Int = 1,
+    val maxFormedTroops: Int = 0
 ) : EntityStats(name, maxHP, texturePath, costGold, costElixir, costDarkElixir, spriteSheetJsonPath, spriteBaseClipName) {
     fun primaryCost(): Int {
         return listOf(costGold, costElixir, costDarkElixir).firstOrNull { it > 0 } ?: 0
@@ -36,6 +37,7 @@ data class BuildingStats(
             productionRate = 0f,
             maxLevel = 3,
             footprintSizeTiles = 3,
+            maxFormedTroops = 6,
             texturePath = "sprites/buildings/tileset_troops_factory.png",
             spriteSheetJsonPath = "sprites/buildings/tileset_troops_factory.json",
             spriteBaseClipName = "troops_factory"
