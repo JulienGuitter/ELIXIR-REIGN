@@ -79,12 +79,14 @@ Les statistiques des troupes sont affichées dans le menu d'entraînement de la 
 | **Déplacer la vue**          | Clic droit + mouvement souris OU touches fléchées          |
 | **Zoomer**                   | Molette souris (haut/bas)                                  |
 | **Sélectionner un bâtiment** | Clic gauche sur le bâtiment                                |
-| **Construire/Placer**        | Clic gauche sur l'emplacement souhaité                     |
+| **Construire/Placer**        | Clic gauche sur l'emplacement souhaité, avec assez d'or et une troupe adjacente |
 | **Améliorer un bâtiment**    | Clic gauche sur le bâtiment + option d'amélioration        |
 | **Entraîner une troupe**     | Clic gauche sur la Caserne + sélectionner la troupe voulue |
 | **Attaquer**                 | Clic gauche sur une troupe, puis clic sur la cible         |
 | **Menu/Paramètres**          | Appuyez la touche echap                                    |
 | **Sélectionner une troupe**  | Double click gauche + drag                                 |
+
+> Pour placer un bâtiment, il faut avoir assez d'or et une troupe doit être juste à côté, comme pour une action de construction.
 
 ### Sur Android
 
@@ -93,12 +95,14 @@ Les statistiques des troupes sont affichées dans le menu d'entraînement de la 
 | **Déplacer la vue**          | Glisser votre doigt sur l'écran                         |
 | **Zoomer**                   | Pincer/écarter deux doigts                              |
 | **Sélectionner un bâtiment** | Appuyez sur le bâtiment                                 |
-| **Construire/Placer**        | Appuyez sur l'emplacement souhaité                      |
+| **Construire/Placer**        | Appuyez sur l'emplacement souhaité, avec assez d'or et une troupe adjacente |
 | **Améliorer un bâtiment**    | Appuyez sur le bâtiment + option d'amélioration         |
 | **Entraîner une troupe**     | Appuyez sur la Caserne + sélectionner le type           |
 | **Attaquer**                 | Appuyez sur une troupe, puis sur la cible               |
 | **Menu/Paramètres**          | Appuyez sur l'icône menu (en haut)                      |
 | **Sélectionner une troupe**  | Appuyez sur l'icone de sélection de troupe (bas droite) |
+
+> Pour placer un bâtiment, il faut avoir assez d'or et une troupe doit être juste à côté, comme pour une action de construction.
 
 ---
 
