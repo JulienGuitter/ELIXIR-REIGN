@@ -219,6 +219,7 @@ object MatchmakingClient {
             setError(Localization.get("network.error.usernameMissing"))
             return false
         }
+        GameSession.startMultiplayer(selectedGameType)
         setStatus(Localization.get("network.status.connecting"))
         connectToInstance(redirect, isReconnectAttempt = true)
         return true
