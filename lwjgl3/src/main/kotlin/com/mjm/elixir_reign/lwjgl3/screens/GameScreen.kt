@@ -77,6 +77,7 @@ import com.mjm.elixir_reign.shared.logic.IsometricGeometry
 import com.mjm.elixir_reign.shared.world.GridOccupancyData
 import com.mjm.elixir_reign.shared.world.WorldMap
 import java.util.Locale
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
@@ -1019,8 +1020,10 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
 
         localBuildings.forEach { building ->
             val stats = buildingStats(building.entityType)
-            val produced = (stats.productionRate * building.level * elapsed).toInt()
+            building.productionAccumulator += stats.productionRate * building.level * elapsed
+            val produced = floor(building.productionAccumulator).toInt()
             if (produced <= 0) return@forEach
+            building.productionAccumulator -= produced
             val producedAmount = produced * RESOURCE_PRODUCTION_BATCH_SIZE
             when (building.entityType) {
                 EntityType.GOLD_MINE -> GameSession.addResources(goldAmount = producedAmount)
@@ -1108,6 +1111,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         destination.isActive = true
 
         entity.getComponent(MovementComponent::class.java)?.speed = computePredictedWorldSpeed(
+            entity = entity,
             sourceRow = sourceRow,
             sourceCol = sourceCol,
             targetRow = targetRow,
@@ -1116,6 +1120,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     private fun computePredictedWorldSpeed(
+        entity: Entity,
         sourceRow: Float,
         sourceCol: Float,
         targetRow: Float,
@@ -1127,7 +1132,9 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         val source = worldRenderer.tileCenterPosition(sourceRow, sourceCol)
         val target = worldRenderer.tileCenterPosition(targetRow, targetCol)
         val worldDistance = source.dst(target)
-        return worldDistance / tileDistance * SERVER_UNIT_SPEED_TILES_PER_SECOND
+        val unitType = entity.getComponent(EntityTypeComponent::class.java)?.entityType ?: EntityType.BARBARIAN
+        val tilesPerSecond = SpriteEntityFactory.getUnitStats(unitType).speed / UNIT_WORLD_SPEED_TO_TILES_RATIO
+        return worldDistance / tileDistance * tilesPerSecond
     }
 
     private fun refreshWorldRendererIfNeeded() {
@@ -1676,7 +1683,7 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
         private const val DRAG_PADDING_X = 48f
         private const val DRAG_PADDING_Y = 96f
         private const val DEBUG_LABEL_SCALE = 1.2f
-        private const val SERVER_UNIT_SPEED_TILES_PER_SECOND = 4f
+        private const val UNIT_WORLD_SPEED_TO_TILES_RATIO = 20f
         private const val SERVER_SNAP_DISTANCE_SQUARED = 96f * 96f
         private const val SOLO_PRODUCTION_INTERVAL_SECONDS = 1f
         private const val RESOURCE_PRODUCTION_BATCH_SIZE = 5

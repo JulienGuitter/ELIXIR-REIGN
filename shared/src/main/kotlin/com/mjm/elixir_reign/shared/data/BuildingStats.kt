@@ -36,7 +36,7 @@ data class BuildingStats(
     companion object {
         val BARRACKS = BuildingStats(
             name = "Barracks",
-            maxHP = 220f,
+            maxHP = 500f,
             costGold = 300,
             costElixir = 0,
             costDarkElixir = 0,
@@ -52,7 +52,7 @@ data class BuildingStats(
 
         val ELEXIR_PUMP = BuildingStats(
             name = "Elixir Pump",
-            maxHP = 100f,
+            maxHP = 320f,
             costGold = 200,
             costElixir = 0,
             costDarkElixir = 0,
@@ -67,7 +67,7 @@ data class BuildingStats(
 
         val DARCKELEXIR_PUMP = BuildingStats(
             name = "Dark Elixir Pump",
-            maxHP = 120f,
+            maxHP = 380f,
             costGold = 250,
             costElixir = 0,
             costDarkElixir = 0,
@@ -82,7 +82,7 @@ data class BuildingStats(
 
         val GOLD_MINE = BuildingStats(
             name = "Gold Mine",
-            maxHP = 110f,
+            maxHP = 320f,
             costGold = 0,
             costElixir = 150,
             costDarkElixir = 0,
@@ -97,7 +97,7 @@ data class BuildingStats(
 
         val ARCHER_TOWER = BuildingStats(
             name = "Archer Tower",
-            maxHP = 180f,
+            maxHP = 460f,
             costGold = 250,
             costElixir = 0,
             costDarkElixir = 0,
@@ -112,7 +112,7 @@ data class BuildingStats(
 
         val TOWN_HALL = BuildingStats(
             name = "Town Hall",
-            maxHP = 400f,
+            maxHP = 900f,
             costGold = 500,
             costElixir = 0,
             costDarkElixir = 0,

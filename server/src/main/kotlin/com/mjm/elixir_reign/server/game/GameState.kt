@@ -144,6 +144,12 @@ class GameState(
         return players.values.any { player -> player.units.any { it.moving } }
     }
 
+    fun hasWaitingReconnectionPlayers(): Boolean {
+        return connectionStateByPlayer.values.any { state ->
+            state == PlayerConnectionState.WAITING_RECONNECTION
+        }
+    }
+
     fun hasPlayer(playerId: Int): Boolean {
         return players.containsKey(playerId)
     }
@@ -487,7 +493,7 @@ class GameState(
         val dRow = unit.targetRow - unit.row
         val dCol = unit.targetCol - unit.col
         val distance = sqrt(dRow * dRow + dCol * dCol)
-        val step = UNIT_SPEED_TILES_PER_SECOND * deltaSeconds
+        val step = unitSpeedTilesPerSecond(unit) * deltaSeconds
 
         if (distance <= step || distance <= ARRIVAL_THRESHOLD_TILES) {
             unit.row = unit.targetRow
@@ -513,6 +519,11 @@ class GameState(
         players.values.forEach { player ->
             player.units.removeAll { it.currentHP <= 0f }
         }
+    }
+
+    private fun unitSpeedTilesPerSecond(unit: UnitState): Float {
+        val stats = unitStats(unit.entityType) ?: UnitStats.BARBARIAN
+        return stats.speed / UNIT_WORLD_SPEED_TO_TILES_RATIO
     }
 
     private fun updateUnitAttack(unit: UnitState) {
@@ -1149,7 +1160,7 @@ class GameState(
     )
 
     companion object {
-        private const val UNIT_SPEED_TILES_PER_SECOND = 4f
+        private const val UNIT_WORLD_SPEED_TO_TILES_RATIO = 20f
         private const val ARRIVAL_THRESHOLD_TILES = 0.05f
         private const val MIN_TROOP_ATTACK_RANGE_TILES = 2.5f
         private const val ARCHER_TOWER_RANGE_TILES = 5f

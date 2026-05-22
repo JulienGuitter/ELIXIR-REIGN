@@ -95,6 +95,8 @@ object MatchmakingClient {
     fun startMatchmaking(gameType: GameType) {
         synchronized(lock) {
             stopAllClientsLocked(clearState = true)
+            lastInstanceRedirect = null
+            SettingsManager.clearReconnectInfo()
             selectedGameType = gameType
             username = SettingsManager.username.trim()
             statusText = Localization.get("network.status.connecting")
@@ -167,6 +169,7 @@ object MatchmakingClient {
         synchronized(lock) {
             stopAllClientsLocked(clearState = true)
             lastInstanceRedirect = null
+            SettingsManager.clearReconnectInfo()
             instanceJoinConfirmed = false
             instanceReadyPacketReceived = false
             lastPlacementResult = null
@@ -203,14 +206,19 @@ object MatchmakingClient {
     }
 
     fun canReconnectToLastInstance(): Boolean {
-        return lastInstanceRedirect != null
+        return reconnectRedirectOrNull() != null
     }
 
     fun reconnectToLastInstance(): Boolean {
-        val redirect = lastInstanceRedirect ?: return false
+        val redirect = reconnectRedirectOrNull() ?: return false
 
         errorText = null
         gameReady = false
+        username = SettingsManager.username.trim()
+        if (username.isBlank()) {
+            setError(Localization.get("network.error.usernameMissing"))
+            return false
+        }
         setStatus(Localization.get("network.status.connecting"))
         connectToInstance(redirect, isReconnectAttempt = true)
         return true
@@ -320,6 +328,7 @@ object MatchmakingClient {
         val port = if (redirect.port > 0) redirect.port else resolvePort()
         val instanceUuid = redirect.uuid
         lastInstanceRedirect = PacketRedirectToInstance(ip = host, port = port, uuid = instanceUuid)
+        persistReconnectInfo(host, port, instanceUuid)
         if (!isReconnectAttempt) {
             reconnectAttemptAfterDisconnect = false
         }
@@ -460,6 +469,9 @@ object MatchmakingClient {
                 try {
                     Thread.sleep(KEEPALIVE_INTERVAL_MS)
                     if (!isCurrentClient(client, scope)) break
+                    if (scope == ConnectionScope.INSTANCE) {
+                        refreshReconnectExpiry()
+                    }
                     client.sendTCP(PacketKeepAlive(timestampMs = System.currentTimeMillis()))
                 } catch (_: Exception) {
                     break
@@ -490,6 +502,50 @@ object MatchmakingClient {
 
     private fun hasConfirmedInstanceJoin(): Boolean {
         return instanceReadyPacketReceived && GameSession.hasInitialMultiplayerVisibility()
+    }
+
+    private fun reconnectRedirectOrNull(): PacketRedirectToInstance? {
+        lastInstanceRedirect?.let { redirect ->
+            if (SettingsManager.reconnectExpiresAtMs >= System.currentTimeMillis()) {
+                return redirect
+            }
+        }
+
+        val expiresAtMs = SettingsManager.reconnectExpiresAtMs
+        if (expiresAtMs <= System.currentTimeMillis()) {
+            lastInstanceRedirect = null
+            SettingsManager.clearReconnectInfo()
+            return null
+        }
+
+        val host = SettingsManager.reconnectInstanceHost
+        val port = SettingsManager.reconnectInstancePort
+        val uuid = SettingsManager.reconnectInstanceUuid
+        val gameType = GameType.entries.firstOrNull { it.name == SettingsManager.reconnectGameType }
+        if (host.isBlank() || port <= 0 || uuid.isBlank() || gameType == null) {
+            lastInstanceRedirect = null
+            SettingsManager.clearReconnectInfo()
+            return null
+        }
+
+        selectedGameType = gameType
+        return PacketRedirectToInstance(ip = host, port = port, uuid = uuid).also {
+            lastInstanceRedirect = it
+        }
+    }
+
+    private fun persistReconnectInfo(host: String, port: Int, instanceUuid: String) {
+        if (instanceUuid.isBlank()) return
+        SettingsManager.reconnectInstanceHost = host
+        SettingsManager.reconnectInstancePort = port
+        SettingsManager.reconnectInstanceUuid = instanceUuid
+        SettingsManager.reconnectGameType = selectedGameType.name
+        refreshReconnectExpiry()
+    }
+
+    private fun refreshReconnectExpiry() {
+        if (lastInstanceRedirect == null) return
+        SettingsManager.reconnectExpiresAtMs = System.currentTimeMillis() + RECONNECT_WINDOW_MS
     }
 
     private fun isCurrentClient(client: Client, scope: ConnectionScope): Boolean {
@@ -577,6 +633,7 @@ object MatchmakingClient {
     private const val KEEPALIVE_INTERVAL_MS = 5000L
     private const val INSTANCE_JOIN_RETRY_INTERVAL_MS = 1000L
     private const val INSTANCE_JOIN_RETRY_COUNT = 5
+    private const val RECONNECT_WINDOW_MS = 3 * 60 * 1000L
 
     private enum class ConnectionScope(val threadName: String) {
         LOBBY("lobby"),

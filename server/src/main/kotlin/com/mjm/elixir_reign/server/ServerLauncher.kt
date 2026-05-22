@@ -210,12 +210,16 @@ class ServerLauncher {
         Thread {
             var lastTickAt = System.nanoTime()
             while(true){
-                val now = System.nanoTime()
-                val deltaSeconds = (now - lastTickAt) / 1_000_000_000f
-                lastTickAt = now
+                try {
+                    val now = System.nanoTime()
+                    val deltaSeconds = (now - lastTickAt) / 1_000_000_000f
+                    lastTickAt = now
 
-                if(config.instance && InstanceManager.isInit){
-                    InstanceManager.update(deltaSeconds)
+                    if(config.instance && InstanceManager.isInit){
+                        InstanceManager.update(deltaSeconds)
+                    }
+                } catch (e: Exception) {
+                    ServerLog.info("Erreur dans la boucle d'update serveur : ${e.message}")
                 }
 
                 Thread.sleep(50)

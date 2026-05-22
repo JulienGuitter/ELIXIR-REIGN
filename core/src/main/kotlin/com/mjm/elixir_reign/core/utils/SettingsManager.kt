@@ -9,13 +9,23 @@ object SettingsManager {
 
     private enum class SettingKey(val storageKey: String, val defaultValue: Any) {
         USERNAME("username", ""),
-        LANGUAGE("language", "fr")
+        LANGUAGE("language", "fr"),
+        RECONNECT_INSTANCE_HOST("reconnectInstanceHost", ""),
+        RECONNECT_INSTANCE_PORT("reconnectInstancePort", 0),
+        RECONNECT_INSTANCE_UUID("reconnectInstanceUuid", ""),
+        RECONNECT_GAME_TYPE("reconnectGameType", ""),
+        RECONNECT_EXPIRES_AT_MS("reconnectExpiresAtMs", 0L)
     }
 
     private var loaded = false
     private val values: MutableMap<SettingKey, Any> = mutableMapOf(
         SettingKey.USERNAME to SettingKey.USERNAME.defaultValue,
-        SettingKey.LANGUAGE to SettingKey.LANGUAGE.defaultValue
+        SettingKey.LANGUAGE to SettingKey.LANGUAGE.defaultValue,
+        SettingKey.RECONNECT_INSTANCE_HOST to SettingKey.RECONNECT_INSTANCE_HOST.defaultValue,
+        SettingKey.RECONNECT_INSTANCE_PORT to SettingKey.RECONNECT_INSTANCE_PORT.defaultValue,
+        SettingKey.RECONNECT_INSTANCE_UUID to SettingKey.RECONNECT_INSTANCE_UUID.defaultValue,
+        SettingKey.RECONNECT_GAME_TYPE to SettingKey.RECONNECT_GAME_TYPE.defaultValue,
+        SettingKey.RECONNECT_EXPIRES_AT_MS to SettingKey.RECONNECT_EXPIRES_AT_MS.defaultValue
     )
 
     var username: String
@@ -25,6 +35,34 @@ object SettingsManager {
     var language: String
         get() = get(SettingKey.LANGUAGE)
         set(value) = set(SettingKey.LANGUAGE, value)
+
+    var reconnectInstanceHost: String
+        get() = get(SettingKey.RECONNECT_INSTANCE_HOST)
+        set(value) = set(SettingKey.RECONNECT_INSTANCE_HOST, value)
+
+    var reconnectInstancePort: Int
+        get() = get(SettingKey.RECONNECT_INSTANCE_PORT)
+        set(value) = set(SettingKey.RECONNECT_INSTANCE_PORT, value)
+
+    var reconnectInstanceUuid: String
+        get() = get(SettingKey.RECONNECT_INSTANCE_UUID)
+        set(value) = set(SettingKey.RECONNECT_INSTANCE_UUID, value)
+
+    var reconnectGameType: String
+        get() = get(SettingKey.RECONNECT_GAME_TYPE)
+        set(value) = set(SettingKey.RECONNECT_GAME_TYPE, value)
+
+    var reconnectExpiresAtMs: Long
+        get() = get(SettingKey.RECONNECT_EXPIRES_AT_MS)
+        set(value) = set(SettingKey.RECONNECT_EXPIRES_AT_MS, value)
+
+    fun clearReconnectInfo() {
+        reconnectInstanceHost = ""
+        reconnectInstancePort = 0
+        reconnectInstanceUuid = ""
+        reconnectGameType = ""
+        reconnectExpiresAtMs = 0L
+    }
 
     fun load() {
         val prefs = preferencesOrNull() ?: return

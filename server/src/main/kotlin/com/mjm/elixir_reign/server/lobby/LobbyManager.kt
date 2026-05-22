@@ -44,7 +44,11 @@ object LobbyManager {
 
         availableServersThread = Thread {
             while(true){
-                updateAvailableServers()
+                try {
+                    updateAvailableServers()
+                } catch (e: Exception) {
+                    ServerLog.info("Erreur pendant le refresh des serveurs disponibles : ${e.message}")
+                }
                 Thread.sleep(1000L * 60L * 5L) // Check every 5 minute
             }
         }
@@ -58,7 +62,11 @@ object LobbyManager {
 
         lobbyThread = Thread {
             while(true){
-                update()
+                try {
+                    update()
+                } catch (e: Exception) {
+                    ServerLog.info("Erreur dans la boucle lobby : ${e.message}")
+                }
                 Thread.sleep(1000L / 20L) // 20 ticks per second
             }
         }
@@ -90,6 +98,7 @@ object LobbyManager {
     }
 
     fun update(){
+        refreshLocalAvailability()
         processPendingRedirects()
 
         // Si on est en cooldown, ne rien faire
@@ -270,10 +279,7 @@ object LobbyManager {
         for(server in config.serversIP){
             val ip = server.split(":")
             if(server == "this"){
-                // Rafraîchir le compteur local
-                if(config.instance && InstanceManager.isInit){
-                    availableServers["this"] = InstanceManager.getAvailableInstances()
-                }
+                refreshLocalAvailability()
                 continue
             }
 
@@ -335,6 +341,12 @@ object LobbyManager {
             } finally {
                 client.stop()
             }
+        }
+    }
+
+    private fun refreshLocalAvailability() {
+        if(config.instance && InstanceManager.isInit && config.serversIP.contains("this")){
+            availableServers["this"] = InstanceManager.getAvailableInstances()
         }
     }
 

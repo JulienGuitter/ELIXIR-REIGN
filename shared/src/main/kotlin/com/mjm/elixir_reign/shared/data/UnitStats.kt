@@ -20,10 +20,10 @@ data class UnitStats(
         val BARBARIAN = UnitStats(
             name = "Barbarian",
             maxHP = 100f,
-            damage = 15f,
-            attackSpeed = 1.2f,
+            damage = 10f,
+            attackSpeed = 1.0f,
             range = 2.5f,
-            speed = 60f,
+            speed = 36f,
 //            costs = listOf(ResourceCost(ResourceType.ELEXIR, 100)),
             trainingTimeSeconds = 4f,
             costGold = 0,
@@ -38,10 +38,10 @@ data class UnitStats(
         val ARCHER = UnitStats(
             name = "Archer",
             maxHP = 50f,
-            damage = 20f,
-            attackSpeed = 1.5f,
+            damage = 14f,
+            attackSpeed = 1.1f,
             range = 4f,
-            speed = 70f,
+            speed = 42f,
 //            costs = listOf(
 //                ResourceCost(ResourceType.ELEXIR, 120),
 //                ResourceCost(ResourceType.GOLD, 20)
@@ -58,9 +58,9 @@ data class UnitStats(
 
         val GIANT = UnitStats(
             name = "Giant",
-            maxHP = 150f,
-            damage = 10f,
-            attackSpeed = 0.5f,
+            maxHP = 260f,
+            damage = 18f,
+            attackSpeed = 0.45f,
             range = 2.5f,
             speed = 20f,
 //            costs = listOf(

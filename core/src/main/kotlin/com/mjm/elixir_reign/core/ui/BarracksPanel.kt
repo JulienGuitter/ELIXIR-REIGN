@@ -21,6 +21,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.Scaling
 import com.mjm.elixir_reign.core.ecs.factories.SpriteEntityFactory
+import com.mjm.elixir_reign.core.session.GameSession
 import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.shared.data.UnitStats
 import com.mjm.elixir_reign.shared.ecs.components.BarracksComponent
@@ -219,6 +220,11 @@ class BarracksPanel(
                         return
                     }
                     if (canMutateLocally()) {
+                        val stats = SpriteEntityFactory.getUnitStats(unitType)
+                        if (!GameSession.spendResources(stats.costGold, stats.costElixir, stats.costDarkElixir)) {
+                            refresh()
+                            return
+                        }
                         barracks.trainingQueue.add(unitType)
                     } else {
                         onTrainUnitRequested(selectedBarracks ?: return, unitType)
