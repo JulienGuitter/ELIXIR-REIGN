@@ -264,9 +264,9 @@ object UiAssets {
             it.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
         }
         val closeButtonBgTexture = createRoundedRectTexture(
-            width = 32,
-            height = 32,
-            radius = 8,
+            width = 48,
+            height = 48,
+            radius = 10,
             color = Color(0.85f, 0.15f, 0.15f, 1f)
         )
         skin.add("shopCloseButtonBgTexture", closeButtonBgTexture, Texture::class.java)

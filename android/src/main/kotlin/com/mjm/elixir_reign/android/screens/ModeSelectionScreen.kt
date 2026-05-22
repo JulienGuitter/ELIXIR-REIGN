@@ -44,6 +44,7 @@ class ModeSelectionScreen(private val game: Main) : ScreenAdapter() {
         // Ajouter les listeners
         btnSolo.addListener(object : ChangeListener() {
             override fun changed(event: ChangeEvent, actor: Actor) {
+                MatchmakingClient.startOfflineMode()
                 GameSession.startSolo()
                 game.navigateTo(ScreenRoute.GAME)
             }

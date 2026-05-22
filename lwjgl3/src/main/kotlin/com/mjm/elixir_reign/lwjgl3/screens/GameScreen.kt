@@ -1153,6 +1153,13 @@ class GameScreen(private val game: Main) : ScreenAdapter() {
     }
 
     private fun updateConnectionErrorOverlay() {
+        if (GameSession.mode != GameMode.MULTI) {
+            if (this::connectionErrorTable.isInitialized) {
+                connectionErrorTable.isVisible = false
+            }
+            return
+        }
+
         val error = MatchmakingClient.getErrorText()
         if (!this::connectionErrorTable.isInitialized || error.isNullOrBlank()) {
             return

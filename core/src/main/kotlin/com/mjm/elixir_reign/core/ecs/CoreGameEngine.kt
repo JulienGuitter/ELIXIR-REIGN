@@ -11,8 +11,6 @@ import com.mjm.elixir_reign.core.ecs.systems.HealthSystem
 import com.mjm.elixir_reign.core.ecs.systems.HealthBarRenderSystem
 import com.mjm.elixir_reign.core.ecs.systems.SelectionRenderSystem
 import com.mjm.elixir_reign.core.handler.SelectionInputHandler
-import com.mjm.elixir_reign.core.tools.sprites.TextureManager
-import com.mjm.elixir_reign.core.tools.sprites.SpriteAnimationManager
 import com.mjm.elixir_reign.core.tools.RenderingUtils
 
 class CoreGameEngine(
@@ -38,8 +36,6 @@ class CoreGameEngine(
     }
 
     fun dispose() {
-        TextureManager.unloadAll()
-        SpriteAnimationManager.dispose()
         RenderingUtils.clearCache()
         shapeRenderer.dispose()
     }

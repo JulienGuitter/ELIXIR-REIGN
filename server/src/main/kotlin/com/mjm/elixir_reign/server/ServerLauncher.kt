@@ -113,9 +113,14 @@ class ServerLauncher {
                             val instance = InstanceManager.findByUUID(message.uuid)
                             if(instance != null){
                                 val client = clients[connection.id]
-                                if(client != null && !instance.containsConnection(connection.id)){
-                                    instance.addPlayer(connection.id, client)
-                                    ServerLog.info("Client ${client.pseudo} connecté à l'instance ${message.uuid}")
+                                if(client != null){
+                                    if(instance.containsConnection(connection.id)){
+                                        instance.resendInitialState(connection.id)
+                                        ServerLog.info("Etat initial renvoye au client ${client.pseudo} pour l'instance ${message.uuid}")
+                                    } else {
+                                        instance.addPlayer(connection.id, client)
+                                        ServerLog.info("Client ${client.pseudo} connecté à l'instance ${message.uuid}")
+                                    }
                                 }
                             } else {
                                 ServerLog.info("Instance ${message.uuid} non trouvée !")

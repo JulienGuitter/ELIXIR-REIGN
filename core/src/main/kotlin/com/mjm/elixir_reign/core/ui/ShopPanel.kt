@@ -24,8 +24,8 @@ data class ShopVisualConfig(
     val closeButtonStyle: String = "shopCloseButton",
     val scrollPaneStyle: String = "shopTransparent",
     val containerPadding: Float = 20f,
-    val closeButtonSize: Float = 30f,
-    val closeButtonIconPadding: Float = 5f,
+    val closeButtonSize: Float = 48f,
+    val closeButtonIconPadding: Float = 8f,
     val cardsSpacing: Float = 12f,
     val cardsRowHeight: Float = 220f,
     val scrollAmount: Float = 75f
@@ -135,6 +135,7 @@ open class ShopPanel(
     }
 
     fun show() {
+        refreshContent()
         isVisible = true
         toFront()
         onShopShown?.invoke()
@@ -151,6 +152,7 @@ open class ShopPanel(
     fun toggle() {
         isVisible = !isVisible
         if (isVisible) {
+            refreshContent()
             toFront()
             onShopShown?.invoke()
         } else {
@@ -173,6 +175,10 @@ open class ShopPanel(
             })
             itemsTable.add(card)
         }
+    }
+
+    fun refreshContent() {
+        setBuildings(BuildingCatalog.ALL)
     }
 
     private fun createPreviewDrawable(building: BuildingDefinition): Drawable? {

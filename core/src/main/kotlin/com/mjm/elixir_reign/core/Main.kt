@@ -44,6 +44,8 @@ class Main(val platform: PlatformBridge) : Game() {
 
     override fun dispose() {
         super.dispose()   // appelle hide() + dispose() sur l'écran courant via Game
+        TextureManager.unloadAll()
+        SpriteAnimationManager.dispose()
         batch.dispose()
         assets.dispose()  // libère toutes les ressources natives gérées par l'AssetManager
         // Libérer les assets UI ici, pas dans les screens

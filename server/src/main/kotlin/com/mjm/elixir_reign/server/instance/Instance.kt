@@ -100,6 +100,17 @@ class Instance(
         return playerIdByConnectionId[connectionId]
     }
 
+    fun resendInitialState(connectionId: Int) {
+        val playerId = playerIdByConnectionId[connectionId] ?: return
+        val state = gameState ?: return
+        if (!state.isStarted()) return
+        state.resetSyncStateForPlayer(playerId)
+        val connection = players[playerId]?.connection ?: return
+        state.initialPacketsFor(playerId).forEach { packet ->
+            ServerLog.sendTcp(connection, packet)
+        }
+    }
+
     fun handleMoveRequest(playerId: Int, unitIds: IntArray, targetRow: Int, targetCol: Int) {
         gameState?.handleMoveRequest(playerId, unitIds, targetRow, targetCol)
         lastSyncAtMs = 0L

@@ -78,6 +78,9 @@ object MatchmakingClient {
     private var instanceJoinConfirmed: Boolean = false
 
     @Volatile
+    private var instanceReadyPacketReceived: Boolean = false
+
+    @Volatile
     private var nextRequestId: Int = 1
 
     @Volatile
@@ -157,6 +160,18 @@ object MatchmakingClient {
             } catch (_: Exception) {
                 setError(Localization.get("network.error.connectionFailed", host, port))
             }
+        }
+    }
+
+    fun startOfflineMode() {
+        synchronized(lock) {
+            stopAllClientsLocked(clearState = true)
+            lastInstanceRedirect = null
+            instanceJoinConfirmed = false
+            instanceReadyPacketReceived = false
+            lastPlacementResult = null
+            lastUpgradeResult = null
+            lastTrainUnitResult = null
         }
     }
 
@@ -309,6 +324,7 @@ object MatchmakingClient {
             reconnectAttemptAfterDisconnect = false
         }
         instanceJoinConfirmed = false
+        instanceReadyPacketReceived = false
 
         val newInstanceClient = Client(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(newInstanceClient.kryo)
@@ -333,16 +349,18 @@ object MatchmakingClient {
                     }
 
                     is PacketGameInit -> {
-                        instanceJoinConfirmed = true
                         GameSession.applyGameInit(message)
+                        updateInstanceJoinConfirmed()
                     }
 
                     is PacketMapChunk -> {
                         GameSession.applyMapChunk(message)
+                        updateInstanceJoinConfirmed()
                     }
 
                     is PacketVisibilityUpdate -> {
                         GameSession.applyVisibilityUpdate(message)
+                        updateInstanceJoinConfirmed()
                     }
 
                     is PacketUnitSnapshot -> {
@@ -378,7 +396,8 @@ object MatchmakingClient {
                     }
 
                     is PacketGameReady -> {
-                        instanceJoinConfirmed = true
+                        instanceReadyPacketReceived = true
+                        updateInstanceJoinConfirmed()
                         gameReady = true
                         reconnectAttemptAfterDisconnect = false
                     }
@@ -452,10 +471,10 @@ object MatchmakingClient {
     private fun startJoinRetry(client: Client, instanceUuid: String) {
         thread(name = "kryonet-instance-join-retry", isDaemon = true) {
             var attempts = 0
-            while (attempts < INSTANCE_JOIN_RETRY_COUNT && instanceClient === client && !instanceJoinConfirmed) {
+            while (attempts < INSTANCE_JOIN_RETRY_COUNT && instanceClient === client && !hasConfirmedInstanceJoin()) {
                 try {
                     Thread.sleep(INSTANCE_JOIN_RETRY_INTERVAL_MS)
-                    if (instanceClient !== client || instanceJoinConfirmed) break
+                    if (instanceClient !== client || hasConfirmedInstanceJoin()) break
                     client.sendTCP(PacketConnectToInstance(uuid = instanceUuid))
                     attempts++
                 } catch (_: Exception) {
@@ -463,6 +482,14 @@ object MatchmakingClient {
                 }
             }
         }
+    }
+
+    private fun updateInstanceJoinConfirmed() {
+        instanceJoinConfirmed = hasConfirmedInstanceJoin()
+    }
+
+    private fun hasConfirmedInstanceJoin(): Boolean {
+        return instanceReadyPacketReceived && GameSession.hasInitialMultiplayerVisibility()
     }
 
     private fun isCurrentClient(client: Client, scope: ConnectionScope): Boolean {
@@ -510,6 +537,8 @@ object MatchmakingClient {
         stoppedInstanceClient?.stop()
         gameReady = false
         lastGameplayTickSentAtMs = 0L
+        instanceJoinConfirmed = false
+        instanceReadyPacketReceived = false
 
         if (clearState) {
             statusText = ""

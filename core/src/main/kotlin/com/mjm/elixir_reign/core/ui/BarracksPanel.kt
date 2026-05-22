@@ -85,7 +85,7 @@ class BarracksPanel(
         }
 
         val closeButton = ImageButton(UiAssets.skin.get("shopCloseButton", ImageButton.ImageButtonStyle::class.java)).apply {
-            imageCell.pad(5f)
+            imageCell.pad(8f)
             addListener(object : ClickListener() {
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
                     hide()
@@ -102,7 +102,7 @@ class BarracksPanel(
         topTable.add(previousButton).size(58f, 48f).padRight(8f)
         topTable.add(titleLabel).expandX().fillX()
         topTable.add(nextButton).size(58f, 48f).padLeft(8f).padRight(8f)
-        topTable.add(closeButton).size(34f)
+        topTable.add(closeButton).size(48f)
 
         availableUnitsTable.defaults().padRight(10f)
         val availableScrollPane = ScrollPane(availableUnitsTable, UiAssets.skin, "shopTransparent").apply {
