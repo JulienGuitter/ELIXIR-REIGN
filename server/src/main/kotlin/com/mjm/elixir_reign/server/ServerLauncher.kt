@@ -35,7 +35,9 @@ class ServerLauncher {
 
         server.addListener(object : Listener {
             override fun received(connection: Connection, message : Any) {
-                ServerLog.inbound(connection.id, message)
+                if (message !is PacketKeepAlive) {
+                    ServerLog.inbound(connection.id, message)
+                }
                 when(message){
                     is PacketLogin -> {
                         ServerLog.info("Le client ${message.pseudo} vient de se connecter !")
@@ -119,6 +121,16 @@ class ServerLauncher {
                                 ServerLog.info("Instance ${message.uuid} non trouvée !")
                             }
                         }
+                    }
+
+                    is PacketRedirectAck -> {
+                        if(config.lobby && LobbyManager.isInit){
+                            LobbyManager.acknowledgeRedirect(connection.id, message.uuid)
+                        }
+                    }
+
+                    is PacketKeepAlive -> {
+                        ServerLog.sendTcp(connection, PacketKeepAliveAck(message.timestampMs))
                     }
 
                     is PacketGameplayTick -> {

@@ -60,5 +60,8 @@ object Network {
         kryo.register(PacketTrainUnitResult::class.java, 146)
         kryo.register(PacketGameOver::class.java, 147)
         kryo.register(PacketGameReady::class.java, 148)
+        kryo.register(PacketRedirectAck::class.java, 149)
+        kryo.register(PacketKeepAlive::class.java, 150)
+        kryo.register(PacketKeepAliveAck::class.java, 151)
     }
 }

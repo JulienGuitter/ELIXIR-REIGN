@@ -23,6 +23,7 @@ object LobbyManager {
 
     private val clients = ConcurrentHashMap<Int, Client>()
     private val gameTypeClients = ConcurrentHashMap<GameType, ConcurrentLinkedQueue<Int>>()
+    private val pendingRedirects = ConcurrentHashMap<Int, PendingRedirect>()
 
     private lateinit var lobbyThread : Thread
 
@@ -73,12 +74,24 @@ object LobbyManager {
     }
 
     fun removeClient(id: Int){
+        pendingRedirects.remove(id)
         val client = clients.remove(id) ?: return
         val type = client.gameType
         gameTypeClients[type]?.remove(id)
     }
 
+    fun acknowledgeRedirect(id: Int, uuid: String) {
+        val pendingRedirect = pendingRedirects[id] ?: return
+        if (pendingRedirect.packet.uuid != uuid) return
+
+        pendingRedirects.remove(id)
+        clients.remove(id)
+        ServerLog.info("Client $id acknowledged redirect to instance $uuid")
+    }
+
     fun update(){
+        processPendingRedirects()
+
         // Si on est en cooldown, ne rien faire
         if(System.currentTimeMillis() < noServerCooldownUntil) return
 
@@ -214,11 +227,43 @@ object LobbyManager {
                 port = instancePort.toIntOrNull() ?: 0,
                 uuid = instanceUUID
             )
-            ServerLog.sendTcp(client.connection, packet)
-
-            // Retirer le client du lobby (il est maintenant dans une instance)
-            clients.remove(id)
+            val pendingRedirect = PendingRedirect(packet = packet)
+            pendingRedirects[id] = pendingRedirect
+            sendPendingRedirect(id, client, pendingRedirect, force = true)
         }
+    }
+
+    private fun processPendingRedirects() {
+        for ((id, pendingRedirect) in pendingRedirects) {
+            val client = clients[id]
+            if (client == null) {
+                pendingRedirects.remove(id)
+                continue
+            }
+
+            if (pendingRedirect.attempts >= REDIRECT_MAX_ATTEMPTS) {
+                ServerLog.info("Client ${client.pseudo} did not acknowledge redirect to ${pendingRedirect.packet.uuid}")
+                ServerLog.sendTcp(client.connection, PacketLoginRefused("Impossible de rejoindre la partie. Reessayez."))
+                pendingRedirects.remove(id)
+                clients.remove(id)
+                client.connection?.close()
+                continue
+            }
+
+            sendPendingRedirect(id, client, pendingRedirect, force = false)
+        }
+    }
+
+    private fun sendPendingRedirect(id: Int, client: Client, pendingRedirect: PendingRedirect, force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - pendingRedirect.lastSentAtMs < REDIRECT_RETRY_INTERVAL_MS) {
+            return
+        }
+
+        pendingRedirect.attempts++
+        pendingRedirect.lastSentAtMs = now
+        ServerLog.info("Sending redirect attempt ${pendingRedirect.attempts} to client ${client.pseudo} ($id)")
+        ServerLog.sendTcp(client.connection, pendingRedirect.packet)
     }
 
     private fun updateAvailableServers(){
@@ -292,4 +337,13 @@ object LobbyManager {
             }
         }
     }
+
+    private data class PendingRedirect(
+        val packet: PacketRedirectToInstance,
+        var attempts: Int = 0,
+        var lastSentAtMs: Long = 0L
+    )
+
+    private const val REDIRECT_RETRY_INTERVAL_MS = 1000L
+    private const val REDIRECT_MAX_ATTEMPTS = 5
 }

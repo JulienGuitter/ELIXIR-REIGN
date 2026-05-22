@@ -16,6 +16,8 @@ import com.mjm.elixir_reign.shared.network.PacketGameInit
 import com.mjm.elixir_reign.shared.network.PacketGameOver
 import com.mjm.elixir_reign.shared.network.PacketGameReady
 import com.mjm.elixir_reign.shared.network.PacketGameplayTick
+import com.mjm.elixir_reign.shared.network.PacketKeepAlive
+import com.mjm.elixir_reign.shared.network.PacketKeepAliveAck
 import com.mjm.elixir_reign.shared.network.PacketLogin
 import com.mjm.elixir_reign.shared.network.PacketLoginAccepted
 import com.mjm.elixir_reign.shared.network.PacketLoginRefused
@@ -23,6 +25,7 @@ import com.mjm.elixir_reign.shared.network.PacketMapChunk
 import com.mjm.elixir_reign.shared.network.PacketMoveUnitsRequest
 import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingRequest
 import com.mjm.elixir_reign.shared.network.PacketPlaceBuildingResult
+import com.mjm.elixir_reign.shared.network.PacketRedirectAck
 import com.mjm.elixir_reign.shared.network.PacketPlayerPresenceUpdate
 import com.mjm.elixir_reign.shared.network.PacketPlayerResources
 import com.mjm.elixir_reign.shared.network.PacketRedirectToInstance
@@ -72,6 +75,9 @@ object MatchmakingClient {
     private var reconnectAttemptAfterDisconnect: Boolean = false
 
     @Volatile
+    private var instanceJoinConfirmed: Boolean = false
+
+    @Volatile
     private var nextRequestId: Int = 1
 
     @Volatile
@@ -116,9 +122,12 @@ object MatchmakingClient {
                     }
 
                     is PacketRedirectToInstance -> {
+                        connection.sendTCP(PacketRedirectAck(uuid = message.uuid))
                         setStatus(Localization.get("network.status.redirecting"))
                         connectToInstance(message)
                     }
+
+                    is PacketKeepAliveAck -> Unit
                 }
             }
 
@@ -137,6 +146,7 @@ object MatchmakingClient {
             try {
                 newLobbyClient.start()
                 newLobbyClient.connect(5000, host, port, port)
+                startKeepAlive(newLobbyClient, ConnectionScope.LOBBY)
                 newLobbyClient.sendTCP(
                     PacketLogin(
                         pseudo = username,
@@ -298,6 +308,7 @@ object MatchmakingClient {
         if (!isReconnectAttempt) {
             reconnectAttemptAfterDisconnect = false
         }
+        instanceJoinConfirmed = false
 
         val newInstanceClient = Client(Network.WRITE_BUFFER_SIZE, Network.OBJECT_BUFFER_SIZE)
         Network.register(newInstanceClient.kryo)
@@ -310,6 +321,7 @@ object MatchmakingClient {
                 when (message) {
                     is PacketLoginAccepted -> {
                         connection.sendTCP(PacketConnectToInstance(uuid = instanceUuid))
+                        startJoinRetry(newInstanceClient, instanceUuid)
                         setStatus(Localization.get("network.status.connected"))
                     }
 
@@ -321,6 +333,7 @@ object MatchmakingClient {
                     }
 
                     is PacketGameInit -> {
+                        instanceJoinConfirmed = true
                         GameSession.applyGameInit(message)
                     }
 
@@ -365,6 +378,7 @@ object MatchmakingClient {
                     }
 
                     is PacketGameReady -> {
+                        instanceJoinConfirmed = true
                         gameReady = true
                         reconnectAttemptAfterDisconnect = false
                     }
@@ -376,6 +390,8 @@ object MatchmakingClient {
                     is PacketGameOver -> {
                         GameSession.applyGameOver(message)
                     }
+
+                    is PacketKeepAliveAck -> Unit
                 }
             }
 
@@ -403,6 +419,7 @@ object MatchmakingClient {
             try {
                 newInstanceClient.start()
                 newInstanceClient.connect(5000, host, port, port)
+                startKeepAlive(newInstanceClient, ConnectionScope.INSTANCE)
                 newInstanceClient.sendTCP(
                     PacketLogin(
                         pseudo = username,
@@ -415,6 +432,43 @@ object MatchmakingClient {
                 if (isReconnectAttempt) return@thread
                 setError(Localization.get("network.error.instanceConnectFailed", host, port))
             }
+        }
+    }
+
+    private fun startKeepAlive(client: Client, scope: ConnectionScope) {
+        thread(name = "kryonet-${scope.threadName}-keepalive", isDaemon = true) {
+            while (isCurrentClient(client, scope)) {
+                try {
+                    Thread.sleep(KEEPALIVE_INTERVAL_MS)
+                    if (!isCurrentClient(client, scope)) break
+                    client.sendTCP(PacketKeepAlive(timestampMs = System.currentTimeMillis()))
+                } catch (_: Exception) {
+                    break
+                }
+            }
+        }
+    }
+
+    private fun startJoinRetry(client: Client, instanceUuid: String) {
+        thread(name = "kryonet-instance-join-retry", isDaemon = true) {
+            var attempts = 0
+            while (attempts < INSTANCE_JOIN_RETRY_COUNT && instanceClient === client && !instanceJoinConfirmed) {
+                try {
+                    Thread.sleep(INSTANCE_JOIN_RETRY_INTERVAL_MS)
+                    if (instanceClient !== client || instanceJoinConfirmed) break
+                    client.sendTCP(PacketConnectToInstance(uuid = instanceUuid))
+                    attempts++
+                } catch (_: Exception) {
+                    break
+                }
+            }
+        }
+    }
+
+    private fun isCurrentClient(client: Client, scope: ConnectionScope): Boolean {
+        return when (scope) {
+            ConnectionScope.LOBBY -> lobbyClient === client
+            ConnectionScope.INSTANCE -> instanceClient === client
         }
     }
 
@@ -491,4 +545,12 @@ object MatchmakingClient {
 
     private const val GAMEPLAY_TICK_SEND_INTERVAL_MS = 500L
     private const val RECONNECT_RETRY_DELAY_MS = 1000L
+    private const val KEEPALIVE_INTERVAL_MS = 5000L
+    private const val INSTANCE_JOIN_RETRY_INTERVAL_MS = 1000L
+    private const val INSTANCE_JOIN_RETRY_COUNT = 5
+
+    private enum class ConnectionScope(val threadName: String) {
+        LOBBY("lobby"),
+        INSTANCE("instance")
+    }
 }

@@ -16,6 +16,9 @@ class PacketServerInfo(var disponibilityCount: Int = 0)
 class PacketCreateInstance(var gameType: GameType = GameType.G1V3, var uuid: String = "")
 class PacketRedirectToInstance(var ip: String = "", var port: Int = 0, var uuid: String = "")
 class PacketConnectToInstance(var uuid: String = "")
+class PacketRedirectAck(var uuid: String = "")
+class PacketKeepAlive(var timestampMs: Long = 0L)
+class PacketKeepAliveAck(var timestampMs: Long = 0L)
 
 // Lightweight in-game sync packet for multiplayer mode.
 class PacketGameplayTick(var deltaMs: Int = 0)
