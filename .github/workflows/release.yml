@@ -1,245 +1,233 @@
-# name: Build and release
+name: Build and release
 
-# on:
-#   push:
-#     branches:
-#       - main
-#       - master
-#     tags:
-#       - "v*"
-#   pull_request:
-#   workflow_dispatch:
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
 
-# permissions:
-#   contents: write
+permissions:
+  contents: write
 
-# concurrency:
-#   group: build-release-${{ github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
 
-# jobs:
-#   checks:
-#     name: JVM tests
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+jobs:
+  checks:
+    name: JVM tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-#       - name: Run JVM tests
-#         run: ./gradlew :core:test :shared:test :server:test
+      - name: Run JVM tests
+        run: ./gradlew :core:test :shared:test :server:test
 
-#   android-debug:
-#     name: Android debug APKs
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+  android-debug:
+    name: Android debug APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-#       - name: Set up Android SDK
-#         uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-#       - name: Install Android SDK packages
-#         run: |
-#           yes | sdkmanager --licenses
-#           sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;36.0.0"
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-#       - name: Build debug APKs
-#         run: ./gradlew :android:assembleDebug :imc-cret:assembleDebug
+      - name: Build debug APKs
+        run: ./gradlew :android:assembleDebug :imc-cret:assembleDebug
 
-#       - name: Collect APKs
-#         run: |
-#           VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
-#           mkdir -p artifacts
-#           cp android/build/outputs/apk/debug/android-debug.apk "artifacts/elixir-reign-android-debug-v${VERSION}.apk"
-#           cp imc-cret/build/outputs/apk/debug/imc-cret-debug.apk "artifacts/imc-cret-android-debug-v${VERSION}.apk"
+      - name: Collect APKs
+        run: |
+          VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          mkdir -p artifacts
+          cp android/build/outputs/apk/debug/android-debug.apk "artifacts/ELIXIR-REIGN-${VERSION}-android-debug.apk"
+          cp imc-cret/build/outputs/apk/debug/imc-cret-debug.apk "artifacts/IMC-CRET-${VERSION}-imc-cret-debug.apk"
 
-#       - name: Upload APK artifacts
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: android-debug-apks
-#           path: artifacts/*
-#           if-no-files-found: error
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apks
+          path: artifacts/*
+          if-no-files-found: error
 
-#   desktop-linux:
-#     name: Desktop Linux
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+  desktop-jars:
+    name: Desktop JARs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-#       - name: Build Linux desktop package
-#         run: ./gradlew :lwjgl3:packageLinuxX64
+      - name: Build desktop JARs
+        run: ./gradlew :lwjgl3:jarLinux :lwjgl3:jarWin
 
-#       - name: Collect Linux desktop package
-#         run: |
-#           VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
-#           mkdir -p artifacts
-#           cp lwjgl3/build/construo/dist/ELIXIR-REIGN-linuxX64.zip "artifacts/elixir-reign-desktop-linux-x64-v${VERSION}.zip"
+      - name: Collect desktop JARs
+        run: |
+          VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          mkdir -p artifacts
+          cp "lwjgl3/build/libs/ELIXIR-REIGN-${VERSION}-linux.jar" "artifacts/ELIXIR-REIGN-${VERSION}-pc-linux.jar"
+          cp "lwjgl3/build/libs/ELIXIR-REIGN-${VERSION}-win.jar" "artifacts/ELIXIR-REIGN-${VERSION}-pc-win.jar"
 
-#       - name: Upload Linux desktop artifact
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: desktop-linux
-#           path: artifacts/*
-#           if-no-files-found: error
+      - name: Upload desktop JAR artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-jars
+          path: artifacts/*
+          if-no-files-found: error
 
-#   desktop-windows:
-#     name: Desktop Windows
-#     runs-on: windows-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+  macos-arm-dmg:
+    name: macOS ARM DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-#       - name: Build Windows desktop package
-#         run: ./gradlew.bat :lwjgl3:packageWinX64
+      - name: Build macOS ARM package
+        run: ./gradlew :lwjgl3:packageMacM1
 
-#       - name: Collect Windows desktop package
-#         shell: pwsh
-#         run: |
-#           $version = (Select-String -Path gradle.properties -Pattern '^projectVersion=').Line.Split('=')[1].Trim()
-#           New-Item -ItemType Directory -Force artifacts | Out-Null
-#           Copy-Item "lwjgl3/build/construo/dist/ELIXIR-REIGN-winX64.zip" "artifacts/elixir-reign-desktop-windows-x64-v$version.zip"
+      - name: Create macOS ARM DMG
+        run: |
+          VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          DIST_DIR="lwjgl3/build/construo/dist"
+          WORK_DIR="$(mktemp -d)"
+          UNPACK_DIR="${WORK_DIR}/unpack"
+          STAGE_DIR="${WORK_DIR}/stage"
+          DMG_PATH="artifacts/ELIXIR-REIGN-${VERSION}-mac-arm64.dmg"
 
-#       - name: Upload Windows desktop artifact
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: desktop-windows
-#           path: artifacts/*
-#           if-no-files-found: error
+          mkdir -p "$UNPACK_DIR" "$STAGE_DIR" artifacts
+          unzip -q "${DIST_DIR}/ELIXIR-REIGN-macM1.zip" -d "$UNPACK_DIR"
 
-#   desktop-macos:
-#     name: Desktop macOS
-#     runs-on: macos-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+          APP_PATH="$(find "$UNPACK_DIR" -maxdepth 2 -type d -name '*.app' | head -n 1)"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "No .app bundle found in ${DIST_DIR}/ELIXIR-REIGN-macM1.zip"
+            exit 1
+          fi
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+          cp -R "$APP_PATH" "$STAGE_DIR/"
+          ln -s /Applications "$STAGE_DIR/Applications"
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+          hdiutil create \
+            -volname "ELIXIR-REIGN" \
+            -srcfolder "$STAGE_DIR" \
+            -ov \
+            -format UDZO \
+            "$DMG_PATH"
 
-#       - name: Build macOS desktop packages
-#         run: ./gradlew :lwjgl3:packageMacX64 :lwjgl3:packageMacM1
+      - name: Upload macOS ARM DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm-dmg
+          path: artifacts/*
+          if-no-files-found: error
 
-#       - name: Collect macOS desktop packages
-#         run: |
-#           VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
-#           mkdir -p artifacts
-#           cp lwjgl3/build/construo/dist/ELIXIR-REIGN-macX64.zip "artifacts/elixir-reign-desktop-macos-x64-v${VERSION}.zip"
-#           cp lwjgl3/build/construo/dist/ELIXIR-REIGN-macM1.zip "artifacts/elixir-reign-desktop-macos-arm64-v${VERSION}.zip"
+  server-jar:
+    name: Server JAR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Upload macOS desktop artifacts
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: desktop-macos
-#           path: artifacts/*
-#           if-no-files-found: error
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-#   server-linux:
-#     name: Server Linux
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-#       - name: Set up Java
-#         uses: actions/setup-java@v4
-#         with:
-#           distribution: temurin
-#           java-version: "17"
+      - name: Build server JAR
+        run: ./gradlew :server:jar
 
-#       - name: Set up Gradle
-#         uses: gradle/actions/setup-gradle@v4
+      - name: Collect server JAR
+        run: |
+          VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          mkdir -p artifacts
+          cp "server/build/libs/ELIXIR-REIGN-${VERSION}-serv.jar" "artifacts/ELIXIR-REIGN-${VERSION}-serv.jar"
 
-#       - name: Build Linux server package
-#         run: ./gradlew :server:packageLinuxX64
+      - name: Upload server JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-jar
+          path: artifacts/*
+          if-no-files-found: error
 
-#       - name: Collect Linux server package
-#         run: |
-#           VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
-#           mkdir -p artifacts
-#           cp server/build/construo/dist/ELIXIR-REIGN-server-linuxX64.zip "artifacts/elixir-reign-server-linux-x64-v${VERSION}.zip"
+  release:
+    name: GitHub release
+    needs:
+      - checks
+      - android-debug
+      - desktop-jars
+      - macos-arm-dmg
+      - server-jar
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-#       - name: Upload Linux server artifact
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: server-linux
-#           path: artifacts/*
-#           if-no-files-found: error
+      - name: Validate release tag
+        run: |
+          VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          TAG="${GITHUB_REF_NAME}"
+          if [ "$TAG" != "v${VERSION}" ]; then
+            echo "Tag ${TAG} does not match gradle.properties projectVersion=${VERSION}."
+            exit 1
+          fi
 
-#   release:
-#     name: GitHub release
-#     needs:
-#       - checks
-#       - android-debug
-#       - desktop-linux
-#       - desktop-windows
-#       - desktop-macos
-#       - server-linux
-#     if: startsWith(github.ref, 'refs/tags/v')
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
 
-#       - name: Validate release tag
-#         run: |
-#           VERSION="$(grep '^projectVersion=' gradle.properties | cut -d= -f2 | tr -d '\r')"
-#           TAG="${GITHUB_REF_NAME}"
-#           if [ "$TAG" != "v${VERSION}" ]; then
-#             echo "Tag ${TAG} does not match gradle.properties projectVersion=${VERSION}."
-#             exit 1
-#           fi
-
-#       - name: Download artifacts
-#         uses: actions/download-artifact@v4
-#         with:
-#           path: release-assets
-#           merge-multiple: true
-
-#       - name: Create release
-#         uses: softprops/action-gh-release@v2
-#         with:
-#           files: release-assets/*
-#           generate_release_notes: true
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
